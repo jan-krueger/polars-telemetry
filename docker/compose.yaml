@@ -1,0 +1,32 @@
+# Local telemetry backend: `just dev` brings this up so a real query produces a
+# real trace you can open, rather than an assertion against a mock.
+name: polars-telemetry
+
+services:
+  collector:
+    image: otel/opentelemetry-collector-contrib:0.111.0
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ./collector.yaml:/etc/otelcol/config.yaml:ro
+    ports:
+      - "4317:4317"   # OTLP gRPC -- what the package exports to
+      - "4318:4318"   # OTLP HTTP
+      - "8889:8889"   # Prometheus scrape of collected metrics
+    depends_on:
+      - jaeger
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.62.0
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686"  # UI -- query spans land here
+
+  prometheus:
+    image: prom/prometheus:v2.55.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yaml
+    volumes:
+      - ./prometheus.yaml:/etc/prometheus/prometheus.yaml:ro
+    ports:
+      - "9090:9090"
