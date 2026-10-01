@@ -1,0 +1,7 @@
+polars-telemetry
+Copyright 2026 Jan Krueger
+
+This product includes software developed as an independent project.
+It is not affiliated with, endorsed by, or sponsored by Polars (pola.rs)
+or Polars Cloud. "Polars" is used nominatively to identify the library
+this software instruments.
