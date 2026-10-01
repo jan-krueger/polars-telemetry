@@ -43,8 +43,14 @@ def canary(session: nox.Session) -> None:
     """
     session.install("-e", ".", "pytest")
     session.run(
-        "uv", "pip", "install", "--prerelease=allow",
-        "--exclude-newer-package", "polars=2099-01-01", "--upgrade", "polars",
+        "uv",
+        "pip",
+        "install",
+        "--prerelease=allow",
+        "--exclude-newer-package",
+        "polars=2099-01-01",
+        "--upgrade",
+        "polars",
         external=True,
     )
     session.run("pytest", "-m", "contract and live", "-v", *session.posargs)
