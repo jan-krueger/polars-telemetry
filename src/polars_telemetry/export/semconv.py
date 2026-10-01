@@ -1,12 +1,6 @@
-"""Attribute and instrument naming.
+"""Attribute and instrument names.
 
-Two rules that are not style preferences:
-
-1. **Plan literals go on spans only.** A predicate like
-   ``col("email") == "..."`` is useful on a span and is a cardinality bomb as a
-   metric dimension. Metric attributes come from the closed set below.
-2. **Names are stable.** Renaming an attribute breaks every dashboard built on
-   it, so changes here are breaking changes.
+Renaming anything here breaks dashboards built on it; treat as public API.
 """
 
 from __future__ import annotations
@@ -22,7 +16,7 @@ PARALLELISM: Final = "polars.parallelism"
 NODE_COUNT: Final = "polars.node_count"
 RESULT_ROWS: Final = "polars.result.rows"
 SAMPLE_RESOLUTION_MS: Final = "polars.sample_resolution_ms"
-"""Error bar on every node span's start and end. Always set when node spans are on."""
+"""Error bar on node span start/end. Always set when node spans are enabled."""
 
 NODE_ID: Final = "polars.node.id"
 NODE_KIND: Final = "polars.node.kind"
@@ -39,14 +33,12 @@ JOIN_LEFT_ON: Final = "polars.join.left_on"
 GROUPBY_KEYS: Final = "polars.groupby.keys"
 GROUPBY_AGGS: Final = "polars.groupby.aggs"
 
+# May contain file paths, column names or literal values. Documented so that
+# exporting to a third-party backend is an informed choice.
 CARRIES_USER_DATA: Final[frozenset[str]] = frozenset(
     {SCAN_SOURCE, SCAN_PREDICATE, JOIN_LEFT_ON, GROUPBY_KEYS}
 )
-"""Attributes that can contain file paths, column names or literal values.
 
-Documented so that exporting to a third-party backend is an informed choice.
-``Config.redact_literals`` masks the literal values within these.
-"""
-
+# Metric attributes must come from a bounded set: plan literals are unbounded
+# and would blow up series cardinality. Spans only for those.
 METRIC_DIMENSIONS: Final[frozenset[str]] = frozenset({NODE_KIND, ENGINE})
-"""The only attributes permitted on metric instruments. Bounded by construction."""

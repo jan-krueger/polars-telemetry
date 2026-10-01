@@ -1,5 +1,4 @@
-# Versions are pinned and must match the ones CI installs, so the two can
-# never disagree about whether the tree is clean.
+# Pinned to the same versions CI installs.
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0

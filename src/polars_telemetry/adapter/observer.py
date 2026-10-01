@@ -1,4 +1,4 @@
-"""The duck-typed observer protocol polars calls.
+"""The observer protocol polars calls.
 
 Verified against polars 1.44.1 and 1.44.2::
 
@@ -9,8 +9,7 @@ Verified against polars 1.44.1 and 1.44.2::
     observer.on_query_failed(...)
     guard.close()
 
-Method names and signatures are dictated by polars. They are deliberately not
-renamed to house style.
+Names and signatures are dictated by polars and must not be renamed.
 """
 
 from __future__ import annotations
@@ -23,10 +22,10 @@ if TYPE_CHECKING:
 
 
 class ObserverFactory:
-    """Called by polars once per query to produce an observer."""
+    """Called by polars once per query."""
 
     def __init__(self, config: Config, delegate: Any | None = None) -> None:
-        """``delegate`` is the real polars-cloud factory, when one was present."""
+        """delegate: the real polars-cloud factory, if one was installed."""
         raise NotImplementedError
 
     def __call__(
@@ -36,7 +35,7 @@ class ObserverFactory:
 
 
 class QueryObserver:
-    """One query's worth of callbacks. Every method is failure-isolated."""
+    """One query's callbacks. Each method is failure-isolated."""
 
     def on_query_started(self, query_id: UUID) -> None:
         raise NotImplementedError
@@ -51,10 +50,10 @@ class QueryObserver:
 
 
 class ExecutionGuard:
-    """Returned from ``on_query_planned``; polars calls ``close`` at query end.
+    """Returned from on_query_planned; polars calls close() at query end.
 
-    The closing snapshot can race the engine's final flush, so reconciliation
-    belongs here rather than in the model layer.
+    close() can fire before the engine's final flush lands, so the closing
+    snapshot is reconciled here.
     """
 
     def close(self) -> None:

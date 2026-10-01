@@ -11,5 +11,5 @@ FIXTURE_ROOT = Path(__file__).parent / "fixtures"
 
 @pytest.fixture(scope="session")
 def fixture_root() -> Path:
-    """Directory of captured polars payloads, one subdirectory per version."""
+    """Captured polars payloads, one subdirectory per version."""
     return FIXTURE_ROOT

@@ -1,4 +1,4 @@
-"""The shapes the rest of the package works in."""
+"""Model types."""
 
 from __future__ import annotations
 
@@ -11,11 +11,9 @@ class PlanNode:
     """One physical plan node."""
 
     node_id: int
-    """polars' ``phys_node_key``; metrics join on this."""
+    """polars' phys_node_key; metrics join on this."""
 
     kind: str
-    """``MultiScan``, ``EquiJoin``, ``GroupBy``, ``Sort``, ..."""
-
     inputs: tuple[int, ...]
     properties: dict[str, object]
     """Raw plan properties: scan source, predicate, join keys, aggregations."""
@@ -54,7 +52,7 @@ class Sample:
 
 @dataclass(frozen=True, slots=True)
 class Query:
-    """A complete observed query."""
+    """A completed query."""
 
     query_id: UUID
     wall_ms: float

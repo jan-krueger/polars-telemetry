@@ -10,8 +10,5 @@ blobs the observer delivers plus their decoded JSON for review:
   meta.json              # polars version, query source, capture timestamp
 ```
 
-Regenerate with `nox -s capture -- <version>`. The blobs are the contract:
-`tests/contract/` asserts their shape, and the nightly canary compares a live
-capture from the newest polars against them.
-
-Never hand-edit. A diff here is the signal that polars changed something.
+Regenerate with `nox -s capture -- <version>`. Do not hand-edit: a diff here
+means polars changed the contract.

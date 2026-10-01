@@ -1,4 +1,4 @@
-"""The package imports and exposes what it promises."""
+"""Package import and public surface."""
 
 from __future__ import annotations
 

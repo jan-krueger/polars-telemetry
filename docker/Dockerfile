@@ -1,6 +1,4 @@
-# Development image. The package itself ships as a pure-Python wheel and needs
-# no container to run -- this exists so the collector, a pinned polars and the
-# fixture-capture environment are reproducible.
+# Development image only; the package ships as a pure-Python wheel.
 ARG PYTHON_VERSION=3.12
 FROM python:${PYTHON_VERSION}-slim
 

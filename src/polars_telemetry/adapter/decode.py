@@ -1,18 +1,17 @@
-"""MessagePack payloads -> plain dicts.
+"""MessagePack payload decoding.
 
-Three payload shapes, all from polars 1.44.x:
+Payload shapes (polars 1.44.x):
+  IR plan, physical plan: [{id, input_ids, properties}]
+  metrics snapshot:       [{phys_node_key, ...19 counters}]
 
-- IR plan: ``[{id, input_ids, properties}]`` with logical node types.
-- Physical plan: same shape, physical node types, ids matching metrics.
-- Metrics snapshot: ``[{phys_node_key, ...19 counters}]``.
-
-Field names are asserted against checked-in fixtures, not trusted.
+Physical plan ids and phys_node_key share a namespace; metrics join on it.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
+# Asserted against fixtures by tests/contract. A diff here means polars changed.
 METRIC_FIELDS: frozenset[str] = frozenset(
     {
         "phys_node_key",
@@ -37,7 +36,6 @@ METRIC_FIELDS: frozenset[str] = frozenset(
         "done",
     }
 )
-"""The 20 fields observed on 1.44.1 and 1.44.2. Contract tests assert this set."""
 
 
 def decode_plan(payload: bytes) -> list[dict[str, Any]]:

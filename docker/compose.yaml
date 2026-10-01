@@ -1,5 +1,4 @@
-# Local telemetry backend: `just dev` brings this up so a real query produces a
-# real trace you can open, rather than an assertion against a mock.
+# Local telemetry backend for development and integration tests.
 name: polars-telemetry
 
 services:
@@ -9,7 +8,7 @@ services:
     volumes:
       - ./collector.yaml:/etc/otelcol/config.yaml:ro
     ports:
-      - "4317:4317"   # OTLP gRPC -- what the package exports to
+      - "4317:4317"   # OTLP gRPC
       - "4318:4318"   # OTLP HTTP
       - "8889:8889"   # Prometheus scrape of collected metrics
     depends_on:
@@ -20,7 +19,7 @@ services:
     environment:
       COLLECTOR_OTLP_ENABLED: "true"
     ports:
-      - "16686:16686"  # UI -- query spans land here
+      - "16686:16686"  # UI
 
   prometheus:
     image: prom/prometheus:v2.55.0

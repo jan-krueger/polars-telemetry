@@ -1,8 +1,4 @@
-"""Layer 3 -- turning the model into telemetry.
-
-Knows nothing about polars. Swappable, so the console exporter can be used for
-debugging without any OTel setup at all.
-"""
+"""Export layer. Does not import polars."""
 
 from __future__ import annotations
 

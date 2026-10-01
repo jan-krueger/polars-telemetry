@@ -1,7 +1,6 @@
-"""OpenTelemetry spans and metrics.
+"""OTel span and metric emission.
 
-Depends on the OTel *API* only. Where the spans go is the application's
-business; this package never configures a provider.
+Depends on the OTel API only; the SDK and provider are the application's.
 """
 
 from __future__ import annotations
@@ -14,7 +13,7 @@ if TYPE_CHECKING:
 
 
 class OTelExporter:
-    """Query span, child span per node, and per-node metric instruments."""
+    """Query span, child span per node, per-node metric instruments."""
 
     def __init__(self, config: Config) -> None:
         raise NotImplementedError

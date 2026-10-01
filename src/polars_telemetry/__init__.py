@@ -1,14 +1,4 @@
-"""OpenTelemetry instrumentation for Polars query execution.
-
-Activation is always explicit::
-
-    import polars_telemetry
-    polars_telemetry.install()
-
-It is never automatic on import: enabling monitoring sets polars' engine
-affinity to ``"streaming"``, which changes how the user's queries execute.
-That is not a side effect an import may have.
-"""
+"""OpenTelemetry instrumentation for Polars query execution."""
 
 from __future__ import annotations
 

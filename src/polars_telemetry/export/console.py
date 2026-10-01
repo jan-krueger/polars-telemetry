@@ -1,8 +1,4 @@
-"""Human-readable output, for debugging and for the walking skeleton.
-
-Useful before any OTel wiring exists, and the quickest way to confirm the hook
-is firing in a strange environment.
-"""
+"""Human-readable exporter, for debugging without OTel wiring."""
 
 from __future__ import annotations
 

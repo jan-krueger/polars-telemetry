@@ -1,10 +1,7 @@
-"""Layer 1 -- the quarantine.
+"""Adapter layer: all assumptions about polars internals live here.
 
-Every assumption about polars' internals lives in this package and nowhere
-else: callback names and arity, MessagePack field names, the metrics handle
-method. When polars changes the contract, this directory is the only one that
-should need edits.
-
+Callback names and arity, MessagePack field names and the metrics handle
+method are confined to this package so a polars change has one blast radius.
 Nothing here may raise into user code.
 """
 

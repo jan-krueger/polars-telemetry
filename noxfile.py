@@ -1,4 +1,4 @@
-"""Local sessions, mirroring CI so a green local run means something."""
+"""Local sessions, mirroring CI."""
 
 from __future__ import annotations
 
@@ -11,7 +11,6 @@ nox.options.sessions = ["lint", "typecheck", "tests"]
 PYTHONS = ["3.10", "3.11", "3.12", "3.13"]
 
 # The hook does not exist before 1.44.0, and 1.44.0's runtime is yanked.
-# Two cells today; the machinery is what makes widening the window a tested act.
 POLARS_VERSIONS = ["1.44.1", "1.44.2"]
 
 
@@ -40,8 +39,7 @@ def tests(session: nox.Session, polars: str) -> None:
 def canary(session: nox.Session) -> None:
     """Live contract against the newest polars, pre-releases included.
 
-    The release quarantine is lifted for polars alone: seeing new polars early
-    is the entire purpose of this session.
+    Lifts the release quarantine for polars only.
     """
     session.install("-e", ".", "pytest")
     session.run(
@@ -54,7 +52,7 @@ def canary(session: nox.Session) -> None:
 
 @nox.session
 def bench(session: nox.Session) -> None:
-    """Overhead against the budget. Fails the build on regression."""
+    """Overhead against the budget."""
     session.install("-e", ".", "pytest")
     session.run("pytest", "-m", "bench", *session.posargs)
 

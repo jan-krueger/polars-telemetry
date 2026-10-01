@@ -1,11 +1,8 @@
-"""Layer 0 -- how polars comes to call us.
+"""Registration of the observer factory with polars.
 
-polars resolves ``polars_cloud.QueryCloudObserver`` by name on a Python module
-and duck-types the result. We supply that name. If the real polars-cloud is
-installed we wrap its factory and forward to it rather than displacing a
-product the user may be paying for.
-
-This module is the only place that knows polars exists at import time.
+polars resolves ``polars_cloud.QueryCloudObserver`` by name and duck-types the
+result. If the real polars-cloud is installed its factory is wrapped and
+forwarded to rather than replaced.
 """
 
 from __future__ import annotations
@@ -17,19 +14,19 @@ if TYPE_CHECKING:
 
 
 def install(config: Config | None = None) -> None:
-    """Activate instrumentation for this process.
+    """Activate instrumentation for this process. Idempotent.
 
-    Runs the capability probe, registers the observer factory, and enables
-    polars' monitoring. Idempotent. Raises only on a configuration error --
-    never on an incompatible polars, which degrades with a warning instead.
+    Activation is explicit because enabling monitoring sets polars' engine
+    affinity to "streaming". Raises on invalid config only; an unsupported
+    polars degrades with a warning.
     """
     raise NotImplementedError
 
 
 def uninstall() -> None:
-    """Deactivate instrumentation and restore any wrapped factory.
+    """Deactivate and restore any wrapped factory.
 
-    Does not restore the previous engine affinity: polars does not expose that,
-    and silently changing it back would be its own surprise.
+    Engine affinity is not restored; polars exposes no way to read the
+    previous value.
     """
     raise NotImplementedError

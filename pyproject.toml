@@ -23,9 +23,8 @@ classifiers = [
     "Typing :: Typed",
 ]
 
-# polars carries a floor but never an upper pin: the supported window is
-# enforced at runtime by the capability probe, so a user on a newer polars
-# gets degraded telemetry and a warning rather than a resolver conflict.
+# Floor only, no upper pin: the support window is enforced at runtime by the
+# capability probe, so a newer polars degrades rather than failing to resolve.
 dependencies = [
     "polars>=1.44.1",
     "msgpack>=1.0",
@@ -33,8 +32,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# A library depends on the OTel API only; the SDK belongs to the application.
-# This extra is for apps that want a working exporter without assembling one.
+# The package depends on the OTel API only; this extra adds the SDK for apps
+# that want a working exporter out of the box.
 otlp = [
     "opentelemetry-sdk>=1.20",
     "opentelemetry-exporter-otlp-proto-grpc>=1.20",
@@ -65,10 +64,8 @@ packages = ["src/polars_telemetry"]
 # uv
 # ---------------------------------------------------------------------------
 [tool.uv]
-# Supply-chain quarantine: ignore anything uploaded in the last 7 days, which
-# is roughly the window in which a compromised release is caught and yanked.
-# The nightly canary needs brand-new polars and overrides this for that one
-# package with `--exclude-newer-package polars=<now>`.
+# Ignore releases uploaded in the last 7 days. The canary overrides this for
+# polars alone via --exclude-newer-package.
 exclude-newer = "7 days"
 default-groups = ["dev"]
 
@@ -103,8 +100,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-# The adapter mirrors an untyped, duck-typed foreign protocol and is the one
-# place where broad excepts are correct: nothing here may reach user code.
+# The adapter mirrors an untyped foreign protocol and must swallow everything.
 "src/polars_telemetry/adapter/*" = ["BLE001", "ANN401"]
 "tests/*" = ["S101", "ANN", "PLR2004"]
 "noxfile.py" = ["ANN"]
@@ -124,8 +120,7 @@ show_error_codes = true
 files = ["src", "tests"]
 
 [[tool.mypy.overrides]]
-# polars' private surfaces are untyped by nature; the adapter is where that
-# lives, and it is quarantined deliberately.
+# polars' private surfaces are untyped.
 module = ["polars_telemetry.adapter.*"]
 disallow_any_explicit = false
 

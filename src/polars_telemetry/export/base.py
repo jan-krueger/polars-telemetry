@@ -1,4 +1,4 @@
-"""The exporter interface."""
+"""Exporter interface."""
 
 from __future__ import annotations
 

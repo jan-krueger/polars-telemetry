@@ -1,9 +1,4 @@
-"""Owns the polling thread, if there is one.
-
-One sampler per query. Threads are daemon threads so an abandoned query cannot
-keep the interpreter alive, and the final snapshot is taken after the poll loop
-stops -- the engine's last flush can land after ``close`` is called.
-"""
+"""Metrics polling for one query."""
 
 from __future__ import annotations
 
@@ -16,14 +11,16 @@ if TYPE_CHECKING:
 
 
 class Sampler:
-    """Collects :class:`~polars_telemetry.model.types.Sample` over a query."""
+    """Collects samples over a query. One instance per query."""
 
     def __init__(self, handle: MetricsHandle, config: Config) -> None:
         raise NotImplementedError
 
     def start(self) -> None:
+        """Start the poll thread. Daemon, so an abandoned query cannot keep
+        the interpreter alive."""
         raise NotImplementedError
 
     def stop(self) -> tuple[Sample, ...]:
-        """Halt polling, take the closing snapshot, return everything."""
+        """Stop polling, take the closing snapshot, return all samples."""
         raise NotImplementedError
