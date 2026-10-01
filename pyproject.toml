@@ -1,0 +1,151 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "polars-telemetry"
+dynamic = ["version"]
+description = "OpenTelemetry instrumentation for Polars query execution"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+authors = [{ name = "Jan Krueger", email = "jan@krueger-jan.de" }]
+keywords = ["polars", "opentelemetry", "observability", "tracing", "telemetry"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: System :: Monitoring",
+    "Typing :: Typed",
+]
+
+# polars carries a floor but never an upper pin: the supported window is
+# enforced at runtime by the capability probe, so a user on a newer polars
+# gets degraded telemetry and a warning rather than a resolver conflict.
+dependencies = [
+    "polars>=1.44.1",
+    "msgpack>=1.0",
+    "opentelemetry-api>=1.20",
+]
+
+[project.optional-dependencies]
+# A library depends on the OTel API only; the SDK belongs to the application.
+# This extra is for apps that want a working exporter without assembling one.
+otlp = [
+    "opentelemetry-sdk>=1.20",
+    "opentelemetry-exporter-otlp-proto-grpc>=1.20",
+]
+
+[project.urls]
+Homepage = "https://github.com/jkrueger/polars-telemetry"
+Issues = "https://github.com/jkrueger/polars-telemetry/issues"
+Changelog = "https://github.com/jkrueger/polars-telemetry/blob/main/CHANGELOG.md"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "mypy>=1.11",
+    "ruff>=0.6",
+    "nox>=2024.4.15",
+    "msgpack-types>=0.5",
+]
+
+[tool.hatch.version]
+path = "src/polars_telemetry/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/polars_telemetry"]
+
+# ---------------------------------------------------------------------------
+# uv
+# ---------------------------------------------------------------------------
+[tool.uv]
+# Supply-chain quarantine: ignore anything uploaded in the last 7 days, which
+# is roughly the window in which a compromised release is caught and yanked.
+# The nightly canary needs brand-new polars and overrides this for that one
+# package with `--exclude-newer-package polars=<now>`.
+exclude-newer = "7 days"
+default-groups = ["dev"]
+
+# ---------------------------------------------------------------------------
+# ruff
+# ---------------------------------------------------------------------------
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W",    # pycodestyle
+    "F",         # pyflakes
+    "I",         # isort
+    "N",         # pep8-naming
+    "UP",        # pyupgrade
+    "B",         # bugbear
+    "A",         # builtins shadowing
+    "C4",        # comprehensions
+    "PT",        # pytest style
+    "SIM",       # simplify
+    "TID",       # tidy imports
+    "RUF",
+    "ANN",       # annotations
+    "BLE",       # blind except
+    "S",         # bandit
+]
+ignore = [
+    "ANN401",    # Any is unavoidable at the polars boundary
+]
+
+[tool.ruff.lint.per-file-ignores]
+# The adapter mirrors an untyped, duck-typed foreign protocol and is the one
+# place where broad excepts are correct: nothing here may reach user code.
+"src/polars_telemetry/adapter/*" = ["BLE001", "ANN401"]
+"tests/*" = ["S101", "ANN", "PLR2004"]
+"noxfile.py" = ["ANN"]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "parents"
+
+# ---------------------------------------------------------------------------
+# mypy
+# ---------------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.10"
+strict = true
+warn_unreachable = true
+disallow_any_generics = true
+show_error_codes = true
+files = ["src", "tests"]
+
+[[tool.mypy.overrides]]
+# polars' private surfaces are untyped by nature; the adapter is where that
+# lives, and it is quarantined deliberately.
+module = ["polars_telemetry.adapter.*"]
+disallow_any_explicit = false
+
+# ---------------------------------------------------------------------------
+# pytest
+# ---------------------------------------------------------------------------
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+addopts = "-ra --strict-markers --strict-config"
+markers = [
+    "contract: asserts the shape of the polars observer interface",
+    "live: runs real polars queries against the installed version",
+    "integration: requires a running OTel collector",
+    "bench: overhead measurement, gated on a budget",
+]
+
+[tool.coverage.run]
+source = ["src/polars_telemetry"]
+branch = true
+
+[tool.coverage.report]
+exclude_also = ["if TYPE_CHECKING:", "raise NotImplementedError"]
