@@ -1,0 +1,29 @@
+# Versions are pinned and must match the ones CI installs, so the two can
+# never disagree about whether the tree is clean.
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-added-large-files
+      - id: check-merge-conflict
+      - id: check-toml
+      - id: check-yaml
+      - id: end-of-file-fixer
+        exclude: ^tests/fixtures/.*\.(msgpack|json)$
+      - id: trailing-whitespace
+        exclude: ^tests/fixtures/.*\.(msgpack|json)$
+      - id: detect-private-key
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.11.2
+    hooks:
+      - id: mypy
+        additional_dependencies: [pytest, msgpack-types]
+        pass_filenames: false
