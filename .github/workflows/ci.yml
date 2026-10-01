@@ -1,0 +1,86 @@
+# TODO: pin actions to commit SHAs before the repo goes public (see SECURITY.md).
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  UV_LOCKED: "1"
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv run ruff check --output-format=github .
+      - run: uv run ruff format --check .
+
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv run mypy
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Corners plus the primary cell. The hook exists only on 1.44.x.
+        python: ["3.10", "3.13"]
+        polars: ["1.44.1", "1.44.2"]
+        include:
+          - python: "3.12"
+            polars: "1.44.2"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          python-version: ${{ matrix.python }}
+      - run: uv sync --locked
+      - run: uv pip install "polars==${{ matrix.polars }}"
+      - run: uv run pytest -m "not integration and not bench" --cov --cov-report=xml
+      - uses: actions/upload-artifact@v4
+        if: matrix.python == '3.12'
+        with:
+          name: coverage
+          path: coverage.xml
+
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: docker compose -f docker/compose.yaml up -d --wait
+      - run: uv sync --locked
+      - run: uv run pytest -m integration
+        env:
+          OTEL_EXPORTER_OTLP_ENDPOINT: http://localhost:4317
+      - if: always()
+        run: docker compose -f docker/compose.yaml down -v
+
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --locked
+      - run: uv run --with pip-audit pip-audit
+      - uses: google/osv-scanner-action/osv-scanner-action@v1
+        with:
+          scan-args: --lockfile=uv.lock
