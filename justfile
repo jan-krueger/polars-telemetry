@@ -1,0 +1,36 @@
+default:
+    @just --list
+
+# Collector + Jaeger, then a sample query; prints the trace URL.
+dev:
+    docker compose -f docker/compose.yaml up -d --wait
+    uv sync
+    @echo "Jaeger: http://localhost:16686"
+
+down:
+    docker compose -f docker/compose.yaml down -v
+
+test:
+    uv run pytest -m "not integration and not bench"
+
+integration:
+    docker compose -f docker/compose.yaml up -d --wait
+    uv run pytest -m integration
+
+lint:
+    uv run ruff check .
+    uv run ruff format --check .
+
+typecheck:
+    uv run mypy
+
+matrix:
+    uv run nox -s tests
+
+# Live contract against the newest polars, quarantine lifted for polars only.
+canary:
+    uv run nox -s canary
+
+# Regenerate fixtures: just capture 1.44.2
+capture version:
+    uv run nox -s capture -- {{version}}
