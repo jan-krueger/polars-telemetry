@@ -15,3 +15,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Fixture capture tool and captured payloads for polars 1.44.2.
 - Contract tests (golden and live) and a degradation suite covering renamed,
   added and retyped fields, corrupt payloads and callback arity changes.
+- `install()` / `uninstall()`: binds the observer factory, enables monitoring,
+  probes the installed polars and degrades to query spans only when the plan or
+  metrics payloads are not as expected. Delegates to polars-cloud when present.
+- Sampling in `OFF`, `FINAL` and `INTERVAL` modes, with an adaptive settle on
+  the closing snapshot rather than a fixed delay.
+- Node windows derived from row-counter deltas, and an OpenTelemetry exporter
+  emitting a query span, child spans per node and bounded-dimension metrics.
+- Console exporter for debugging without OTel wiring.
