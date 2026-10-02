@@ -27,4 +27,5 @@ the OpenTelemetry SDK the application configures.
 - `pip-audit` and `osv-scanner` run on every pull request.
 - Releases are published with PyPI Trusted Publishing (OIDC); no API token
   exists. Artifacts carry build provenance attestations.
-- GitHub Actions are pinned and updated by Dependabot with a 7-day cooldown.
+- GitHub Actions are pinned to commit SHAs, with the version in a trailing
+  comment, and updated by Dependabot with a 7-day cooldown.
