@@ -142,6 +142,7 @@ class QueryObserver:
             samples=samples,
             sample_interval_ms=self._config.effective_interval_ms,
             failed=failure,
+            started_unix_ns=sampler.started_unix_ns,
         )
         self._exporter.export(query)
 

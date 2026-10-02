@@ -24,7 +24,15 @@ _SETTLE_WAIT_S = 0.001
 class Sampler:
     """Collects samples over a query. One instance per query."""
 
-    __slots__ = ("_config", "_handle", "_samples", "_started", "_stop", "_thread")
+    __slots__ = (
+        "_config",
+        "_handle",
+        "_samples",
+        "_started",
+        "_started_unix_ns",
+        "_stop",
+        "_thread",
+    )
 
     def __init__(self, handle: MetricsHandle, config: Config) -> None:
         self._handle = handle
@@ -33,10 +41,12 @@ class Sampler:
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
         self._started = 0.0
+        self._started_unix_ns = 0
 
     def start(self) -> None:
         """Begin sampling. Starts a daemon thread only in INTERVAL mode."""
         self._started = time.perf_counter()
+        self._started_unix_ns = time.time_ns()
         if self._config.sampling is not SamplingMode.INTERVAL:
             return
         self._thread = threading.Thread(
@@ -52,6 +62,10 @@ class Sampler:
         if self._config.sampling is not SamplingMode.OFF:
             self._samples.append(self._settled_snapshot())
         return tuple(self._samples)
+
+    @property
+    def started_unix_ns(self) -> int:
+        return self._started_unix_ns
 
     @property
     def elapsed_ms(self) -> float:

@@ -63,6 +63,7 @@ class Query:
     samples: tuple[Sample, ...]
     sample_interval_ms: float | None
     failed: str | None = None
+    started_unix_ns: int = 0
 
     @property
     def final(self) -> Sample | None:
