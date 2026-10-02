@@ -52,6 +52,7 @@ dev = [
     "ruff>=0.6",
     "nox>=2024.4.15",
     "msgpack-types>=0.5",
+    "opentelemetry-sdk>=1.20",
 ]
 
 [tool.hatch.version]
@@ -151,6 +152,7 @@ markers = [
     "contract: asserts the shape of the polars observer interface",
     "live: runs real polars queries against the installed version",
     "integration: requires a running OTel collector",
+    "e2e: installs instrumentation and runs real polars queries",
     "bench: overhead measurement, gated on a budget",
 ]
 
