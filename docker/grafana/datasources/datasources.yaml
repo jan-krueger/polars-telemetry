@@ -11,7 +11,14 @@ datasources:
     uid: jaeger
     access: proxy
     url: http://jaeger:16686
-  - name: Infinity
-    type: yesoreyeram-infinity-datasource
-    uid: infinity
+  - name: InfluxDB
+    type: influxdb
+    uid: influxdb
     access: proxy
+    url: http://influxdb:8086
+    jsonData:
+      version: Flux
+      organization: polars
+      defaultBucket: telemetry
+    secureJsonData:
+      token: polars-telemetry-dev-token
