@@ -79,8 +79,10 @@ current page only and says so, rather than pretending the data was kept.
   thing you see is which shape costs most.
 - **Query detail**: tiles, the diagnostics, and both plans as a DAG with CPU
   share as fill and row counts on the edges.
-- **Node details**: every counter for the selected node, with polars' own
-  completion flag.
+- **Node details**: the node's properties as typed fields, then every counter
+  for the selected node with polars' own completion flag. Each counter carries
+  a `?` explaining what it measures — most are specific to the streaming engine
+  and are not guessable from the name.
 - **Compare**: when a shape ran more than once, pick another run and the tiles
   and every counter gain a percentage delta.
 
