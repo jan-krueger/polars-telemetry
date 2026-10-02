@@ -1,0 +1,57 @@
+// What each counter means. Most are specific to polars' streaming engine and
+// are not guessable from the name.
+export const GLOSSARY = {
+  rows_received: ["Rows in", "Rows this node received from the nodes feeding it."],
+  rows_sent: ["Rows out", "Rows this node passed on. Compare with rows in to see what the node removed or produced."],
+  morsels_received: ["Morsels received", "A morsel is the unit of work in the streaming engine — a batch of rows handed between nodes. Rows ÷ morsels is the average batch size."],
+  morsels_sent: ["Morsels sent", "Batches this node emitted. Far more than its input means the node is splitting work into smaller pieces."],
+  largest_morsel_received: ["Largest morsel received", "Biggest single batch this node took in. Well above the average means uneven partitioning upstream."],
+  largest_morsel_sent: ["Largest morsel sent", "Biggest single batch this node emitted."],
+  total_time_ns: ["Total time", "Poll time plus state-update time. Node times overlap, so they sum to more than the query's wall time."],
+  total_poll_time_ns: ["Total poll time", "Time this node's async tasks spent actually running. The bulk of a node's cost usually sits here."],
+  max_poll_time_ns: ["Maximum poll time", "The longest single poll. A large value means one poll blocked, holding a worker thread while it did."],
+  total_polls: ["Total number of polls", "How many times the engine ran this node's tasks. Many short polls is normal for a streaming operator."],
+  total_stolen_polls: ["Total polls stolen", "Polls picked up by a worker other than the one that queued them. Work stealing is how the engine rebalances; a very low share alongside poor parallel efficiency suggests this node is not spreading across cores."],
+  total_state_update_time_ns: ["Total state update time", "The engine runs in phases. Between phases each node reconfigures — a group-by finalising, a join building its hash table. That work is serial, so time here does not parallelise."],
+  max_state_update_time_ns: ["Maximum state update time", "The longest single state update. A long one is a stall every other node waits through."],
+  total_state_updates: ["Number state updates", "How many phase boundaries this node went through."],
+  io_total_active_ns: ["IO active time", "Time this node had IO in flight. Only meaningful for scans reading remote storage."],
+  io_total_bytes_received: ["IO bytes received", "Bytes actually read. Zero for local files; non-zero when scanning object storage."],
+  io_total_bytes_requested: ["IO bytes requested", "Bytes asked for. Much larger than bytes received means ranges were requested and discarded."],
+  done: ["Completed", "Whether the node had finished when the closing snapshot was taken. If not, its counters are a floor rather than a total."],
+  parallel_efficiency: ["Parallel efficiency", "CPU time ÷ wall time ÷ cores. 1.0 would mean every core busy for the whole query. Low values mean the work is concentrated in one operator or blocked on IO."],
+  join_amplification: ["Join amplification", "Rows out ÷ rows into the probe side. Around 1 means keys are roughly unique; well above means each input row matches many, which is the classic cause of a query exploding in memory."],
+  filter_selectivity: ["Filter selectivity", "Share of rows that survived the filter. Low is good — provided the filter runs early, ideally pushed into the scan."],
+  morsel_skew: ["Morsel skew", "Largest morsel ÷ average morsel. Above 1 means batches are uneven, so some workers get far more rows than others."],
+  predicate_pushed: ["Predicate pushdown", "Whether a filter is applied inside the scan rather than after it. Pushed down, rows are never read at all."],
+  projection_efficiency: ["Projection", "Columns read ÷ columns in the file. Lower is better: unread columns are never decoded."],
+};
+
+// polars' property names are precise but not prose.
+export const PROP_LABELS = {
+  first_source: "Source", scan_type: "Format", num_sources: "Sources",
+  file_columns: "File columns", projected_file_columns: "Projected columns",
+  projection: "Projection", predicate: "Predicate",
+  predicate_file_skip_applied: "Row groups skipped", has_table_statistics: "Table statistics",
+  how: "Join type", left_on: "Left join keys", right_on: "Right join keys",
+  nulls_equal: "Nulls equal", coalesce: "Coalesce", maintain_order: "Maintain order",
+  validation: "Validation", suffix: "Suffix", keys: "Group by keys", aggs: "Aggregations",
+  key_per_input: "Group by keys", aggs_per_input: "Aggregations", num_inputs: "Inputs",
+  columns: "Columns", sort_columns: "Sort by", slice: "Slice", limit: "Limit",
+  selectors: "Expressions", extend_original: "Extend original", dest: "Destination",
+  multithreaded: "Multithreaded", row_index_name: "Row index", pre_slice: "Pre-slice",
+  hive_columns: "Hive columns", deletion_files_type: "Deletion files",
+  column_mapping_type: "Column mapping", include_file_paths: "Include file paths",
+  output_as_boolean: "Output as boolean", row_index_offset: "Row index offset",
+};
+
+export const ICONS = {
+  MultiScan: "▤", Scan: "▤", DataFrameScan: "▦",
+  EquiJoin: "⋈", Join: "⋈", SemiAntiJoin: "⋈", CrossJoin: "⋈", IEJoin: "⋈",
+  GroupBy: "∑", Sort: "↕", TopK: "↧", Filter: "⌕", Select: "ƒ", InputIndependentSelect: "ƒ",
+  SimpleProjection: "⊞", HStack: "⊕", Distinct: "≠",
+  Union: "⊎", UnorderedUnion: "⊎", Multiplexer: "⑂", Map: "λ", MapFunction: "λ",
+  InMemorySink: "⤓", FileSink: "⤓", IoSink: "⤓", Sink: "⤓",
+  InMemorySource: "⤒", InMemoryMap: "⇄", Reduce: "∑", WithRowIndex: "№",
+};
+export const icon = (k) => ICONS[k] || "◻";

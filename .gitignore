@@ -21,6 +21,10 @@ htmlcov/
 # Docs build output
 site/
 
+# Viewer build output — generated from viewer/ by `just viewer`
+docs/viewer/
+viewer/node_modules/
+
 # Editors / OS
 .idea/
 .vscode/
