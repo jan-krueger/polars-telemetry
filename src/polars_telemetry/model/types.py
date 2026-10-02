@@ -50,6 +50,9 @@ class Sample:
     nodes: dict[int, NodeMetrics]
 
 
+SINK_KINDS: frozenset[str] = frozenset({"InMemorySink", "IoSink", "PartitionSink"})
+
+
 @dataclass(frozen=True, slots=True)
 class Query:
     """A completed query."""
@@ -60,3 +63,33 @@ class Query:
     samples: tuple[Sample, ...]
     sample_interval_ms: float | None
     failed: str | None = None
+
+    @property
+    def final(self) -> Sample | None:
+        """The closing snapshot, if any metrics were collected at all."""
+        return self.samples[-1] if self.samples else None
+
+    @property
+    def cpu_ms(self) -> float:
+        """Summed node self time. Exceeds wall time on a parallel query."""
+        final = self.final
+        if final is None:
+            return 0.0
+        return sum(node.total_time_ns for node in final.nodes.values()) / 1e6
+
+    @property
+    def parallelism(self) -> float:
+        return self.cpu_ms / self.wall_ms if self.wall_ms > 0 else 0.0
+
+    @property
+    def result_rows(self) -> int | None:
+        """Rows reaching the sink, when the sink reported any."""
+        final = self.final
+        if final is None:
+            return None
+        rows = [
+            final.nodes[node_id].rows_received
+            for node_id, node in self.plan.items()
+            if node.kind in SINK_KINDS and node_id in final.nodes
+        ]
+        return sum(rows) if rows else None
