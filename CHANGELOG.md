@@ -4,6 +4,18 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] - 2026-10-03
+
+### Fixed
+- Eager `DataFrame` operations no longer disable telemetry. polars runs them
+  off the streaming engine and passes a nil physical plan, which was counted as
+  a decode failure; five eager operations exhausted the error budget and
+  disarmed the observer for the rest of the process, silently leaving every
+  later lazy query uninstrumented. A nil physical plan is now the eager path:
+  the query span is built from the IR, node counters are skipped because there
+  is no `phys_node_key` to attribute them to, and nothing is counted as an
+  error.
+
 ## [0.1.0] - 2026-10-03
 
 ### Added
@@ -60,4 +72,5 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and collapsed most nodes onto identical windows. The same counters read once
   at query end are exact and cost nothing measurable.
 
+[0.1.1]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.1.1
 [0.1.0]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.1.0
