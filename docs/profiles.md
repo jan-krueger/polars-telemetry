@@ -77,8 +77,16 @@ current page only and says so, rather than pretending the data was kept.
 
 - **Session overview**: query shapes ranked by total wall time, so the first
   thing you see is which shape costs most.
-- **Query detail**: tiles, the diagnostics, and both plans as a DAG with CPU
-  share as fill and row counts on the edges.
+- **Query detail**: tiles, the diagnostics, and both plans side by side. The
+  logical plan is drawn as an outline — it has no counters, and a filled node
+  would imply a cost it does not have — and carries your own column names. The
+  physical plan is filled by share of CPU, with row counts on the edges and a
+  completion dot per node, but renames columns to `_POLARS_TMP_N`. Reading them
+  together is the point: names on the left, costs on the right.
+
+    polars gives the two plans separate node identities and no mapping between
+    them, so selecting a node in one does not highlight its counterpart in the
+    other. That is a limit of the data, not of the viewer.
 - **Node details**: the node's properties as typed fields, then every counter
   for the selected node with polars' own completion flag. Each counter carries
   a `?` explaining what it measures — most are specific to the streaming engine

@@ -101,8 +101,16 @@
   .seg{display:flex;border:1px solid var(--border);border-radius:6px;overflow:hidden}
   .seg button{background:var(--surface);border:0;padding:4px 12px;font-size:12px;cursor:pointer}
   .seg button[aria-pressed="true"]{background:var(--accent);color:#fff}
-  .dagwrap{border:1px solid var(--border);border-radius:7px;background:var(--surface);
-    padding:12px;overflow:auto;max-height:62vh}
+  .plans{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media (max-width:1250px){ .plans{grid-template-columns:1fr} }
+  .planbox{border:1px solid var(--border);border-radius:7px;background:var(--surface);
+    display:flex;flex-direction:column;min-width:0}
+  .planbox .ph{padding:7px 11px;border-bottom:1px solid var(--border);
+    display:flex;align-items:center;gap:8px}
+  .planbox .ph .nm{font:600 11.5px system-ui}
+  .planbox .ph .sub{font-size:10.5px;color:var(--muted);margin-left:auto}
+  .planbox .body{overflow:auto;max-height:58vh;padding:10px}
+  .edge.logical{stroke-dasharray:4 3;stroke:var(--axis)}
   svg.dag{display:block;margin:0 auto;height:auto}
   .nd{cursor:pointer}
   .nd rect{stroke:var(--border)}
@@ -270,7 +278,7 @@ const dropSession=id=>tx("readwrite",st=>st.delete(id));
 const dropAll=()=>tx("readwrite",st=>st.clear());
 
 /* ---------- state ---------- */
-let sessions=[], current=null, sel=null, planKind="physical", selNode=null, compareWith=null;
+let sessions=[], current=null, sel=null, selNode=null, compareWith=null;
 const profiles=()=>current?.profiles ?? [];
 
 const num=(v,d=0)=>(v??0).toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d});
@@ -323,7 +331,7 @@ async function loadSample(){
 }
 function selectSession(id){
   current=sessions.find(s=>s.id===id) ?? null;
-  sel=null; selNode=null; compareWith=null; planKind="physical";
+  sel=null; selNode=null; compareWith=null;
 }
 async function removeSession(id){
   sessions=sessions.filter(s=>s.id!==id); await dropSession(id);
@@ -388,7 +396,7 @@ function renderQueryList(){
 const hottestNode=p=>{
   const hot=p.plan.physical.filter(n=>n.metrics)
     .sort((a,b)=>b.metrics.total_time_ns-a.metrics.total_time_ns)[0];
-  return hot?hot.id:null;
+  return hot?{plan:"physical", id:hot.id}:null;
 };
 
 /* ---------- empty state ---------- */
@@ -508,24 +516,28 @@ function renderDetail(){
     <div class="diags">${diagnostics(p).map(d=>`
       <div class="diag"><div class="t"><i class="dot" style="background:${C[d.s]}"></i>${d.t}${d.k?help(d.k):""}</div>
       <div class="v">${d.v}<span class="u">${d.u}</span></div><div class="n">${d.n}</div></div>`).join("")}</div>
-    <div class="planbar">
-      <div class="seg">
-        <button data-k="physical" aria-pressed="${planKind==="physical"}">Physical plan</button>
-        <button data-k="logical" aria-pressed="${planKind==="logical"}">Logical plan</button>
-      </div>
-      <span style="font-size:11.5px;color:var(--muted)">fill = share of CPU · edges = rows</span>
+    <div class="plans">
+      <div class="planbox"><div class="ph"><span class="nm">Logical plan</span>
+        <span class="sub">${p.plan.logical.length} nodes · your query as written</span></div>
+        <div class="body"><svg class="dag" id="dag-logical"></svg></div></div>
+      <div class="planbox"><div class="ph"><span class="nm">Physical plan</span>
+        <span class="sub">fill = share of CPU · edges = rows</span></div>
+        <div class="body"><svg class="dag" id="dag-physical"></svg></div></div>
     </div>
-    <div class="dagwrap"><svg class="dag" id="dag"></svg></div>`;
+    <p class="note" style="margin:10px 0 0">polars gives the two plans separate node
+      identities and no mapping between them, so selecting a node in one does not
+      highlight its counterpart in the other.</p>`;
 
-  document.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{planKind=b.dataset.k;selNode=null;render()});
   const cmpSel=document.getElementById("cmp");
   if(cmpSel) cmpSel.onchange=()=>{compareWith=cmpSel.value===""?null:+cmpSel.value;render()};
-  drawDag(p, cmp);
+  drawDag(p, "logical");
+  drawDag(p, "physical");
   renderNode(p, cmp);
 }
 
-function drawDag(p, cmp){
-  const nodes=p.plan[planKind], byId=Object.fromEntries(nodes.map(n=>[n.id,n]));
+function drawDag(p, which){
+  const logical = which==="logical";
+  const nodes=p.plan[which], byId=Object.fromEntries(nodes.map(n=>[n.id,n]));
   const total=nodes.reduce((a,n)=>a+cpuOf(n),0)||1;
   const depth={}, D=n=>{ if(depth[n.id]!==undefined)return depth[n.id];
     depth[n.id]=n.inputs.length?1+Math.max(...n.inputs.map(i=>byId[i]?D(byId[i]):0)):0;
@@ -544,8 +556,8 @@ function drawDag(p, cmp){
   let s="";
   for(const n of nodes) for(const inp of n.inputs){
     const a=pos[inp],b=pos[n.id]; if(!a||!b) continue;
-    s+=`<path class="edge" d="M${a[0]} ${a[1]-H/2} C${a[0]} ${a[1]-H/2-16}, ${b[0]} ${b[1]+H/2+16}, ${b[0]} ${b[1]+H/2}"/>`;
-    const rows=byId[inp].metrics?.rows_sent;
+    s+=`<path class="edge${logical?" logical":""}" d="M${a[0]} ${a[1]-H/2} C${a[0]} ${a[1]-H/2-16}, ${b[0]} ${b[1]+H/2+16}, ${b[0]} ${b[1]+H/2}"/>`;
+    const rows=logical?null:byId[inp].metrics?.rows_sent;
     if(rows!=null){
       const label=`${rws(rows)} rows`, w=label.length*5.6+10;
       const cx=(a[0]+b[0])/2, cy=(a[1]-H/2+b[1]+H/2)/2;
@@ -556,21 +568,25 @@ function drawDag(p, cmp){
   for(const n of nodes){
     const q=pos[n.id], pc=cpuOf(n)/total*100;
     const label=nodeLabel(n);
-    const ink=inkOf(pc);
-    s+=`<g class="nd" data-id="${n.id}" data-sel="${selNode===n.id?1:0}">
-      <rect x="${q[0]-W/2}" y="${q[1]-H/2}" width="${W}" height="${H}" rx="6" fill="${fillOf(pc)}"/>
+    // The logical plan has no counters, so it is drawn as outline only: a
+    // filled node would imply a cost it does not have.
+    const ink = logical ? "var(--ink)" : inkOf(pc);
+    const selected = selNode && selNode.plan===which && selNode.id===n.id;
+    s+=`<g class="nd" data-id="${n.id}" data-sel="${selected?1:0}">
+      <rect x="${q[0]-W/2}" y="${q[1]-H/2}" width="${W}" height="${H}" rx="6"
+        fill="${logical?"var(--surface)":fillOf(pc)}" ${logical?'stroke="var(--rule-2)"':""}/>
       <text class="t1" x="${q[0]-W/2+10}" y="${q[1]-11}" fill="${ink}">${icon(n.kind)} ${esc(n.kind)}</text>
       ${label?`<text class="t2" x="${q[0]-W/2+10}" y="${q[1]+2}" fill="${ink}" opacity=".74">${esc(label.slice(0,26))}</text>`:""}
       ${n.metrics?`<text class="t2" x="${q[0]-W/2+10}" y="${q[1]+16}" fill="${ink}" opacity=".92">${pc>=.1?num(pc,1)+"% · ":""}${ms(cpuOf(n))}</text>`:""}
-      ${n.metrics?`<circle cx="${q[0]+W/2-11}" cy="${q[1]-H/2+11}" r="4"
+      ${(!logical&&n.metrics)?`<circle cx="${q[0]+W/2-11}" cy="${q[1]-H/2+11}" r="4"
          fill="${n.metrics.done?"var(--good)":"var(--warn)"}"><title>${n.metrics.done?"Completed":"Unfinished at snapshot"}</title></circle>`:""}
     </g>`;
   }
-  const svg=document.getElementById("dag");
+  const svg=document.getElementById("dag-"+which);
   svg.setAttribute("viewBox",`0 0 ${vw} ${vh}`);
   svg.setAttribute("width", Math.min(vw, 980));
   svg.innerHTML=s;
-  svg.querySelectorAll(".nd").forEach(g=>g.onclick=()=>selectNode(+g.dataset.id));
+  svg.querySelectorAll(".nd").forEach(g=>g.onclick=()=>selectNode(which, +g.dataset.id));
 }
 
 function nodeLabel(n){
@@ -701,11 +717,11 @@ function propField(key,value){
 
 function renderNode(p, cmp){
   const el=document.getElementById("node");
-  const nodes=p?.plan[planKind] ?? [];
-  const n=nodes.find(x=>x.id===selNode);
+  const which=selNode?.plan ?? "physical";
+  const n=(p?.plan[which] ?? []).find(x=>x.id===selNode?.id);
   if(!n){ el.innerHTML='<div class="empty">Select a node in the plan.</div>'; return; }
   const m=n.metrics;
-  const other=cmp?.plan[planKind]?.find(x=>x.id===n.id)?.metrics;
+  const other=cmp?.plan[which]?.find(x=>x.id===n.id)?.metrics;
 
   const props=Object.entries(n.properties||{})
     .filter(([k,v])=>v!=null && k!=="type" && !(Array.isArray(v)&&!v.length));
@@ -747,10 +763,11 @@ function renderNode(p, cmp){
 /* Selecting a node repaints only the right pane and the selection outline.
    Re-rendering main would rebuild the scroll container and jump the plan back
    to the top, which is exactly what you do not want mid-inspection. */
-function selectNode(id){
-  selNode=id;
-  document.querySelectorAll("#dag .nd").forEach(g=>
-    g.setAttribute("data-sel", (+g.dataset.id===id)?1:0));
+function selectNode(plan, id){
+  selNode={plan, id};
+  for(const which of ["logical","physical"])
+    document.querySelectorAll(`#dag-${which} .nd`).forEach(g=>
+      g.setAttribute("data-sel", (which===plan && +g.dataset.id===id)?1:0));
   renderNode(profiles()[sel], compareWith!=null?profiles()[compareWith]:null);
 }
 
