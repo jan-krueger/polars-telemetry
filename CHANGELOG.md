@@ -18,8 +18,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `install()` / `uninstall()`: binds the observer factory, enables monitoring,
   probes the installed polars and degrades to query spans only when the plan or
   metrics payloads are not as expected. Delegates to polars-cloud when present.
-- Sampling in `OFF`, `FINAL` and `INTERVAL` modes, with an adaptive settle on
+- Per-node counters read once when the query ends, with an adaptive settle on
   the closing snapshot rather than a fixed delay.
-- Node windows derived from row-counter deltas, and an OpenTelemetry exporter
-  emitting a query span, child spans per node and bounded-dimension metrics.
+- OpenTelemetry exporter emitting one query span with plan-derived attributes,
+  plus bounded-dimension metrics per node kind.
+
+### Removed
+- Interval sampling and per-node spans. polars exposes no per-node timestamps,
+  so node intervals had to be sampled; measured at 5-15% overhead while
+  collapsing most nodes onto identical windows. The same counters read once at
+  query end are exact and cost nothing measurable.
 - Console exporter for debugging without OTel wiring.

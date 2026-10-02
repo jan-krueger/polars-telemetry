@@ -37,20 +37,36 @@ polars' engine affinity to `"streaming"`, which changes how your queries
 execute.
 
 ```python
-from polars_telemetry import Config, SamplingMode
+from polars_telemetry import Config
 
-polars_telemetry.install(Config(sampling=SamplingMode.INTERVAL, interval_ms=25))
+polars_telemetry.install(Config(node_metrics=False))  # query span only
 ```
 
-| Mode | Cost | What you get |
-| --- | --- | --- |
-| `OFF` | none | Query span and plan attributes |
-| `FINAL` *(default)* | one snapshot | The above, plus final per-node counters |
-| `INTERVAL` | background thread | The above, plus per-node timelines |
+## What you get
 
-Node spans are *sampled*, not traced: polars exposes cumulative counters, not
-timestamps, so window edges are accurate to the sampling interval. Every node
-span carries `polars.sample_resolution_ms` so this is never mistaken for exact.
+One span per query, attached to whatever trace context the caller had active,
+carrying the plan: scan sources and pushed-down predicates, join types and
+keys, group-by keys, result rows, CPU time, parallelism, and the single
+hottest node with its share of total CPU.
+
+Per-node counters — self time, rows, morsels, polls, work-stealing ratio, IO
+bytes — are emitted as OpenTelemetry **metrics**, dimensioned by node kind.
+
+### Why there are no per-node spans
+
+polars reports cumulative counters and no per-node timestamps, so a node
+interval can only be *sampled*. We built that, measured it, and removed it:
+
+- polling cost 5–15% of query wall time at useful intervals,
+- and on a 48 ms query, 8 of 11 nodes collapsed onto two identical windows —
+  the "timeline" was mostly sampling quantisation.
+
+Read once when the query ends, the same counters are **exact** and cost nothing
+measurable. If polars ever exposes per-node timestamps, node spans become
+exact and cheap, and they go back in.
+
+Overhead on a 3M-row join-and-aggregate, interleaved against an uninstrumented
+baseline on the same engine: within measurement noise.
 
 ## Data in your telemetry
 

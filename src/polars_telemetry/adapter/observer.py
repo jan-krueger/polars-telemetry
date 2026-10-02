@@ -18,14 +18,14 @@ failed internally.
 from __future__ import annotations
 
 import logging
+import time
 from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
 from polars_telemetry._safety import FailureTracker
 from polars_telemetry.adapter.decode import decode_plan
 from polars_telemetry.adapter.handle import MetricsHandle
-from polars_telemetry.model.build import build_plan
-from polars_telemetry.model.sampler import Sampler
+from polars_telemetry.model.build import build_metrics, build_plan
 from polars_telemetry.model.types import Query
 
 if TYPE_CHECKING:
@@ -71,7 +71,17 @@ class ObserverFactory:
 class QueryObserver:
     """One query's callbacks. Each method is failure-isolated."""
 
-    __slots__ = ("_config", "_delegate", "_exporter", "_plan", "_query_id", "_sampler", "_tracker")
+    __slots__ = (
+        "_config",
+        "_delegate",
+        "_exporter",
+        "_handle",
+        "_plan",
+        "_query_id",
+        "_started",
+        "_started_unix_ns",
+        "_tracker",
+    )
 
     def __init__(
         self,
@@ -85,8 +95,10 @@ class QueryObserver:
         self._tracker = tracker
         self._delegate = delegate
         self._query_id: UUID = uuid4()
-        self._sampler: Sampler | None = None
+        self._handle: MetricsHandle | None = None
         self._plan: dict[int, Any] = {}
+        self._started = 0.0
+        self._started_unix_ns = 0
 
     def on_query_started(self, query_id: UUID) -> None:
         if not self._tracker.disarmed:
@@ -105,11 +117,12 @@ class QueryObserver:
             try:
                 self._query_id = query_id
                 self._plan = build_plan(decode_plan(physical_plan))
-                self._sampler = Sampler(MetricsHandle(handle), self._config)
-                self._sampler.start()
+                self._handle = MetricsHandle(handle) if self._config.node_metrics else None
+                self._started = time.perf_counter()
+                self._started_unix_ns = time.time_ns()
             except Exception as exc:
                 self._tracker.record(exc)
-                self._sampler = None
+                self._handle = None
 
         return ExecutionGuard(self, delegate_guard)
 
@@ -131,20 +144,24 @@ class QueryObserver:
             self._tracker.record(exc)
 
     def _finish(self, failure: str | None) -> None:
-        if self._sampler is None:
+        if self._started == 0.0:
             return
-        sampler, self._sampler = self._sampler, None
-        samples = sampler.stop()
-        query = Query(
-            query_id=self._query_id,
-            wall_ms=sampler.elapsed_ms,
-            plan=self._plan,
-            samples=samples,
-            sample_interval_ms=self._config.effective_interval_ms,
-            failed=failure,
-            started_unix_ns=sampler.started_unix_ns,
+        wall_ms = (time.perf_counter() - self._started) * 1000
+        self._started = 0.0
+
+        handle, self._handle = self._handle, None
+        metrics = build_metrics(handle.settled_snapshot()) if handle is not None else {}
+
+        self._exporter.export(
+            Query(
+                query_id=self._query_id,
+                wall_ms=wall_ms,
+                plan=self._plan,
+                metrics=metrics,
+                failed=failure,
+                started_unix_ns=self._started_unix_ns,
+            )
         )
-        self._exporter.export(query)
 
     def _forward(self, method: str, *args: Any) -> Any:
         """Pass the callback on to polars-cloud, when it is also installed."""

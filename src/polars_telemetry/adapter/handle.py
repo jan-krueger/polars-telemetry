@@ -3,11 +3,18 @@
 from __future__ import annotations
 
 import logging
+import time
 from typing import Any
 
 from polars_telemetry.adapter.decode import decode_metrics
 
 _log = logging.getLogger("polars_telemetry")
+
+# polars can call close() before the engine's final counters settle. Retake the
+# snapshot only while nodes still report done=False, rather than always paying
+# a fixed delay.
+_SETTLE_ATTEMPTS = 5
+_SETTLE_WAIT_S = 0.001
 
 
 class MetricsHandle:
@@ -35,6 +42,16 @@ class MetricsHandle:
                     exc,
                 )
             return []
+
+    def settled_snapshot(self) -> list[dict[str, Any]]:
+        """Snapshot once the engine has finished flushing, or near enough."""
+        records = self.snapshot()
+        for _ in range(_SETTLE_ATTEMPTS):
+            if not records or all(record.get("done") for record in records):
+                return records
+            time.sleep(_SETTLE_WAIT_S)
+            records = self.snapshot()
+        return records
 
     @property
     def failures(self) -> int:

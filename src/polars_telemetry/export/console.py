@@ -38,22 +38,16 @@ class ConsoleExporter:
             header += f" rows_out={query.result_rows:,}"
         lines = [header]
 
-        final = query.final
-        if final is not None:
-            ranked = sorted(
-                (node for node in final.nodes.values()),
-                key=lambda node: node.total_time_ns,
-                reverse=True,
+        ranked = sorted(query.metrics.values(), key=lambda node: node.total_time_ns, reverse=True)
+        for node in ranked[:_MAX_ROWS]:
+            plan_node = query.plan.get(node.node_id)
+            kind = plan_node.kind if plan_node else str(node.node_id)
+            lines.append(
+                f"  {kind:<18} {_ms(node.cpu_ms):>9}"
+                f"  in={node.rows_received:>12,}  out={node.rows_sent:>12,}"
             )
-            for node in ranked[:_MAX_ROWS]:
-                plan_node = query.plan.get(node.node_id)
-                kind = plan_node.kind if plan_node else str(node.node_id)
-                lines.append(
-                    f"  {kind:<18} {_ms(node.total_time_ns / 1e6):>9}"
-                    f"  in={node.rows_received:>12,}  out={node.rows_sent:>12,}"
-                )
-            if len(ranked) > _MAX_ROWS:
-                lines.append(f"  ... {len(ranked) - _MAX_ROWS} more nodes")
+        if len(ranked) > _MAX_ROWS:
+            lines.append(f"  ... {len(ranked) - _MAX_ROWS} more nodes")
 
         self._stream.write("\n".join(lines) + "\n")
         self._stream.flush()

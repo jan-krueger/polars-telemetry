@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from uuid import UUID
 
 
@@ -21,7 +21,7 @@ class PlanNode:
 
 @dataclass(frozen=True, slots=True)
 class NodeMetrics:
-    """Counters for one node at one instant. Cumulative, not deltas."""
+    """Cumulative counters for one node at the end of the query."""
 
     node_id: int
     total_time_ns: int
@@ -41,13 +41,13 @@ class NodeMetrics:
     io_total_bytes_sent: int
     done: bool
 
+    @property
+    def cpu_ms(self) -> float:
+        return self.total_time_ns / 1e6
 
-@dataclass(frozen=True, slots=True)
-class Sample:
-    """All nodes' counters at one offset from query start."""
-
-    offset_ms: float
-    nodes: dict[int, NodeMetrics]
+    @property
+    def stolen_ratio(self) -> float | None:
+        return self.total_stolen_polls / self.total_polls if self.total_polls else None
 
 
 SINK_KINDS: frozenset[str] = frozenset({"InMemorySink", "IoSink", "PartitionSink"})
@@ -60,23 +60,14 @@ class Query:
     query_id: UUID
     wall_ms: float
     plan: dict[int, PlanNode]
-    samples: tuple[Sample, ...]
-    sample_interval_ms: float | None
+    metrics: dict[int, NodeMetrics] = field(default_factory=dict)
     failed: str | None = None
     started_unix_ns: int = 0
 
     @property
-    def final(self) -> Sample | None:
-        """The closing snapshot, if any metrics were collected at all."""
-        return self.samples[-1] if self.samples else None
-
-    @property
     def cpu_ms(self) -> float:
         """Summed node self time. Exceeds wall time on a parallel query."""
-        final = self.final
-        if final is None:
-            return 0.0
-        return sum(node.total_time_ns for node in final.nodes.values()) / 1e6
+        return sum(node.total_time_ns for node in self.metrics.values()) / 1e6
 
     @property
     def parallelism(self) -> float:
@@ -85,12 +76,18 @@ class Query:
     @property
     def result_rows(self) -> int | None:
         """Rows reaching the sink, when the sink reported any."""
-        final = self.final
-        if final is None:
-            return None
         rows = [
-            final.nodes[node_id].rows_received
+            self.metrics[node_id].rows_received
             for node_id, node in self.plan.items()
-            if node.kind in SINK_KINDS and node_id in final.nodes
+            if node.kind in SINK_KINDS and node_id in self.metrics
         ]
         return sum(rows) if rows else None
+
+    @property
+    def hottest(self) -> tuple[PlanNode, NodeMetrics] | None:
+        """The node with the most self time -- usually the whole answer."""
+        if not self.metrics:
+            return None
+        node_id, metric = max(self.metrics.items(), key=lambda item: item[1].total_time_ns)
+        node = self.plan.get(node_id)
+        return (node, metric) if node is not None else None

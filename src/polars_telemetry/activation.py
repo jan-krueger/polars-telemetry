@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 from polars_telemetry.adapter import module as mod
 from polars_telemetry.adapter.observer import ObserverFactory
 from polars_telemetry.compat import Capabilities, probe
-from polars_telemetry.config import Config, SamplingMode
+from polars_telemetry.config import Config
 
 if TYPE_CHECKING:
     from polars_telemetry.export.base import Exporter
@@ -80,14 +80,14 @@ def install(config: Config | None = None, exporter: Exporter | None = None) -> I
         mod.unbind(binding)
         return None
 
-    if not capabilities.node_metrics_usable and config.sampling is not SamplingMode.OFF:
+    if not capabilities.node_metrics_usable and config.node_metrics:
         _log.warning(
             "polars-telemetry: polars %s delivered unexpected plan or metrics "
             "payloads (%s); continuing with query spans only.",
             capabilities.polars_version,
             "; ".join(capabilities.problems) or "no detail",
         )
-        config = replace(config, sampling=SamplingMode.OFF, node_spans=False)
+        config = replace(config, node_metrics=False)
 
     if exporter is None:
         exporter = _default_exporter(config)

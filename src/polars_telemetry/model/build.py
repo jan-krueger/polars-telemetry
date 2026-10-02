@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from polars_telemetry.model.types import NodeMetrics, PlanNode, Sample
+from polars_telemetry.model.types import NodeMetrics, PlanNode
 
 _COUNTERS: tuple[str, ...] = (
     "total_time_ns",
@@ -49,7 +49,3 @@ def build_metrics(records: list[dict[str, Any]]) -> dict[int, NodeMetrics]:
             **{name: int(record.get(name, 0)) for name in _COUNTERS},
         )
     return metrics
-
-
-def build_sample(offset_ms: float, records: list[dict[str, Any]]) -> Sample:
-    return Sample(offset_ms=offset_ms, nodes=build_metrics(records))

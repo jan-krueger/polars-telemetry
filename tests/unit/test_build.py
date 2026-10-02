@@ -8,7 +8,7 @@ from uuid import uuid4
 
 import pytest
 
-from polars_telemetry.model.build import build_plan, build_sample
+from polars_telemetry.model.build import build_metrics, build_plan
 from polars_telemetry.model.types import Query
 
 FIXTURE = sorted(p for p in (Path(__file__).parents[1] / "fixtures").iterdir() if p.is_dir())[-1]
@@ -16,14 +16,11 @@ FIXTURE = sorted(p for p in (Path(__file__).parents[1] / "fixtures").iterdir() i
 
 @pytest.fixture
 def query():
-    plan = build_plan(json.loads((FIXTURE / "physical.json").read_text()))
-    sample = build_sample(12.0, json.loads((FIXTURE / "metrics.json").read_text()))
     return Query(
         query_id=uuid4(),
         wall_ms=20.0,
-        plan=plan,
-        samples=(sample,),
-        sample_interval_ms=None,
+        plan=build_plan(json.loads((FIXTURE / "physical.json").read_text())),
+        metrics=build_metrics(json.loads((FIXTURE / "metrics.json").read_text())),
     )
 
 
@@ -41,9 +38,8 @@ def test_plan_inputs_resolve(query):
 
 
 def test_metrics_cover_every_plan_node(query):
-    final = query.final
-    assert final is not None
-    assert set(final.nodes) <= set(query.plan)
+    assert query.metrics
+    assert set(query.metrics) <= set(query.plan)
 
 
 def test_cpu_time_is_positive(query):
@@ -55,9 +51,17 @@ def test_result_rows_come_from_the_sink(query):
     assert query.result_rows >= 0
 
 
-def test_query_without_samples_degrades_cleanly():
-    empty = Query(query_id=uuid4(), wall_ms=5.0, plan={}, samples=(), sample_interval_ms=None)
-    assert empty.final is None
+def test_hottest_node_is_identified(query):
+    hottest = query.hottest
+    assert hottest is not None
+    node, metric = hottest
+    assert node.kind
+    assert metric.cpu_ms == max(m.cpu_ms for m in query.metrics.values())
+
+
+def test_query_without_metrics_degrades_cleanly():
+    empty = Query(query_id=uuid4(), wall_ms=5.0, plan={})
     assert empty.cpu_ms == 0.0
     assert empty.parallelism == 0.0
     assert empty.result_rows is None
+    assert empty.hottest is None

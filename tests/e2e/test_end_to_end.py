@@ -22,7 +22,7 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import (  # noqa: E4
 )
 
 import polars_telemetry  # noqa: E402
-from polars_telemetry import Config, SamplingMode  # noqa: E402
+from polars_telemetry import Config  # noqa: E402
 from polars_telemetry.export.console import ConsoleExporter  # noqa: E402
 from polars_telemetry.export.otel import OTelExporter  # noqa: E402
 
@@ -54,10 +54,7 @@ def _query(pl, rows: int = 5_000):
 
 def test_console_exporter_reports_a_real_query():
     stream = io.StringIO()
-    state = polars_telemetry.install(
-        Config(sampling=SamplingMode.FINAL, node_spans=False),
-        exporter=ConsoleExporter(stream),
-    )
+    state = polars_telemetry.install(Config(), exporter=ConsoleExporter(stream))
     assert state is not None, "install() refused the installed polars"
     try:
         _query(polars).collect()
@@ -101,15 +98,13 @@ def test_uninstall_removes_the_injected_module():
     assert "polars_cloud" not in sys.modules
 
 
-def test_otel_query_span_and_node_spans(spans):
+def test_otel_query_span_carries_plan_detail(spans):
     spans.clear()
-    config = Config(sampling=SamplingMode.INTERVAL, interval_ms=2, node_spans=True)
+    config = Config()
     state = polars_telemetry.install(config, exporter=OTelExporter(config))
     assert state is not None
     try:
-        # Large enough that the sampler takes more than one snapshot; windows
-        # need at least two.
-        _query(polars, rows=3_000_000).collect()
+        _query(polars, rows=200_000).collect()
     finally:
         polars_telemetry.uninstall()
 
@@ -117,42 +112,45 @@ def test_otel_query_span_and_node_spans(spans):
     query_spans = [s for s in finished if s.name == "polars.collect"]
     assert len(query_spans) >= 1
 
-    query_span = query_spans[-1]
-    attrs = query_span.attributes
+    attrs = query_spans[-1].attributes
     assert attrs["polars.engine"] == "streaming"
     assert attrs["polars.cpu_ms"] > 0
     assert attrs["polars.node_count"] > 0
     assert attrs["polars.query_id"]
-    assert attrs["polars.sample_resolution_ms"] == 2
+    assert attrs["polars.hot_node.kind"]
+    assert 0 < attrs["polars.hot_node.share"] <= 1
+    assert attrs["polars.groupby.count"] == 1
 
+
+def test_no_child_spans_are_emitted(spans):
+    """polars gives no per-node timestamps, so node spans would be invented."""
+    spans.clear()
+    config = Config()
+    polars_telemetry.install(config, exporter=OTelExporter(config))
+    try:
+        _query(polars, rows=200_000).collect()
+    finally:
+        polars_telemetry.uninstall()
+
+    finished = spans.get_finished_spans()
+    query_span = [s for s in finished if s.name == "polars.collect"][-1]
     children = [
         s
         for s in finished
         if s.parent is not None and s.parent.span_id == query_span.context.span_id
     ]
-    assert children, "no node spans were emitted"
-    for child in children:
-        assert child.attributes["polars.node.id"] is not None
-        assert child.attributes["polars.sample_resolution_ms"] == 2
-        assert child.start_time >= query_span.start_time
-        assert child.end_time <= query_span.end_time
+    assert children == []
 
 
-def test_node_spans_are_suppressed_without_sampling(spans):
+def test_node_metrics_can_be_disabled(spans):
     spans.clear()
-    config = Config(sampling=SamplingMode.FINAL, node_spans=True)
+    config = Config(node_metrics=False)
     polars_telemetry.install(config, exporter=OTelExporter(config))
     try:
         _query(polars).collect()
     finally:
         polars_telemetry.uninstall()
 
-    finished = spans.get_finished_spans()
-    query_spans = [s for s in finished if s.name == "polars.collect"]
-    assert query_spans
-    children = [
-        s
-        for s in finished
-        if s.parent is not None and s.parent.span_id == query_spans[-1].context.span_id
-    ]
-    assert children == [], "a single snapshot cannot produce honest node windows"
+    attrs = [s for s in spans.get_finished_spans() if s.name == "polars.collect"][-1].attributes
+    assert attrs["polars.node_count"] > 0
+    assert "polars.cpu_ms" not in attrs
