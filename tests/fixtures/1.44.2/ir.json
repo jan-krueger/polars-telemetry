@@ -1,0 +1,166 @@
+[
+ {
+  "id": 11,
+  "input_ids": [
+   6
+  ],
+  "properties": {
+   "dest": "Memory",
+   "type": "Sink"
+  }
+ },
+ {
+  "id": 6,
+  "input_ids": [
+   5
+  ],
+  "properties": {
+   "limit": null,
+   "maintain_order": false,
+   "slice": null,
+   "sort_columns": [
+    {
+     "descending": false,
+     "expr": "col(\"segment\")",
+     "nulls_last": false
+    }
+   ],
+   "type": "Sort"
+  }
+ },
+ {
+  "id": 5,
+  "input_ids": [
+   8
+  ],
+  "properties": {
+   "aggs": [
+    "col(\"revenue\").sum()",
+    "col(\"order_id\").count()"
+   ],
+   "keys": [
+    "col(\"segment\")"
+   ],
+   "maintain_order": false,
+   "slice": null,
+   "type": "GroupBy"
+  }
+ },
+ {
+  "id": 8,
+  "input_ids": [
+   4
+  ],
+  "properties": {
+   "columns": [
+    "segment",
+    "revenue",
+    "order_id"
+   ],
+   "type": "SimpleProjection"
+  }
+ },
+ {
+  "id": 4,
+  "input_ids": [
+   9
+  ],
+  "properties": {
+   "exprs": [
+    "(col(\"amount\") * col(\"qty\").cast(Float64)).alias(\"revenue\")"
+   ],
+   "should_broadcast": true,
+   "type": "HStack"
+  }
+ },
+ {
+  "id": 9,
+  "input_ids": [
+   3
+  ],
+  "properties": {
+   "columns": [
+    "order_id",
+    "amount",
+    "qty",
+    "segment"
+   ],
+   "type": "SimpleProjection"
+  }
+ },
+ {
+  "id": 3,
+  "input_ids": [
+   1,
+   2
+  ],
+  "properties": {
+   "coalesce": "JoinSpecific",
+   "how": "INNER",
+   "left_on": [
+    "col(\"customer_id\")"
+   ],
+   "maintain_order": "none",
+   "nulls_equal": false,
+   "right_on": [
+    "col(\"customer_id\")"
+   ],
+   "slice": null,
+   "suffix": "_right",
+   "type": "Join",
+   "validation": "ManyToMany"
+  }
+ },
+ {
+  "id": 1,
+  "input_ids": [],
+  "properties": {
+   "column_mapping_type": null,
+   "file_columns": [
+    "order_id",
+    "customer_id",
+    "amount",
+    "qty"
+   ],
+   "first_source": "orders.parquet",
+   "has_table_statistics": false,
+   "hive_columns": null,
+   "include_file_paths": null,
+   "num_sources": 1,
+   "pre_slice": null,
+   "predicate": [
+    "col(\"amount\") > 10.0"
+   ],
+   "predicate_file_skip_applied": null,
+   "projection": null,
+   "row_index_name": null,
+   "row_index_offset": null,
+   "scan_type": "Parquet",
+   "type": "Scan"
+  }
+ },
+ {
+  "id": 2,
+  "input_ids": [],
+  "properties": {
+   "column_mapping_type": null,
+   "file_columns": [
+    "customer_id",
+    "segment"
+   ],
+   "first_source": "customers.parquet",
+   "has_table_statistics": false,
+   "hive_columns": null,
+   "include_file_paths": null,
+   "num_sources": 1,
+   "pre_slice": null,
+   "predicate": null,
+   "predicate_file_skip_applied": null,
+   "projection": null,
+   "row_index_name": null,
+   "row_index_offset": null,
+   "scan_type": "Parquet",
+   "type": "Scan"
+  }
+ }
+]

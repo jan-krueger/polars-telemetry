@@ -1,0 +1,5 @@
+{
+ "capture_script": "tests/tools/capture.py",
+ "polars_version": "1.44.2",
+ "python_version": "3.12.3"
+}

@@ -68,4 +68,4 @@ def capture(session: nox.Session) -> None:
     """Regenerate fixtures for one polars version: nox -s capture -- 1.44.2"""
     version = session.posargs[0] if session.posargs else POLARS_VERSIONS[-1]
     session.install("-e", ".", f"polars=={version}")
-    session.run("python", "-m", "tests.tools.capture", version)
+    session.run("python", "tests/tools/capture.py", f"tests/fixtures/{version}")
