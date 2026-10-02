@@ -22,6 +22,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the closing snapshot rather than a fixed delay.
 - OpenTelemetry exporter emitting one query span with plan-derived attributes,
   plus bounded-dimension metrics per node kind.
+- User-facing attributes are read from the IR plan, which keeps the query's own
+  column names; the physical plan rewrites group-by keys and aggregations to
+  `_POLARS_TMP_N`.
+- Overhead budget enforced in CI, measured by interleaving instrumented and
+  uninstrumented runs so machine drift cancels.
 
 ### Removed
 - Interval sampling and per-node spans. polars exposes no per-node timestamps,
