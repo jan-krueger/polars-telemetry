@@ -3,7 +3,7 @@
 ## Reporting
 
 Report vulnerabilities privately via GitHub's "Report a vulnerability" button
-on the Security tab, or by email to jan@krueger-jan.de. Expect an
+on the Security tab, or by email to git@krueger-jan.de. Expect an
 acknowledgement within 5 working days.
 
 Please do not open a public issue for a vulnerability.
