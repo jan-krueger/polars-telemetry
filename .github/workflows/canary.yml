@@ -50,6 +50,16 @@ jobs:
               'Check `src/polars_telemetry/adapter/` -- it is the only layer that',
               'should need changes.',
             ].join('\n');
+            // Labels are not created implicitly by the issues API.
+            for (const [name, color] of [['canary', 'd93f0b'], ['upstream', '0e8a16']]) {
+              try {
+                await github.rest.issues.createLabel({
+                  owner: context.repo.owner, repo: context.repo.repo, name, color,
+                });
+              } catch (error) {
+                if (error.status !== 422) throw error;  // 422 = already exists
+              }
+            }
             const existing = await github.rest.issues.listForRepo({
               owner: context.repo.owner, repo: context.repo.repo,
               state: 'open', labels: 'canary',
