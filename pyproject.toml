@@ -103,8 +103,9 @@ ignore = [
 # The adapter mirrors an untyped foreign protocol and must swallow everything.
 "src/polars_telemetry/adapter/*" = ["BLE001", "ANN401"]
 "tests/*" = ["S101", "ANN", "PLR2004"]
-# Failure isolation is this module's whole purpose.
+# These modules exist to absorb failures from a foreign interface.
 "src/polars_telemetry/_safety.py" = ["BLE001"]
+"src/polars_telemetry/compat.py" = ["BLE001"]
 "noxfile.py" = ["ANN"]
 
 [tool.ruff.lint.flake8-tidy-imports]
