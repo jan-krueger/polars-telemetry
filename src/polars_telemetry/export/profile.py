@@ -1,0 +1,120 @@
+"""The profile document: one self-contained record per query.
+
+This is the contract between the package and any viewer. It is deliberately
+plain JSON with no references to anything outside itself, so a profile can be
+attached to a bug report, committed next to a regression test, or opened in a
+page that does no network I/O at all.
+
+Versioning carries two numbers because there are two sources of change: this
+schema, and polars' own counter set. A file written today must still open when
+polars has added a twentieth counter.
+"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
+
+from polars_telemetry import __version__
+from polars_telemetry.model.diagnostics import Diagnostics, derive
+from polars_telemetry.model.fingerprint import fingerprint
+
+if TYPE_CHECKING:
+    from polars_telemetry.model.types import NodeMetrics, PlanNode, Query
+
+SCHEMA = "polars-telemetry/profile@1"
+
+
+def _polars_version() -> str:
+    try:
+        import polars
+
+        return str(polars.__version__)
+    except Exception:  # pragma: no cover - polars is a hard dependency
+        return "unknown"
+
+
+def _trace_context() -> dict[str, str]:
+    """Link the profile to the span for the same query, when one is active."""
+    try:
+        from opentelemetry import trace
+
+        context = trace.get_current_span().get_span_context()
+        if not context.is_valid:
+            return {}
+        return {
+            "trace_id": format(context.trace_id, "032x"),
+            "span_id": format(context.span_id, "016x"),
+        }
+    except Exception:
+        return {}
+
+
+def _metrics(metric: NodeMetrics | None) -> dict[str, Any] | None:
+    if metric is None:
+        return None
+    return {
+        "total_time_ns": metric.total_time_ns,
+        "total_polls": metric.total_polls,
+        "total_stolen_polls": metric.total_stolen_polls,
+        "total_poll_time_ns": metric.total_poll_time_ns,
+        "max_poll_time_ns": metric.max_poll_time_ns,
+        "total_state_updates": metric.total_state_updates,
+        "total_state_update_time_ns": metric.total_state_update_time_ns,
+        "max_state_update_time_ns": metric.max_state_update_time_ns,
+        "rows_received": metric.rows_received,
+        "rows_sent": metric.rows_sent,
+        "morsels_received": metric.morsels_received,
+        "morsels_sent": metric.morsels_sent,
+        "largest_morsel_received": metric.largest_morsel_received,
+        "largest_morsel_sent": metric.largest_morsel_sent,
+        "io_total_active_ns": metric.io_total_active_ns,
+        "io_total_bytes_requested": metric.io_total_bytes_requested,
+        "io_total_bytes_received": metric.io_total_bytes_received,
+        "io_total_bytes_sent": metric.io_total_bytes_sent,
+        "done": metric.done,
+    }
+
+
+def _node(node: PlanNode, metric: NodeMetrics | None) -> dict[str, Any]:
+    entry: dict[str, Any] = {
+        "id": node.node_id,
+        "kind": node.kind,
+        "inputs": list(node.inputs),
+        "properties": node.properties,
+    }
+    counters = _metrics(metric)
+    if counters is not None:
+        entry["metrics"] = counters
+    return entry
+
+
+def build_profile(query: Query, *, diagnostics: Diagnostics | None = None) -> dict[str, Any]:
+    """Assemble the complete profile document for one query."""
+    diagnostics = diagnostics if diagnostics is not None else derive(query)
+    plan = query.logical or query.plan
+
+    document: dict[str, Any] = {
+        "schema": SCHEMA,
+        "polars_version": _polars_version(),
+        "polars_telemetry_version": __version__,
+        "query_id": str(query.query_id),
+        "fingerprint": fingerprint(plan),
+        "started_unix_ns": query.started_unix_ns,
+        "wall_ms": round(query.wall_ms, 4),
+        "cpu_ms": round(query.cpu_ms, 4),
+        "result_rows": query.result_rows,
+        "failed": query.failed,
+        "diagnostics": {
+            field: getattr(diagnostics, field)
+            for field in Diagnostics.__dataclass_fields__
+            if getattr(diagnostics, field) is not None
+        },
+        "plan": {
+            "physical": [
+                _node(node, query.metrics.get(node_id)) for node_id, node in query.plan.items()
+            ],
+            "logical": [_node(node, None) for node in query.logical.values()],
+        },
+    }
+    document.update(_trace_context())
+    return document
