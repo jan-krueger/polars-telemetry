@@ -5,7 +5,12 @@ default:
 dev:
     docker compose -f docker/compose.yaml up -d --wait
     uv sync
-    @echo "Jaeger: http://localhost:16686"
+    uv run python examples/workload.py
+
+urls:
+    @echo "Grafana:    http://localhost:3000/d/polars-telemetry/polars-telemetry"
+    @echo "Jaeger:     http://localhost:16686"
+    @echo "Prometheus: http://localhost:9090"
 
 down:
     docker compose -f docker/compose.yaml down -v

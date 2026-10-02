@@ -91,7 +91,8 @@ than replaced. Both work at once.
 
 ```bash
 uv sync
-just dev      # collector + Jaeger, then a sample query
+just dev      # collector, Jaeger, Prometheus, Grafana + a sample workload
+just urls     # where to look
 just test
 just matrix   # python x polars grid
 just canary   # live contract against newest polars

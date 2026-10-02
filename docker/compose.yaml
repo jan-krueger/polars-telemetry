@@ -21,6 +21,24 @@ services:
     ports:
       - "16686:16686"  # UI
 
+  grafana:
+    image: grafana/grafana:11.3.0
+    environment:
+      # Local dev stack: no login prompt between you and the dashboard.
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+      GF_FEATURE_TOGGLES_ENABLE: traceToMetrics
+    volumes:
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+      - jaeger
+
   prometheus:
     image: prom/prometheus:v2.55.0
     command:
