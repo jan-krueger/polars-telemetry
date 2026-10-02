@@ -12,8 +12,13 @@ urls:
     @echo "Jaeger:     http://localhost:16686"
     @echo "Prometheus: http://localhost:9090"
 
+influx:
+    docker compose -f docker/compose.yaml -f docker/compose.influx.yaml up -d --wait
+    @echo "InfluxDB:  http://localhost:8086  (polars / polars-telemetry)"
+    @echo "Telegraf OTLP endpoint: localhost:4327"
+
 down:
-    docker compose -f docker/compose.yaml down -v
+    docker compose -f docker/compose.yaml -f docker/compose.influx.yaml down -v
 
 test:
     uv run pytest -m "not integration and not bench"

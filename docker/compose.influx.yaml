@@ -1,0 +1,27 @@
+# Alternative pipeline: app -> OTLP -> Telegraf -> InfluxDB -> Grafana.
+# Run alongside the default stack:
+#   docker compose -f docker/compose.yaml -f docker/compose.influx.yaml up -d --wait
+name: polars-telemetry
+
+services:
+  influxdb:
+    image: influxdb:2.7
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: polars
+      DOCKER_INFLUXDB_INIT_PASSWORD: polars-telemetry
+      DOCKER_INFLUXDB_INIT_ORG: polars
+      DOCKER_INFLUXDB_INIT_BUCKET: telemetry
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: polars-telemetry-dev-token
+    ports:
+      - "8086:8086"
+
+  telegraf:
+    image: telegraf:1.32
+    volumes:
+      - ./telegraf/telegraf.conf:/etc/telegraf/telegraf.conf:ro
+    ports:
+      # 4317 is taken by the OTel Collector in the default stack.
+      - "4327:4317"
+    depends_on:
+      - influxdb
