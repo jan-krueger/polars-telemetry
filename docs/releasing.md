@@ -60,6 +60,26 @@ with environment name `testpypi`.
     a different environment name, or a repository transfer all break publishing
     until the publisher is updated.
 
+### 4. GitHub Pages
+
+Under **Settings → Pages**, set **Source** to **GitHub Actions**. Nothing else
+is needed: `.github/workflows/pages.yml` builds the viewer and the docs site
+and deploys them through the `github-pages` environment.
+
+## The viewer
+
+The viewer is not versioned or published to an index. It is a single HTML file
+built from `viewer/` by Vite and served from the docs site at
+[`/viewer/`](https://jan-krueger.github.io/polars-telemetry/viewer/), so it
+ships whenever `docs/`, `viewer/` or `mkdocs.yml` change on `main`.
+
+`docs/viewer/` is build output and is not committed. Both `just docs-build` and
+CI run `npm ci && npm run build` first, so a docs build never silently ships a
+stale viewer.
+
+A profile written by an older release still opens: the session file carries
+`schema` and `polars_version`, and the viewer reads the schema it knows.
+
 ## Cutting a release
 
 ```bash
@@ -72,3 +92,7 @@ git push origin main --tags
 
 The version is read from `src/polars_telemetry/__init__.py` by hatchling, so
 that file and the tag must agree.
+
+Pushing `main` deploys the docs and the viewer; pushing the tag runs the
+release pipeline. The two are independent, so a docs fix never needs a version
+bump.
