@@ -35,4 +35,11 @@ class Config:
     resource_attributes: dict[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        raise NotImplementedError
+        if self.interval_ms <= 0:
+            msg = f"interval_ms must be positive, got {self.interval_ms}"
+            raise ValueError(msg)
+
+    @property
+    def effective_interval_ms(self) -> float | None:
+        """Sampling resolution, or None when windows cannot be derived."""
+        return self.interval_ms if self.sampling is SamplingMode.INTERVAL else None
