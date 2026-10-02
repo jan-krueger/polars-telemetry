@@ -41,9 +41,9 @@ otlp = [
 
 
 [project.urls]
-Homepage = "https://github.com/jkrueger/polars-telemetry"
-Issues = "https://github.com/jkrueger/polars-telemetry/issues"
-Changelog = "https://github.com/jkrueger/polars-telemetry/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/jan-krueger/polars-telemetry"
+Issues = "https://github.com/jan-krueger/polars-telemetry/issues"
+Changelog = "https://github.com/jan-krueger/polars-telemetry/blob/main/CHANGELOG.md"
 
 [dependency-groups]
 dev = [

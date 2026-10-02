@@ -1,6 +1,6 @@
 site_name: polars-telemetry
 site_description: OpenTelemetry instrumentation for Polars query execution
-repo_url: https://github.com/jkrueger/polars-telemetry
+repo_url: https://github.com/jan-krueger/polars-telemetry
 edit_uri: ""
 strict: true
 
