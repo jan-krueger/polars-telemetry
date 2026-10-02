@@ -11,3 +11,7 @@ datasources:
     uid: jaeger
     access: proxy
     url: http://jaeger:16686
+  - name: Infinity
+    type: yesoreyeram-infinity-datasource
+    uid: infinity
+    access: proxy

@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import json
 import re
 from typing import TYPE_CHECKING
 
 from polars_telemetry.export import semconv
 
 if TYPE_CHECKING:
+    from polars_telemetry.model.diagnostics import Diagnostics
     from polars_telemetry.model.types import Query
 
 AttributeValue = str | int | float | bool | tuple[str, ...]
@@ -42,7 +44,74 @@ def _text(value: object, *, redact_literals: bool) -> str:
     return redact(rendered) if redact_literals else rendered
 
 
-def query_attributes(query: Query, *, redact_literals: bool = False) -> dict[str, AttributeValue]:
+def plan_json(query: Query, *, redact_literals: bool = False) -> str:
+    """The whole plan and its counters, as one JSON document.
+
+    Opt-in: it is kilobytes, and identical for every run of a shape. Carries
+    the topology, which nothing else exports.
+    """
+    nodes = []
+    for node_id, node in query.plan.items():
+        metric = query.metrics.get(node_id)
+        entry: dict[str, object] = {
+            "id": node_id,
+            "kind": node.kind,
+            "inputs": list(node.inputs),
+        }
+        if metric is not None:
+            entry.update(
+                cpu_ms=round(metric.cpu_ms, 4),
+                rows_in=metric.rows_received,
+                rows_out=metric.rows_sent,
+                morsels_in=metric.morsels_received,
+                morsels_out=metric.morsels_sent,
+                largest_morsel=metric.largest_morsel_received,
+                polls=metric.total_polls,
+                stolen=metric.total_stolen_polls,
+                max_poll_ms=round(metric.max_poll_time_ns / 1e6, 4),
+                state_updates=metric.total_state_updates,
+                io_ms=round(metric.io_total_active_ns / 1e6, 4),
+                io_bytes_received=metric.io_total_bytes_received,
+                io_bytes_requested=metric.io_total_bytes_requested,
+                io_bytes_sent=metric.io_total_bytes_sent,
+                done=metric.done,
+            )
+        nodes.append(entry)
+    logical = [
+        {"id": nid, "kind": n.kind, "inputs": list(n.inputs)} for nid, n in query.logical.items()
+    ]
+    return json.dumps({"physical": nodes, "logical": logical}, separators=(",", ":"))
+
+
+def _add_diagnostics(attrs: dict[str, AttributeValue], diagnostics: Diagnostics) -> None:
+    for key, value in (
+        (semconv.PARALLEL_EFFICIENCY, diagnostics.parallel_efficiency),
+        (semconv.CPU_COUNT, diagnostics.cpu_count),
+        (semconv.FILTER_SELECTIVITY, diagnostics.filter_selectivity),
+        (semconv.FILTER_ROWS_DROPPED, diagnostics.filter_rows_dropped),
+        (semconv.JOIN_AMPLIFICATION, diagnostics.join_amplification),
+        (semconv.PROJECTION_EFFICIENCY, diagnostics.projection_efficiency),
+        (semconv.MORSEL_SKEW, diagnostics.morsel_skew),
+        (semconv.SCAN_PREDICATE_PUSHED, diagnostics.predicate_pushed),
+        (semconv.SCAN_ROW_GROUPS_SKIPPED, diagnostics.row_groups_skipped),
+        (semconv.SCAN_HAS_STATISTICS, diagnostics.has_table_statistics),
+    ):
+        if value is None:
+            continue
+        attrs[key] = round(value, 4) if isinstance(value, float) else value
+    attrs[semconv.METRICS_COMPLETE] = diagnostics.complete
+    if diagnostics.incomplete_nodes:
+        attrs[semconv.METRICS_INCOMPLETE_NODES] = diagnostics.incomplete_nodes
+
+
+def query_attributes(
+    query: Query,
+    *,
+    redact_literals: bool = False,
+    diagnostics: Diagnostics | None = None,
+    plan_fingerprint: str | None = None,
+    include_plan: bool = False,
+) -> dict[str, AttributeValue]:
     """Everything worth knowing about the query, on one span.
 
     Per-node detail is aggregated here rather than split across child spans,
@@ -59,6 +128,13 @@ def query_attributes(query: Query, *, redact_literals: bool = False) -> dict[str
     if query.result_rows is not None:
         attrs[semconv.RESULT_ROWS] = query.result_rows
 
+    if plan_fingerprint is not None:
+        attrs[semconv.PLAN_FINGERPRINT] = plan_fingerprint
+    if diagnostics is not None:
+        _add_diagnostics(attrs, diagnostics)
+    if include_plan:
+        attrs[semconv.PLAN] = plan_json(query, redact_literals=redact_literals)
+
     hottest = query.hottest
     if hottest is not None and query.cpu_ms > 0:
         node, metric = hottest
@@ -71,6 +147,7 @@ def query_attributes(query: Query, *, redact_literals: bool = False) -> dict[str
     # anything a person reads, and fall back when it is unavailable.
     semantic = query.logical or query.plan
 
+    sort_columns: list[str] = []
     sources: list[str] = []
     predicates: list[str] = []
     columns = 0
@@ -105,6 +182,12 @@ def query_attributes(query: Query, *, redact_literals: bool = False) -> dict[str
             left_on = props.get("left_on")
             if isinstance(left_on, list):
                 join_keys.extend(_text(key, redact_literals=redact_literals) for key in left_on)
+        elif node.kind == "Sort":
+            specs = props.get("sort_columns")
+            if isinstance(specs, list):
+                for spec in specs:
+                    if isinstance(spec, dict) and "expr" in spec:
+                        sort_columns.append(_text(spec["expr"], redact_literals=redact_literals))
         elif node.kind == "GroupBy":
             groupbys += 1
             # The IR exposes a flat `keys`; the physical plan nests them under
@@ -134,5 +217,7 @@ def query_attributes(query: Query, *, redact_literals: bool = False) -> dict[str
         attrs[semconv.GROUPBY_COUNT] = groupbys
     if groupby_keys:
         attrs[semconv.GROUPBY_KEYS] = tuple(groupby_keys)
+    if sort_columns:
+        attrs[semconv.SORT_COLUMNS] = tuple(sort_columns)
 
     return attrs

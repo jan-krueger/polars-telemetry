@@ -16,6 +16,13 @@ class Config:
     exact totals with no timing. Disable to emit the query span alone.
     """
 
+    include_plan: bool = False
+    """Attach the full plan and its counters to the span as JSON.
+
+    Off by default: it is kilobytes per span and identical for every run of a
+    shape. Turn it on when you want the topology, which nothing else carries.
+    """
+
     redact_literals: bool = False
     """Mask literal values in plan expressions. Does not affect metric
     attributes, which never carry literals (see export.semconv)."""

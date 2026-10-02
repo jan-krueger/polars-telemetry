@@ -11,11 +11,21 @@ The span is named `polars.collect`.
 | Attribute | Type | Notes |
 | --- | --- | --- |
 | `polars.query_id` | str | UUIDv7 from polars; time-ordered |
+| `polars.plan.fingerprint` | str | Hash of the plan *shape* — see below |
 | `polars.engine` | str | Always `streaming` while monitoring is on |
 | `polars.cpu_ms` | float | Summed node self time; exceeds wall time when parallel |
 | `polars.parallelism` | float | `cpu_ms / wall_ms` |
+| `polars.parallel_efficiency` | float | `cpu_ms / wall_ms / cpu_count`, 0–1 |
+| `polars.cpu_count` | int | Cores visible to the process |
 | `polars.node_count` | int | Physical plan nodes |
 | `polars.result.rows` | int | Rows reaching the sink, when reported |
+
+### The fingerprint
+
+A hash of node kinds, topology and column identity — **not** literal values. So
+`amount > 10` and `amount > 90` produce the same fingerprint, while a different
+grouping column produces a different one. It is bounded by your code paths,
+which is what makes it safe as a metric dimension where `polars.query_id` is not.
 
 ### Hot node
 
@@ -26,6 +36,22 @@ The single most expensive node, which is usually the whole answer.
 | `polars.hot_node.kind` | str | e.g. `GroupBy`, `EquiJoin` |
 | `polars.hot_node.cpu_ms` | float | Its self time |
 | `polars.hot_node.share` | float | Fraction of total CPU, 0–1 |
+
+### Diagnostics
+
+Derived from counters already collected. Absent when the plan has no node of
+the relevant kind.
+
+| Attribute | Type | What it tells you |
+| --- | --- | --- |
+| `polars.filter.selectivity` | float | Rows surviving the filter, 0–1 |
+| `polars.filter.rows_dropped` | int | Rows removed before the rest of the plan |
+| `polars.join.amplification` | float | Rows out over probe-side rows in; above 1 is fan-out |
+| `polars.projection.efficiency` | float | Columns read over columns in the file |
+| `polars.morsel.skew` | float | Largest morsel over the mean; above 1 is uneven |
+| `polars.scan.predicate_pushed` | bool | True if **any** scan filters inside the scan |
+| `polars.scan.row_groups_skipped` | bool | Whether parquet row groups were skipped |
+| `polars.scan.has_statistics` | bool | Whether the optimiser had table statistics |
 
 ### Plan shape
 
@@ -40,28 +66,74 @@ The single most expensive node, which is usually the whole answer.
 | `polars.join.keys` | str[] | Left-hand join keys |
 | `polars.groupby.count` | int | Number of group-by nodes |
 | `polars.groupby.keys` | str[] | Grouping expressions |
+| `polars.sort.columns` | str[] | Sort expressions |
 
 These are read from the **IR plan**, which keeps your own column names. The
 physical plan rewrites group-by keys and aggregations to `_POLARS_TMP_N`, so
 reading them from there would be useless to a human.
 
+### Data quality
+
+| Attribute | Type | Notes |
+| --- | --- | --- |
+| `polars.metrics.complete` | bool | False when the closing snapshot caught unfinished nodes |
+| `polars.metrics.incomplete_nodes` | int | How many; only set when non-zero |
+
+When `polars.metrics.complete` is false, every counter below is a **floor**,
+not a total — polars called `close()` before the engine had finished flushing.
+
+### The full plan
+
+| Attribute | Type | Notes |
+| --- | --- | --- |
+| `polars.plan` | str | The whole plan and its counters as JSON |
+
+Off by default — it is kilobytes per span and identical for every run of a
+shape. Enable with `Config(include_plan=True)` when you want the topology,
+which nothing else carries. Contains both the physical and IR node lists with
+`id`, `kind` and `inputs`, plus every per-node counter.
+
 ## Metrics
+
+Query-level, dimensioned by `polars.plan.fingerprint` and `polars.engine`:
 
 | Instrument | Type | Unit |
 | --- | --- | --- |
 | `polars.query.duration` | histogram | ms |
-| `polars.node.cpu_time` | histogram | ms |
-| `polars.node.rows` | counter | rows |
+| `polars.query.cpu_time` | histogram | ms |
+| `polars.query.parallel_efficiency` | histogram | 1 |
 
-Dimensions are drawn from a closed set — `polars.node.kind` and
-`polars.engine`. Plan literals are **never** metric attributes: their values
-are unbounded and would destroy series cardinality.
+Node-level, dimensioned by `polars.node.kind` and `polars.engine`:
+
+| Instrument | Type | Unit |
+| --- | --- | --- |
+| `polars.node.cpu_time` | histogram | ms |
+| `polars.node.max_poll_time` | histogram | ms |
+| `polars.node.largest_morsel` | histogram | rows |
+| `polars.node.stolen_ratio` | histogram | 1 |
+| `polars.node.io_time` | histogram | ms |
+| `polars.node.rows_in` | counter | rows |
+| `polars.node.rows_out` | counter | rows |
+| `polars.node.morsels_in` | counter | morsels |
+| `polars.node.morsels_out` | counter | morsels |
+| `polars.node.polls` | counter | polls |
+| `polars.node.state_updates` | counter | updates |
+| `polars.node.io_bytes` | counter | bytes |
+
+`polars.node.io_bytes` carries one extra dimension, `polars.io.direction`, with
+values `requested`, `received` and `sent`.
+
+Every metric dimension is drawn from a bounded set — node kinds, io directions,
+engine, and the plan fingerprint. Plan literals are **never** metric
+attributes: their values are unbounded and would destroy series cardinality.
 
 ## Attributes that can carry your data
 
 !!! danger "These contain query content"
     `polars.scan.sources` · `polars.scan.predicates` · `polars.join.keys` ·
     `polars.groupby.keys`
+
+    `polars.plan` also contains plan detail, when enabled.
 
 A filter on `col("email") == "someone@example.com"` arrives verbatim. This is
 deliberate — knowing *which* predicate was slow is usually the point, and

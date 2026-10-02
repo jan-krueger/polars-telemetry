@@ -29,6 +29,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   uninstrumented runs so machine drift cancels.
 - Documentation site (MkDocs Material), built with `--strict` in CI, with a
   test asserting the attribute reference documents every declared attribute.
+- `polars.plan.fingerprint`: a hash of the plan *shape*, stable across
+  parameter values and bounded by the application's code paths, so it is safe
+  as a metric dimension where a query id is not.
+- Derived diagnostics on the span: parallel efficiency, filter selectivity,
+  join amplification, projection efficiency, morsel skew, predicate pushdown,
+  row-group skipping and table statistics.
+- `polars.metrics.complete`: false when the closing snapshot caught unfinished
+  nodes, meaning the counters are a floor rather than a total.
+- Every per-node counter is now exported. Previously 14 of 16 never left the
+  process; the set is now 14 instruments covering rows, morsels, polls,
+  work-stealing, poll latency, state updates and IO time and bytes.
+- `Config(include_plan=True)` attaches the full plan and its counters to the
+  span as JSON. Off by default.
 
 ### Removed
 - Interval sampling and per-node spans. polars exposes no per-node timestamps,

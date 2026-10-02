@@ -34,7 +34,7 @@ def test_every_attribute_is_documented(reference):
 
 
 def test_every_instrument_is_documented(reference):
-    for instrument in ("polars.query.duration", "polars.node.cpu_time", "polars.node.rows"):
+    for instrument in ("polars.query.duration", "polars.node.cpu_time", "polars.node.rows_in"):
         assert f"`{instrument}`" in reference, instrument
 
 

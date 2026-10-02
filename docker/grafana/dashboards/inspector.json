@@ -1,0 +1,172 @@
+{
+ "title": "polars query inspector (prototype)",
+ "uid": "polars-inspector",
+ "tags": [
+  "polars",
+  "prototype"
+ ],
+ "schemaVersion": 39,
+ "version": 1,
+ "time": {
+  "from": "now-1h",
+  "to": "now"
+ },
+ "templating": {
+  "list": [
+   {
+    "name": "query_id",
+    "type": "custom",
+    "label": "Query",
+    "query": "01a0fe13-ed9b-79c2-9945-974ebf6fa950",
+    "current": {
+     "text": "01a0fe13-ed9b-79c2-9945-974ebf6fa950",
+     "value": "01a0fe13-ed9b-79c2-9945-974ebf6fa950"
+    },
+    "options": [
+     {
+      "text": "01a0fe13-ed9b-79c2-9945-974ebf6fa950",
+      "value": "01a0fe13-ed9b-79c2-9945-974ebf6fa950",
+      "selected": true
+     }
+    ]
+   }
+  ]
+ },
+ "panels": [
+  {
+   "type": "text",
+   "title": "Selected run",
+   "gridPos": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 3
+   },
+   "options": {
+    "mode": "markdown",
+    "content": "**query** `01a0fe13-ed9b-79c2-9945-974ebf6fa950` &nbsp;\u00b7&nbsp; **wall** 98.5 ms &nbsp;\u00b7&nbsp; **cpu** 250.7 ms &nbsp;\u00b7&nbsp; **nodes** 14"
+   }
+  },
+  {
+   "type": "nodeGraph",
+   "title": "Physical plan \u2014 ring and size show share of CPU",
+   "gridPos": {
+    "x": 0,
+    "y": 3,
+    "w": 24,
+    "h": 19
+   },
+   "datasource": {
+    "type": "yesoreyeram-infinity-datasource",
+    "uid": "infinity"
+   },
+   "targets": [
+    {
+     "refId": "nodes",
+     "datasource": {
+      "type": "yesoreyeram-infinity-datasource",
+      "uid": "infinity"
+     },
+     "type": "json",
+     "source": "inline",
+     "parser": "backend",
+     "data": "{\"query_id\": \"01a0fe13-ed9b-79c2-9945-974ebf6fa950\", \"wall_ms\": 98.5, \"cpu_ms\": 250.7, \"nodes\": [{\"id\": \"4294967310\", \"title\": \"InMemorySink\", \"subtitle\": \"0.0 ms\", \"mainstat\": 0.02, \"secondarystat\": 0, \"arc__cpu\": 0.0001, \"arc__rest\": 0.9999, \"detail__rows_in\": 8, \"detail__rows_out\": 0, \"detail__morsels\": 0, \"detail__share\": \"0.0%\"}, {\"id\": \"4294967309\", \"title\": \"Sort\", \"subtitle\": \"0.3 ms\", \"mainstat\": 0.33, \"secondarystat\": 8, \"arc__cpu\": 0.0013, \"arc__rest\": 0.9987, \"detail__rows_in\": 8, \"detail__rows_out\": 8, \"detail__morsels\": 8, \"detail__share\": \"0.1%\"}, {\"id\": \"4294967308\", \"title\": \"SimpleProjection\", \"subtitle\": \"0.0 ms\", \"mainstat\": 0.03, \"secondarystat\": 8, \"arc__cpu\": 0.0001, \"arc__rest\": 0.9999, \"detail__rows_in\": 8, \"detail__rows_out\": 8, \"detail__morsels\": 9, \"detail__share\": \"0.0%\"}, {\"id\": \"4294967307\", \"title\": \"GroupBy\", \"subtitle\": \"221.6 ms\", \"mainstat\": 221.62, \"secondarystat\": 8, \"arc__cpu\": 0.884, \"arc__rest\": 0.116, \"detail__rows_in\": 2350512, \"detail__rows_out\": 8, \"detail__morsels\": 9, \"detail__share\": \"88.4%\"}, {\"id\": \"4294967306\", \"title\": \"SimpleProjection\", \"subtitle\": \"0.2 ms\", \"mainstat\": 0.2, \"secondarystat\": 2350512, \"arc__cpu\": 0.0008, \"arc__rest\": 0.9992, \"detail__rows_in\": 2350512, \"detail__rows_out\": 2350512, \"detail__morsels\": 35, \"detail__share\": \"0.1%\"}, {\"id\": \"4294967305\", \"title\": \"SimpleProjection\", \"subtitle\": \"0.3 ms\", \"mainstat\": 0.33, \"secondarystat\": 2350512, \"arc__cpu\": 0.0013, \"arc__rest\": 0.9987, \"detail__rows_in\": 2350512, \"detail__rows_out\": 2350512, \"detail__morsels\": 35, \"detail__share\": \"0.1%\"}, {\"id\": \"4294967304\", \"title\": \"Select\", \"subtitle\": \"23.5 ms\", \"mainstat\": 23.45, \"secondarystat\": 2350512, \"arc__cpu\": 0.0935, \"arc__rest\": 0.9065, \"detail__rows_in\": 2350512, \"detail__rows_out\": 2350512, \"detail__morsels\": 35, \"detail__share\": \"9.4%\"}, {\"id\": \"4294967303\", \"title\": \"SimpleProjection\", \"subtitle\": \"0.3 ms\", \"mainstat\": 0.27, \"secondarystat\": 2350512, \"arc__cpu\": 0.0011, \"arc__rest\": 0.9989, \"detail__rows_in\": 2350512, \"detail__rows_out\": 2350512, \"detail__morsels\": 35, \"detail__share\": \"0.1%\"}, {\"id\": \"4294967302\", \"title\": \"EquiJoin\", \"subtitle\": \"0.6 ms\", \"mainstat\": 0.63, \"secondarystat\": 2350512, \"arc__cpu\": 0.0025, \"arc__rest\": 0.9975, \"detail__rows_in\": 2350520, \"detail__rows_out\": 2350512, \"detail__morsels\": 35, \"detail__share\": \"0.3%\"}, {\"id\": \"4294967300\", \"title\": \"SimpleProjection\", \"subtitle\": \"0.3 ms\", \"mainstat\": 0.27, \"secondarystat\": 2350512, \"arc__cpu\": 0.0011, \"arc__rest\": 0.9989, \"detail__rows_in\": 2350512, \"detail__rows_out\": 2350512, \"detail__morsels\": 35, \"detail__share\": \"0.1%\"}, {\"id\": \"4294967301\", \"title\": \"InMemorySource\", \"subtitle\": \"0.1 ms\", \"mainstat\": 0.1, \"secondarystat\": 8, \"arc__cpu\": 0.0004, \"arc__rest\": 0.9996, \"detail__rows_in\": 0, \"detail__rows_out\": 8, \"detail__morsels\": 8, \"detail__share\": \"0.0%\"}, {\"id\": \"4294967299\", \"title\": \"EquiJoin\", \"subtitle\": \"3.1 ms\", \"mainstat\": 3.14, \"secondarystat\": 2350512, \"arc__cpu\": 0.0125, \"arc__rest\": 0.9875, \"detail__rows_in\": 2355512, \"detail__rows_out\": 2350512, \"detail__morsels\": 35, \"detail__share\": \"1.3%\"}, {\"id\": \"4294967297\", \"title\": \"MultiScan\", \"subtitle\": \"0.3 ms\", \"mainstat\": 0.28, \"secondarystat\": 2350512, \"arc__cpu\": 0.0011, \"arc__rest\": 0.9989, \"detail__rows_in\": 0, \"detail__rows_out\": 2350512, \"detail__morsels\": 35, \"detail__share\": \"0.1%\"}, {\"id\": \"4294967298\", \"title\": \"InMemorySource\", \"subtitle\": \"0.0 ms\", \"mainstat\": 0.03, \"secondarystat\": 5000, \"arc__cpu\": 0.0001, \"arc__rest\": 0.9999, \"detail__rows_in\": 0, \"detail__rows_out\": 5000, \"detail__morsels\": 12, \"detail__share\": \"0.0%\"}], \"edges\": [{\"id\": \"4294967309-4294967310\", \"source\": \"4294967309\", \"target\": \"4294967310\", \"mainstat\": 8}, {\"id\": \"4294967308-4294967309\", \"source\": \"4294967308\", \"target\": \"4294967309\", \"mainstat\": 8}, {\"id\": \"4294967307-4294967308\", \"source\": \"4294967307\", \"target\": \"4294967308\", \"mainstat\": 8}, {\"id\": \"4294967306-4294967307\", \"source\": \"4294967306\", \"target\": \"4294967307\", \"mainstat\": 2350512}, {\"id\": \"4294967305-4294967306\", \"source\": \"4294967305\", \"target\": \"4294967306\", \"mainstat\": 2350512}, {\"id\": \"4294967304-4294967305\", \"source\": \"4294967304\", \"target\": \"4294967305\", \"mainstat\": 2350512}, {\"id\": \"4294967303-4294967304\", \"source\": \"4294967303\", \"target\": \"4294967304\", \"mainstat\": 2350512}, {\"id\": \"4294967302-4294967303\", \"source\": \"4294967302\", \"target\": \"4294967303\", \"mainstat\": 2350512}, {\"id\": \"4294967300-4294967302\", \"source\": \"4294967300\", \"target\": \"4294967302\", \"mainstat\": 2350512}, {\"id\": \"4294967301-4294967302\", \"source\": \"4294967301\", \"target\": \"4294967302\", \"mainstat\": 8}, {\"id\": \"4294967299-4294967300\", \"source\": \"4294967299\", \"target\": \"4294967300\", \"mainstat\": 2350512}, {\"id\": \"4294967297-4294967299\", \"source\": \"4294967297\", \"target\": \"4294967299\", \"mainstat\": 2350512}, {\"id\": \"4294967298-4294967299\", \"source\": \"4294967298\", \"target\": \"4294967299\", \"mainstat\": 5000}]}",
+     "root_selector": "nodes",
+     "format": "table",
+     "columns": [
+      {
+       "selector": "id",
+       "text": "id",
+       "type": "string"
+      },
+      {
+       "selector": "title",
+       "text": "title",
+       "type": "string"
+      },
+      {
+       "selector": "subtitle",
+       "text": "subtitle",
+       "type": "string"
+      },
+      {
+       "selector": "mainstat",
+       "text": "mainstat",
+       "type": "number"
+      },
+      {
+       "selector": "secondarystat",
+       "text": "secondarystat",
+       "type": "number"
+      },
+      {
+       "selector": "arc__cpu",
+       "text": "arc__cpu",
+       "type": "number"
+      },
+      {
+       "selector": "arc__rest",
+       "text": "arc__rest",
+       "type": "number"
+      },
+      {
+       "selector": "detail__rows_in",
+       "text": "detail__rows_in",
+       "type": "number"
+      },
+      {
+       "selector": "detail__rows_out",
+       "text": "detail__rows_out",
+       "type": "number"
+      },
+      {
+       "selector": "detail__share",
+       "text": "detail__share",
+       "type": "string"
+      }
+     ]
+    },
+    {
+     "refId": "edges",
+     "datasource": {
+      "type": "yesoreyeram-infinity-datasource",
+      "uid": "infinity"
+     },
+     "type": "json",
+     "source": "inline",
+     "parser": "backend",
+     "data": "{\"query_id\": \"01a0fe13-ed9b-79c2-9945-974ebf6fa950\", \"wall_ms\": 98.5, \"cpu_ms\": 250.7, \"nodes\": [{\"id\": \"4294967310\", \"title\": \"InMemorySink\", \"subtitle\": \"0.0 ms\", \"mainstat\": 0.02, \"secondarystat\": 0, \"arc__cpu\": 0.0001, \"arc__rest\": 0.9999, \"detail__rows_in\": 8, \"detail__rows_out\": 0, \"detail__morsels\": 0, \"detail__share\": \"0.0%\"}, {\"id\": \"4294967309\", \"title\": \"Sort\", \"subtitle\": \"0.3 ms\", \"mainstat\": 0.33, \"secondarystat\": 8, \"arc__cpu\": 0.0013, \"arc__rest\": 0.9987, \"detail__rows_in\": 8, \"detail__rows_out\": 8, \"detail__morsels\": 8, \"detail__share\": \"0.1%\"}, {\"id\": \"4294967308\", \"title\": \"SimpleProjection\", \"subtitle\": \"0.0 ms\", \"mainstat\": 0.03, \"secondarystat\": 8, \"arc__cpu\": 0.0001, \"arc__rest\": 0.9999, \"detail__rows_in\": 8, \"detail__rows_out\": 8, \"detail__morsels\": 9, \"detail__share\": \"0.0%\"}, {\"id\": \"4294967307\", \"title\": \"GroupBy\", \"subtitle\": \"221.6 ms\", \"mainstat\": 221.62, \"secondarystat\": 8, \"arc__cpu\": 0.884, \"arc__rest\": 0.116, \"detail__rows_in\": 2350512, \"detail__rows_out\": 8, \"detail__morsels\": 9, \"detail__share\": \"88.4%\"}, {\"id\": \"4294967306\", \"title\": \"SimpleProjection\", \"subtitle\": \"0.2 ms\", \"mainstat\": 0.2, \"secondarystat\": 2350512, \"arc__cpu\": 0.0008, \"arc__rest\": 0.9992, \"detail__rows_in\": 2350512, \"detail__rows_out\": 2350512, \"detail__morsels\": 35, \"detail__share\": \"0.1%\"}, {\"id\": \"4294967305\", \"title\": \"SimpleProjection\", \"subtitle\": \"0.3 ms\", \"mainstat\": 0.33, \"secondarystat\": 2350512, \"arc__cpu\": 0.0013, \"arc__rest\": 0.9987, \"detail__rows_in\": 2350512, \"detail__rows_out\": 2350512, \"detail__morsels\": 35, \"detail__share\": \"0.1%\"}, {\"id\": \"4294967304\", \"title\": \"Select\", \"subtitle\": \"23.5 ms\", \"mainstat\": 23.45, \"secondarystat\": 2350512, \"arc__cpu\": 0.0935, \"arc__rest\": 0.9065, \"detail__rows_in\": 2350512, \"detail__rows_out\": 2350512, \"detail__morsels\": 35, \"detail__share\": \"9.4%\"}, {\"id\": \"4294967303\", \"title\": \"SimpleProjection\", \"subtitle\": \"0.3 ms\", \"mainstat\": 0.27, \"secondarystat\": 2350512, \"arc__cpu\": 0.0011, \"arc__rest\": 0.9989, \"detail__rows_in\": 2350512, \"detail__rows_out\": 2350512, \"detail__morsels\": 35, \"detail__share\": \"0.1%\"}, {\"id\": \"4294967302\", \"title\": \"EquiJoin\", \"subtitle\": \"0.6 ms\", \"mainstat\": 0.63, \"secondarystat\": 2350512, \"arc__cpu\": 0.0025, \"arc__rest\": 0.9975, \"detail__rows_in\": 2350520, \"detail__rows_out\": 2350512, \"detail__morsels\": 35, \"detail__share\": \"0.3%\"}, {\"id\": \"4294967300\", \"title\": \"SimpleProjection\", \"subtitle\": \"0.3 ms\", \"mainstat\": 0.27, \"secondarystat\": 2350512, \"arc__cpu\": 0.0011, \"arc__rest\": 0.9989, \"detail__rows_in\": 2350512, \"detail__rows_out\": 2350512, \"detail__morsels\": 35, \"detail__share\": \"0.1%\"}, {\"id\": \"4294967301\", \"title\": \"InMemorySource\", \"subtitle\": \"0.1 ms\", \"mainstat\": 0.1, \"secondarystat\": 8, \"arc__cpu\": 0.0004, \"arc__rest\": 0.9996, \"detail__rows_in\": 0, \"detail__rows_out\": 8, \"detail__morsels\": 8, \"detail__share\": \"0.0%\"}, {\"id\": \"4294967299\", \"title\": \"EquiJoin\", \"subtitle\": \"3.1 ms\", \"mainstat\": 3.14, \"secondarystat\": 2350512, \"arc__cpu\": 0.0125, \"arc__rest\": 0.9875, \"detail__rows_in\": 2355512, \"detail__rows_out\": 2350512, \"detail__morsels\": 35, \"detail__share\": \"1.3%\"}, {\"id\": \"4294967297\", \"title\": \"MultiScan\", \"subtitle\": \"0.3 ms\", \"mainstat\": 0.28, \"secondarystat\": 2350512, \"arc__cpu\": 0.0011, \"arc__rest\": 0.9989, \"detail__rows_in\": 0, \"detail__rows_out\": 2350512, \"detail__morsels\": 35, \"detail__share\": \"0.1%\"}, {\"id\": \"4294967298\", \"title\": \"InMemorySource\", \"subtitle\": \"0.0 ms\", \"mainstat\": 0.03, \"secondarystat\": 5000, \"arc__cpu\": 0.0001, \"arc__rest\": 0.9999, \"detail__rows_in\": 0, \"detail__rows_out\": 5000, \"detail__morsels\": 12, \"detail__share\": \"0.0%\"}], \"edges\": [{\"id\": \"4294967309-4294967310\", \"source\": \"4294967309\", \"target\": \"4294967310\", \"mainstat\": 8}, {\"id\": \"4294967308-4294967309\", \"source\": \"4294967308\", \"target\": \"4294967309\", \"mainstat\": 8}, {\"id\": \"4294967307-4294967308\", \"source\": \"4294967307\", \"target\": \"4294967308\", \"mainstat\": 8}, {\"id\": \"4294967306-4294967307\", \"source\": \"4294967306\", \"target\": \"4294967307\", \"mainstat\": 2350512}, {\"id\": \"4294967305-4294967306\", \"source\": \"4294967305\", \"target\": \"4294967306\", \"mainstat\": 2350512}, {\"id\": \"4294967304-4294967305\", \"source\": \"4294967304\", \"target\": \"4294967305\", \"mainstat\": 2350512}, {\"id\": \"4294967303-4294967304\", \"source\": \"4294967303\", \"target\": \"4294967304\", \"mainstat\": 2350512}, {\"id\": \"4294967302-4294967303\", \"source\": \"4294967302\", \"target\": \"4294967303\", \"mainstat\": 2350512}, {\"id\": \"4294967300-4294967302\", \"source\": \"4294967300\", \"target\": \"4294967302\", \"mainstat\": 2350512}, {\"id\": \"4294967301-4294967302\", \"source\": \"4294967301\", \"target\": \"4294967302\", \"mainstat\": 8}, {\"id\": \"4294967299-4294967300\", \"source\": \"4294967299\", \"target\": \"4294967300\", \"mainstat\": 2350512}, {\"id\": \"4294967297-4294967299\", \"source\": \"4294967297\", \"target\": \"4294967299\", \"mainstat\": 2350512}, {\"id\": \"4294967298-4294967299\", \"source\": \"4294967298\", \"target\": \"4294967299\", \"mainstat\": 5000}]}",
+     "root_selector": "edges",
+     "format": "table",
+     "columns": [
+      {
+       "selector": "id",
+       "text": "id",
+       "type": "string"
+      },
+      {
+       "selector": "source",
+       "text": "source",
+       "type": "string"
+      },
+      {
+       "selector": "target",
+       "text": "target",
+       "type": "string"
+      },
+      {
+       "selector": "mainstat",
+       "text": "mainstat",
+       "type": "number"
+      }
+     ]
+    }
+   ],
+   "options": {},
+   "fieldConfig": {
+    "defaults": {},
+    "overrides": []
+   }
+  }
+ ]
+}
