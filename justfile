@@ -34,10 +34,14 @@ lint:
 typecheck:
     uv run mypy
 
-docs:
+# Build the profile viewer into docs/viewer (generated; not committed).
+viewer:
+    cd viewer && npm ci && npm run build
+
+docs: viewer
     uv run --group docs mkdocs serve
 
-docs-build:
+docs-build: viewer
     uv run --group docs mkdocs build --strict
 
 matrix:
