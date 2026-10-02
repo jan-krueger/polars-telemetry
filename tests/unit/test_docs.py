@@ -29,9 +29,7 @@ def reference() -> str:
 
 
 def test_every_attribute_is_documented(reference):
-    missing = sorted(
-        value for value in _declared_names().values() if f"`{value}`" not in reference
-    )
+    missing = sorted(value for value in _declared_names().values() if f"`{value}`" not in reference)
     assert missing == [], f"undocumented in docs/attributes.md: {missing}"
 
 

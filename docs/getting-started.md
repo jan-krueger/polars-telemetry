@@ -68,6 +68,7 @@ provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter()))
 trace.set_tracer_provider(provider)
 
 import polars_telemetry
+
 polars_telemetry.install()
 ```
 
