@@ -57,7 +57,7 @@ METRICS_INCOMPLETE_NODES: Final = "polars.metrics.incomplete_nodes"
 """Nodes unfinished at the closing snapshot. Non-zero means counters are a floor."""
 
 NODE_KIND: Final = "polars.node.kind"
-IO_DIRECTION: Final = "polars.io.direction"
+DIRECTION: Final = "polars.direction"
 
 # May contain file paths, column names or literal values. Documented so that
 # exporting to a third-party backend is an informed choice.
@@ -68,7 +68,7 @@ CARRIES_USER_DATA: Final[frozenset[str]] = frozenset(
 # Metric attributes must come from a bounded set: plan literals are unbounded
 # and would blow up series cardinality.
 METRIC_DIMENSIONS: Final[frozenset[str]] = frozenset(
-    {NODE_KIND, ENGINE, PLAN_FINGERPRINT, IO_DIRECTION}
+    {NODE_KIND, ENGINE, PLAN_FINGERPRINT, DIRECTION}
 )
 """Every one is bounded: node kinds and io directions are closed sets, and a
 plan fingerprint is bounded by the application's code paths."""

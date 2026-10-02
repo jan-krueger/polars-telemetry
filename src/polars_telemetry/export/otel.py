@@ -116,10 +116,14 @@ class OTelExporter:
 
             self._histograms[semconv.NODE_CPU_TIME].record(metric.cpu_ms, dims)
             self._histograms[semconv.NODE_MAX_POLL_TIME].record(metric.max_poll_time_ns / 1e6, dims)
-            if metric.largest_morsel_received:
-                self._histograms[semconv.NODE_LARGEST_MORSEL].record(
-                    metric.largest_morsel_received, dims
-                )
+            for direction, largest in (
+                ("received", metric.largest_morsel_received),
+                ("sent", metric.largest_morsel_sent),
+            ):
+                if largest:
+                    self._histograms[semconv.NODE_LARGEST_MORSEL].record(
+                        largest, {**dims, semconv.DIRECTION: direction}
+                    )
             if metric.stolen_ratio is not None:
                 self._histograms[semconv.NODE_STOLEN_RATIO].record(metric.stolen_ratio, dims)
             if metric.io_total_active_ns:
@@ -139,5 +143,5 @@ class OTelExporter:
             ):
                 if value:
                     self._counters[semconv.NODE_IO_BYTES].add(
-                        value, {**dims, semconv.IO_DIRECTION: direction}
+                        value, {**dims, semconv.DIRECTION: direction}
                     )

@@ -120,8 +120,9 @@ Node-level, dimensioned by `polars.node.kind` and `polars.engine`:
 | `polars.node.state_updates` | counter | updates |
 | `polars.node.io_bytes` | counter | bytes |
 
-`polars.node.io_bytes` carries one extra dimension, `polars.io.direction`, with
-values `requested`, `received` and `sent`.
+`polars.node.io_bytes` and `polars.node.largest_morsel` carry one extra
+dimension, `polars.direction`. For bytes its values are `requested`,
+`received` and `sent`; for morsels, `received` and `sent`.
 
 Every metric dimension is drawn from a bounded set — node kinds, io directions,
 engine, and the plan fingerprint. Plan literals are **never** metric
