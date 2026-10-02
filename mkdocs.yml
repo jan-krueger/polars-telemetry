@@ -1,0 +1,35 @@
+site_name: polars-telemetry
+site_description: OpenTelemetry instrumentation for Polars query execution
+repo_url: https://github.com/jkrueger/polars-telemetry
+edit_uri: ""
+strict: true
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - content.code.copy
+    - toc.integrate
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: teal
+      toggle: { icon: material/weather-night, name: Dark mode }
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: teal
+      toggle: { icon: material/weather-sunny, name: Light mode }
+
+nav:
+  - Overview: index.md
+  - Getting started: getting-started.md
+  - Attribute reference: attributes.md
+  - How it works: how-it-works.md
+  - Compatibility: compatibility.md
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - tables
+  - toc: { permalink: true }

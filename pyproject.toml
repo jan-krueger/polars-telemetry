@@ -39,6 +39,7 @@ otlp = [
     "opentelemetry-exporter-otlp-proto-grpc>=1.20",
 ]
 
+
 [project.urls]
 Homepage = "https://github.com/jkrueger/polars-telemetry"
 Issues = "https://github.com/jkrueger/polars-telemetry/issues"
@@ -54,6 +55,10 @@ dev = [
     "msgpack-types>=0.5",
     "opentelemetry-sdk>=1.20",
     "opentelemetry-exporter-otlp-proto-grpc>=1.20",
+]
+
+docs = [
+    "mkdocs-material>=9.5",
 ]
 
 [tool.hatch.version]

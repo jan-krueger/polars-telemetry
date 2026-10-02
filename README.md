@@ -97,7 +97,8 @@ just matrix   # python x polars grid
 just canary   # live contract against newest polars
 ```
 
-See [docs/](docs/) for the architecture and the interface-risk program.
+`just docs` serves the documentation locally; `just docs-build` builds it the
+way CI does.
 
 ## License
 

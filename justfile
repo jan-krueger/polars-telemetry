@@ -24,6 +24,12 @@ lint:
 typecheck:
     uv run mypy
 
+docs:
+    uv run --group docs mkdocs serve
+
+docs-build:
+    uv run --group docs mkdocs build --strict
+
 matrix:
     uv run nox -s tests
 

@@ -27,6 +27,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `_POLARS_TMP_N`.
 - Overhead budget enforced in CI, measured by interleaving instrumented and
   uninstrumented runs so machine drift cancels.
+- Documentation site (MkDocs Material), built with `--strict` in CI, with a
+  test asserting the attribute reference documents every declared attribute.
 
 ### Removed
 - Interval sampling and per-node spans. polars exposes no per-node timestamps,

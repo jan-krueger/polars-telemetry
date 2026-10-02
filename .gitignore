@@ -18,6 +18,9 @@ htmlcov/
 # Data fixtures generated locally
 *.parquet
 
+# Docs build output
+site/
+
 # Editors / OS
 .idea/
 .vscode/
