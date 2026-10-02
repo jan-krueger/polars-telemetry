@@ -73,6 +73,16 @@ Where storage is unavailable — a private window, blocked site data, or the pag
 opened straight off disk with `file://` — the viewer keeps working for the
 current page only and says so, rather than pretending the data was kept.
 
+### Getting around a plan
+
+Both panes are [React Flow](https://reactflow.dev) canvases. Drag to pan,
+scroll or pinch to zoom, and use the minimap in the corner to see where you are
+in a plan too large to fit. The buttons beside it zoom and re-fit.
+
+Nodes are laid out with dagre, sources at the bottom and the sink at the top.
+A 90-node plan is not legible at fit-to-pane zoom: zoom in, or click a node and
+read it in the rail.
+
 ### What it shows
 
 - **Session overview**: query shapes ranked by total wall time, so the first
