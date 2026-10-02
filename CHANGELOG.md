@@ -4,7 +4,7 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.1.0] - 2026-10-03
 
 ### Added
 - Repository scaffold: packaging, tooling, Docker development stack and CI.
@@ -37,9 +37,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   row-group skipping and table statistics.
 - `polars.metrics.complete`: false when the closing snapshot caught unfinished
   nodes, meaning the counters are a floor rather than a total.
-- Every per-node counter is now exported. Previously 14 of 16 never left the
-  process; the set is now 14 instruments covering rows, morsels, polls,
-  work-stealing, poll latency, state updates and IO time and bytes.
+- Every per-node field polars reports is exported, as 15 node instruments
+  covering rows, morsels, polls, work-stealing, poll latency, state updates,
+  and IO time and bytes. `largest_morsel` and `io_bytes` carry a `direction`
+  dimension rather than one instrument per direction; stolen polls are exported
+  as a ratio of total polls, and the per-node completion flag rides on the
+  span as `polars.metrics.complete`.
 - `Config(include_plan=True)` attaches the full plan and its counters to the
   span as JSON. Off by default.
 - `FileExporter`: writes one self-contained profile per query to a JSON Lines
@@ -49,10 +52,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - A client-side profile viewer shipped with the docs site. Loads a session file
   in the browser with no upload, groups runs by fingerprint, renders both plans
   with per-node counters, and compares two runs of the same shape.
+- `ConsoleExporter`: human-readable output for debugging without OTel wiring.
 
-### Removed
-- Interval sampling and per-node spans. polars exposes no per-node timestamps,
-  so node intervals had to be sampled; measured at 5-15% overhead while
-  collapsing most nodes onto identical windows. The same counters read once at
-  query end are exact and cost nothing measurable.
-- Console exporter for debugging without OTel wiring.
+### Notes
+- There are no per-node spans. polars exposes no per-node timestamps, so a node
+  interval can only be sampled; sampling measured at 5-15% of query wall time
+  and collapsed most nodes onto identical windows. The same counters read once
+  at query end are exact and cost nothing measurable.
+
+[0.1.0]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.1.0
