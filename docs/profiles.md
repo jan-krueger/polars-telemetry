@@ -54,6 +54,8 @@ back to the trace for the same query.
 **Nothing is uploaded.** The page does no network I/O; files are read in the
 browser.
 
+![Both plans, per-node counters and diagnostics for one query](assets/viewer.png)
+
 ### Sessions
 
 Each imported file becomes a session stored in the browser with IndexedDB, so
