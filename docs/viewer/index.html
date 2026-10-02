@@ -101,6 +101,18 @@
   .seg{display:flex;border:1px solid var(--border);border-radius:6px;overflow:hidden}
   .seg button{background:var(--surface);border:0;padding:4px 12px;font-size:12px;cursor:pointer}
   .seg button[aria-pressed="true"]{background:var(--accent);color:#fff}
+  .qhead{margin-bottom:12px}
+  .qline{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+  .qname{font:600 15px system-ui;letter-spacing:-.012em}
+  .qmeta{font:11px ui-monospace,monospace;color:var(--muted)}
+  .qstats{font-size:12.5px;color:var(--muted);margin-top:2px;font-variant-numeric:tabular-nums}
+  .qstats b{color:var(--ink);font-weight:600}
+  .qstats .dl{font-size:11px;font-variant-numeric:tabular-nums}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
+  .chipd{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);
+    border-radius:999px;padding:3px 10px;font-size:12px;cursor:help;background:var(--surface)}
+  .chipd b{font-variant-numeric:tabular-nums;font-weight:600}
+  .chipd .lb{color:var(--muted)}
   .plans{display:grid;grid-template-columns:1fr 1fr;gap:12px}
   @media (max-width:1250px){ .plans{grid-template-columns:1fr} }
   .planbox{border:1px solid var(--border);border-radius:7px;background:var(--surface);
@@ -109,7 +121,7 @@
     display:flex;align-items:center;gap:8px}
   .planbox .ph .nm{font:600 11.5px system-ui}
   .planbox .ph .sub{font-size:10.5px;color:var(--muted);margin-left:auto}
-  .planbox .body{overflow:auto;max-height:58vh;padding:10px}
+  .planbox .body{overflow:auto;max-height:70vh;padding:10px}
   .edge.logical{stroke-dasharray:4 3;stroke:var(--axis)}
   svg.dag{display:block;margin:0 auto;height:auto}
   .nd{cursor:pointer}
@@ -498,24 +510,41 @@ function renderDetail(){
     return `<div class="d ${worse?"delta-up":"delta-down"}">${diff>0?"+":""}${num(pct,1)}%</div>`;
   };
 
+  const dl=(a,b,invert)=>{
+    if(b==null) return "";
+    const pct=b?(a-b)/b*100:0;
+    if(Math.abs(pct)<0.5) return ` <span class="dl" style="color:var(--muted)">=</span>`;
+    const worse = invert ? pct<0 : pct>0;
+    return ` <span class="dl ${worse?"delta-up":"delta-down"}">${pct>0?"+":""}${num(pct,0)}%</span>`;
+  };
+  const chips=diagnostics(p).map(d=>{
+    const tip=d.k&&GLOSSARY[d.k] ? `${GLOSSARY[d.k][0]}|${GLOSSARY[d.k][1]} — here: ${d.n}.`
+                                 : `${d.t}|${d.n}.`;
+    return `<span class="chipd" tabindex="0" data-tip="${esc(tip)}">
+      <i class="dot" style="background:${C[d.s]}"></i><span class="lb">${d.t}</span>
+      <b>${d.v}${d.u}</b></span>`;
+  }).join("");
+
   document.getElementById("main").innerHTML=`
-    <h2>${p.fingerprint} · ${new Date(p.started_unix_ns/1e6).toLocaleTimeString()}</h2>
-    <div style="font-size:15px;font-weight:600;margin:-4px 0 12px">${shapeName(p)}</div>
-    ${peers.length?`<div class="planbar"><span style="font-size:12px;color:var(--muted)">Compare with</span>
-      <select class="sel" id="cmp"><option value="">— none —</option>
-      ${peers.map(([q,i])=>`<option value="${i}" ${i===compareWith?"selected":""}>
-        ${new Date(q.started_unix_ns/1e6).toLocaleTimeString()} · ${ms(q.wall_ms)}</option>`).join("")}
-      </select></div>`:""}
-    <div class="tiles">
-      ${tile("wall",num(p.wall_ms,1),"ms",dlt(p.wall_ms,cmp?.wall_ms,"ms"))}
-      ${tile("cpu",num(p.cpu_ms,1),"ms",dlt(p.cpu_ms,cmp?.cpu_ms,"ms"))}
-      ${tile("nodes",p.plan.physical.length,"")}
-      ${tile("rows out",num(p.result_rows??0),"")}
-      ${tile("polars",p.polars_version,"")}
+    <div class="qhead">
+      <div class="qline">
+        <span class="qname">${esc(shapeName(p))}</span>
+        <span class="qmeta">${p.fingerprint} · ${new Date(p.started_unix_ns/1e6).toLocaleTimeString()}</span>
+        ${peers.length?`<select class="sel" id="cmp" style="margin-left:auto">
+          <option value="">compare with…</option>
+          ${peers.map(([q,i])=>`<option value="${i}" ${i===compareWith?"selected":""}>
+            ${new Date(q.started_unix_ns/1e6).toLocaleTimeString()} · ${ms(q.wall_ms)}</option>`).join("")}
+        </select>`:""}
+      </div>
+      <div class="qstats">
+        <b>${num(p.wall_ms,1)} ms</b> wall${dl(p.wall_ms,cmp?.wall_ms)} ·
+        <b>${num(p.cpu_ms,1)} ms</b> cpu${dl(p.cpu_ms,cmp?.cpu_ms)} ·
+        <b>${p.plan.physical.length}</b> nodes ·
+        <b>${num(p.result_rows??0)}</b> rows out ·
+        polars ${p.polars_version}
+      </div>
+      <div class="chips">${chips}</div>
     </div>
-    <div class="diags">${diagnostics(p).map(d=>`
-      <div class="diag"><div class="t"><i class="dot" style="background:${C[d.s]}"></i>${d.t}${d.k?help(d.k):""}</div>
-      <div class="v">${d.v}<span class="u">${d.u}</span></div><div class="n">${d.n}</div></div>`).join("")}</div>
     <div class="plans">
       <div class="planbox"><div class="ph"><span class="nm">Logical plan</span>
         <span class="sub">${p.plan.logical.length} nodes · your query as written</span></div>
