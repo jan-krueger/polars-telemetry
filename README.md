@@ -1,9 +1,10 @@
 # polars-telemetry
 
 OpenTelemetry instrumentation for [Polars](https://pola.rs) query execution.
-Emits one span per query carrying the plan, and per-node counters as metrics —
-to any OTLP collector. Or write a profile per query to a file and read it in
-the browser, with no collector at all.
+
+One span per query carrying the plan, and per-node counters as metrics, to any
+OTLP collector — or a profile file you open in your browser, with no collector
+at all.
 
 > [!IMPORTANT]
 > **Unaffiliated with Polars and Polars Cloud.** This package attaches to an
@@ -14,17 +15,14 @@ the browser, with no collector at all.
 > Supported polars: **1.44.1 – 1.44.x**. On anything else the package degrades
 > to reduced telemetry with a warning; it will not break your queries.
 
-## Status
-
-First release. The polars interface this attaches to is internal, so treat the
-support window in the note above as the real constraint.
-
 ## Install
 
 ```bash
 pip install polars-telemetry          # API only; bring your own OTel SDK
 pip install 'polars-telemetry[otlp]'  # with SDK and OTLP exporter
 ```
+
+Python 3.10+.
 
 ## Use
 
@@ -34,47 +32,28 @@ import polars_telemetry
 polars_telemetry.install()
 ```
 
-Activation is explicit and never happens on import: enabling monitoring sets
-polars' engine affinity to `"streaming"`, which changes how your queries
-execute.
-
-```python
-from polars_telemetry import Config
-
-polars_telemetry.install(Config(node_metrics=False))  # query span only
-```
+`install()` enables polars' query monitoring, which sets the engine affinity to
+`"streaming"` and therefore changes how your queries execute — so it never
+happens on import. `uninstall()` reverses it.
 
 ## What you get
 
-One span per query, attached to whatever trace context the caller had active,
-carrying the plan: scan sources and pushed-down predicates, join types and
-keys, group-by keys, result rows, CPU time, parallelism, and the single
-hottest node with its share of total CPU.
+A `polars.collect` span per query, on whatever trace context was active:
 
-Per-node counters — self time, rows, morsels, polls, work-stealing ratio, IO
-bytes — are emitted as OpenTelemetry **metrics**, dimensioned by node kind.
+- the plan — scan sources, pushed-down predicates, join types and keys,
+  group-by keys
+- `polars.cpu_ms`, `polars.parallelism`, result rows
+- the hottest node and its share of total CPU
+- diagnostics — parallel efficiency, filter selectivity, join amplification,
+  projection efficiency, morsel skew, predicate pushdown, row-group skipping
 
-### Why there are no per-node spans
+Per-node counters — rows, morsels, polls, work-stealing, poll latency, state
+updates, IO time and bytes — as 15 metric instruments dimensioned by node kind.
 
-polars reports cumulative counters and no per-node timestamps, so a node
-interval can only be *sampled*. We built that, measured it, and removed it:
-
-- polling cost 5–15% of query wall time at useful intervals,
-- and on a 48 ms query, 8 of 11 nodes collapsed onto two identical windows —
-  the "timeline" was mostly sampling quantisation.
-
-Read once when the query ends, the same counters are **exact** and cost nothing
-measurable. If polars ever exposes per-node timestamps, node spans become
-exact and cheap, and they go back in.
-
-Overhead on a 3M-row join-and-aggregate, interleaved against an uninstrumented
-baseline on the same engine: within measurement noise.
+Every name is listed in the
+[attribute reference](https://jan-krueger.github.io/polars-telemetry/attributes/).
 
 ## Profiles without a collector
-
-A profile is one self-contained JSON document per query: both plans with every
-node property, all 19 per-node counters, the derived diagnostics, and a
-fingerprint of the plan shape.
 
 ```python
 from polars_telemetry.export.file import FileExporter
@@ -82,44 +61,52 @@ from polars_telemetry.export.file import FileExporter
 polars_telemetry.install(exporter=FileExporter("profiles/session.jsonl"))
 ```
 
-Drop the resulting file on the
-[profile viewer](https://jan-krueger.github.io/polars-telemetry/viewer/). It
-runs entirely in the browser — nothing is uploaded — and renders both plans,
-per-node counters, and a diff between two runs of the same shape.
+One self-contained JSON document per query: both plans with every node
+property, all 19 per-node counters, the diagnostics, and a fingerprint of the
+plan shape.
 
-## Data in your telemetry
+Drop the file on the
+[profile viewer](https://jan-krueger.github.io/polars-telemetry/viewer/) to read
+both plans, per-node counters, and a diff between two runs of the same shape.
+It runs entirely in your browser; nothing is uploaded.
 
-Spans include plan detail: scan paths, column names, join keys and **literal
-predicate values** — `col("email") == "..."` arrives verbatim. This is
-deliberate; knowing which predicate was slow is usually the point.
+## Configure
 
-- `Config(redact_literals=True)` masks literal values if you export to a
-  backend you do not control.
-- Literals are never used as metric attributes, regardless of that setting —
-  unbounded values would destroy metric cardinality.
+```python
+from polars_telemetry import Config
 
-Attributes that can carry user data are listed in
-`polars_telemetry.export.semconv.CARRIES_USER_DATA`.
+polars_telemetry.install(Config(node_metrics=False))
+```
+
+| Option | Default | Effect |
+| --- | --- | --- |
+| `node_metrics` | `True` | Read per-node counters once at query end |
+| `include_plan` | `False` | Attach the full plan to the span as JSON |
+| `redact_literals` | `False` | Mask literal values in plan expressions |
+| `resource_attributes` | `{}` | Extra resource attributes |
+
+## Your data
+
+Spans carry plan detail: scan paths, column names, join keys and **literal
+predicate values** — `col("email") == "..."` arrives verbatim, because knowing
+which predicate was slow is usually the point.
+
+- `Config(redact_literals=True)` masks literal values.
+- Literals are never used as metric attributes, at any setting.
+- Attributes that can carry user data are listed in
+  `polars_telemetry.export.semconv.CARRIES_USER_DATA`.
 
 ## Polars Cloud
 
 If `polars-cloud` is installed, its observer is wrapped and forwarded to rather
 than replaced. Both work at once.
 
-## Development
+## Links
 
-```bash
-uv sync
-just dev      # collector, Jaeger, Prometheus, Grafana + a sample workload
-just urls     # where to look
-just test
-just matrix   # python x polars grid
-just canary   # live contract against newest polars
-```
-
-`just docs` serves the documentation locally; `just docs-build` builds it the
-way CI does.
+- [Documentation](https://jan-krueger.github.io/polars-telemetry/)
+- [Contributing](https://github.com/jan-krueger/polars-telemetry/blob/main/CONTRIBUTING.md) — development, testing, releasing
+- [Changelog](https://github.com/jan-krueger/polars-telemetry/blob/main/CHANGELOG.md)
 
 ## License
 
-Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
+Apache-2.0. See [LICENSE](https://github.com/jan-krueger/polars-telemetry/blob/main/LICENSE) and [NOTICE](https://github.com/jan-krueger/polars-telemetry/blob/main/NOTICE).

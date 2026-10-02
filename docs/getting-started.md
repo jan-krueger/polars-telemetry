@@ -19,11 +19,9 @@ polars_telemetry.install()
 
 !!! note "Activation is always explicit"
     `install()` enables polars' query monitoring, which sets the engine
-    affinity to `"streaming"` — it changes how your queries execute. That is
-    not a side effect an import may have, so there is no auto-activation.
-
-    Disabling monitoring does not restore the previous affinity; polars exposes
-    no way to read it back.
+    affinity to `"streaming"` and therefore changes how your queries execute —
+    so it never happens on import. `uninstall()` does not restore the previous
+    affinity; polars exposes no way to read it back.
 
 `install()` is idempotent and returns the installation, including what the
 capability probe found:
@@ -36,8 +34,6 @@ else:
     print(state.capabilities.polars_version, state.capabilities.node_metrics_usable)
 ```
 
-`uninstall()` reverses it.
-
 ## Configure
 
 ```python
@@ -49,13 +45,14 @@ polars_telemetry.install(Config(node_metrics=False))
 | Option | Default | Effect |
 | --- | --- | --- |
 | `node_metrics` | `True` | Read per-node counters once at query end |
+| `include_plan` | `False` | Attach the full plan to the span as JSON |
 | `redact_literals` | `False` | Mask literal values in plan expressions |
 | `resource_attributes` | `{}` | Extra resource attributes |
 
 ## Send it somewhere
 
-The package depends on the OpenTelemetry **API** only; the application owns the
-SDK and decides where spans go. A minimal setup:
+The package depends on the OpenTelemetry **API** only; your application owns
+the SDK and decides where spans go.
 
 ```python
 from opentelemetry import trace
@@ -87,8 +84,8 @@ polars query 01a0fd9a ok wall=48.1ms cpu=235.3ms parallelism=4.90x nodes=11 rows
   EquiJoin              0.73ms  in=   3,135,012  out=   3,134,012
 ```
 
-## Using Polars Cloud too
+## Polars Cloud
 
 If `polars-cloud` is installed, its observer is wrapped and forwarded to rather
-than replaced — both work at once. Note that enabling monitoring calls
+than replaced — both work at once. Enabling monitoring calls
 `polars_cloud.authenticate()`, which is their function and may prompt a login.

@@ -2,33 +2,28 @@
 
 A profile is one self-contained JSON document describing a single query: both
 plans with every node property, all 19 counters per node, the derived
-diagnostics, and the fingerprint that identifies the query *shape*.
+diagnostics, and a fingerprint identifying the query *shape*.
 
 ```python
 from polars_telemetry.export.file import FileExporter
 
-exporter = FileExporter("profiles/session.jsonl")
-polars_telemetry.install(exporter=exporter)
+polars_telemetry.install(exporter=FileExporter("profiles/session.jsonl"))
 ```
 
 ## The session file
 
-One JSON object per line, appended as queries complete. A session rather than a
-file per query, because comparing runs is the point — the viewer groups runs by
-fingerprint so "the same query, before and after" is a two-click comparison.
-
-Each line stands alone, so a truncated file still parses up to the cut.
+One JSON object per line, appended as queries complete, so a truncated file
+still parses up to the cut. Profiles run around 10 KB on a plan of a dozen
+nodes.
 
 | Option | Default | Effect |
 | --- | --- | --- |
 | `max_bytes` | 64 MiB | Rotate to `<name>.1` past this size |
 | `redact_literals` | `False` | Mask literal values in plan expressions |
 
-The size bound holds **between** records, never within one: a profile is never
+The size bound holds *between* records, never within one: a profile is never
 split or dropped, so the active file can exceed `max_bytes` by up to one
-record. Profiles run around 10 KB on a plan of a dozen nodes.
-
-A write failure is logged once and never reaches your query.
+record. A write failure is logged once and never reaches your query.
 
 ## What is in a profile
 
@@ -45,65 +40,52 @@ A write failure is logged once and never reaches your query.
 }
 ```
 
-Two version numbers, because there are two sources of change: this schema, and
-polars' own counter set. A file written today must still open after polars adds
-a twentieth counter.
+Both version numbers are recorded, because the schema and polars' own counter
+set change independently.
 
-`trace_id` and `span_id` are present when a span was active, so a profile can be
-linked back to the trace for the same query.
+`trace_id` and `span_id` are present when a span was active, linking a profile
+back to the trace for the same query.
 
 ## The viewer
 
-[Open the viewer](viewer/index.html). It starts empty. Drag one or more
+[Open the viewer](viewer/index.html). It starts empty: drag one or more
 `.jsonl` files onto the page, or use **Open .jsonl**.
 
 **Nothing is uploaded.** The page does no network I/O; files are read in the
-browser. That is why profiles keep plan literals at full fidelity by default
-while the span-side export offers redaction — a profile never leaves the
-machine unless you send it.
+browser.
 
-### Sessions are kept
+### Sessions
 
-Each imported file becomes a session, stored in the browser with IndexedDB, so
+Each imported file becomes a session stored in the browser with IndexedDB, so
 it survives a reload. The rail lists every session with its size and import
-date; `×` removes one and **Clear all** removes the lot. Nothing is written
-anywhere else.
+date; `×` removes one and **Clear all** removes the lot.
 
 Where storage is unavailable — a private window, blocked site data, or the page
-opened straight off disk with `file://` — the viewer keeps working for the
-current page only and says so, rather than pretending the data was kept.
+opened from disk with `file://` — the viewer keeps working for the current page
+only and says so.
 
-### Getting around a plan
+### Reading a plan
 
-Both panes are [React Flow](https://reactflow.dev) canvases. Drag to pan,
-scroll or pinch to zoom, and use the minimap in the corner to see where you are
-in a plan too large to fit. The buttons beside it zoom and re-fit.
+Both panes are [React Flow](https://reactflow.dev) canvases: drag to pan,
+scroll or pinch to zoom, and the minimap shows where you are in a plan too
+large to fit. Nodes are laid out with dagre, sources at the bottom and the sink
+at the top.
 
-Nodes are laid out with dagre, sources at the bottom and the sink at the top.
 A 90-node plan is not legible at fit-to-pane zoom: zoom in, or click a node and
 read it in the rail.
 
 ### What it shows
 
-- **Session overview**: query shapes ranked by total wall time, so the first
-  thing you see is which shape costs most.
-- **Query detail**: tiles, the diagnostics, and both plans side by side. The
-  logical plan is drawn as an outline — it has no counters, and a filled node
-  would imply a cost it does not have — and carries your own column names. The
-  physical plan is filled by share of CPU, with row counts on the edges and a
-  completion dot per node, but renames columns to `_POLARS_TMP_N`. Reading them
-  together is the point: names on the left, costs on the right.
+- **Session overview**: query shapes ranked by total wall time.
+- **Query detail**: tiles, diagnostics, and both plans side by side. The
+  logical plan is an outline and carries your own column names; the physical
+  plan is filled by share of CPU, with row counts on the edges and a completion
+  dot per node, but renames columns to `_POLARS_TMP_N`.
 
     polars gives the two plans separate node identities and no mapping between
     them, so selecting a node in one does not highlight its counterpart in the
     other.
 - **Node details**: the node's properties as typed fields, then every counter
-  for the selected node with polars' own completion flag. Each counter carries
-  a `?` explaining what it measures — most are specific to the streaming engine
-  and are not guessable from the name.
+  for the selected node. Each carries a `?` explaining what it measures.
 - **Compare**: when a shape ran more than once, pick another run and the tiles
   and every counter gain a percentage delta.
-
-Because a profile is one small file, it travels: attach it to a bug report,
-commit it next to a regression test, or send it to someone who can read the
-plan without needing access to your telemetry backend.

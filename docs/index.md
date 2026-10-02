@@ -1,8 +1,9 @@
 # polars-telemetry
 
 OpenTelemetry instrumentation for [Polars](https://pola.rs) query execution.
-One span per query, carrying the plan; per-node counters as metrics; exported
-to any OTLP collector.
+One span per query carrying the plan, per-node counters as metrics, to any OTLP
+collector — or a profile file you open in your browser, with no collector at
+all.
 
 !!! warning "Unaffiliated with Polars and Polars Cloud"
     This package attaches to an interface polars exposes for its own cloud
@@ -10,31 +11,44 @@ to any OTLP collector.
     so it can change or disappear in any polars release. See
     [Compatibility](compatibility.md) for what happens when it does.
 
+```bash
+pip install 'polars-telemetry[otlp]'
+```
+
+```python
+import polars_telemetry
+
+polars_telemetry.install()
+```
+
+[Getting started](getting-started.md) covers configuration and wiring up an
+exporter.
+
 ## What you get
 
 A span named `polars.collect`, attached to whatever trace context was active
 when the query ran, carrying:
 
-- the query's plan — scan sources, pushed-down predicates, join types and keys,
+- the plan — scan sources, pushed-down predicates, join types and keys,
   group-by keys
-- `polars.cpu_ms` and `polars.parallelism`
-- the hottest node and its share of total CPU, which is usually the answer to
-  "why was this slow"
+- `polars.cpu_ms`, `polars.parallelism`, result rows
+- the hottest node and its share of total CPU
+- diagnostics — parallel efficiency, filter selectivity, join amplification,
+  projection efficiency, morsel skew, predicate pushdown, row-group skipping
 
-Plus OpenTelemetry metrics for per-node counters — self time, rows, morsels,
-polls, work-stealing ratio, IO bytes — dimensioned by node kind.
+Per-node counters — rows, morsels, polls, work-stealing, poll latency, state
+updates, IO time and bytes — as 15 metric instruments dimensioned by node kind.
 
-## What you do not get
+Every name is in the [attribute reference](attributes.md).
 
-Per-node spans. polars reports cumulative counters and no per-node timestamps,
-so a node interval can only be sampled, and sampling measured badly on both
-axes. See [How it works](how-it-works.md#why-there-are-no-per-node-spans).
+There are no per-node spans; polars exposes no per-node timestamps. See
+[How it works](how-it-works.md#why-there-are-no-per-node-spans).
 
 ## Profiles
 
-Beyond OTLP, the package can write a **profile** per query to a JSON Lines
-session file — the full plan, every counter and the derived diagnostics, in one
-self-contained document of around 10 KB.
+The package can write a **profile** per query to a JSON Lines session file —
+both plans, every counter and the derived diagnostics, in one self-contained
+document of around 10 KB.
 
 ```python
 from polars_telemetry.export.file import FileExporter
@@ -42,8 +56,8 @@ from polars_telemetry.export.file import FileExporter
 polars_telemetry.install(exporter=FileExporter("profiles/session.jsonl"))
 ```
 
-Open the file in the [profile viewer](viewer/index.html), which runs entirely in your
-browser: the file is never uploaded, so profiles keep full plan detail without
+Open it in the [profile viewer](viewer/index.html), which runs entirely in your
+browser — the file is never uploaded, so profiles keep full plan detail without
 leaving the machine that produced them. See [Profiles](profiles.md).
 
 ## Overhead

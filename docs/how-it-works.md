@@ -2,9 +2,9 @@
 
 ## The hook
 
-polars imports a module named `polars_cloud` and reads `QueryCloudObserver`
-off it **by name**, then duck-types the result. It never checks the type. So
-this package supplies that name.
+polars imports a module named `polars_cloud` and reads `QueryCloudObserver` off
+it **by name**, then duck-types the result. It never checks the type. So this
+package supplies that name.
 
 If the real `polars-cloud` is installed, its factory is kept and forwarded to.
 Otherwise a module is registered in `sys.modules` under that name — we never
@@ -26,31 +26,6 @@ guard.close()
 `phys_node_key` — the same ids as the physical plan, so metrics attribute to
 nodes without any name matching.
 
-## Why there are no per-node spans
-
-The counters are cumulative. None of the twenty fields is a timestamp, and the
-protocol has no per-node events — a proxy logging every attribute polars looked
-up confirmed there is nothing else to opt into.
-
-So a node interval could only be *sampled*. That was built, measured, and
-removed:
-
-| Mode | Median | vs baseline |
-| --- | --- | --- |
-| no instrumentation | 37.8 ms | — |
-| one snapshot at close | 38.5 ms | +2.0% |
-| polling, 25 ms | 39.6 ms | +4.7% |
-| polling, 5 ms | 43.5 ms | +15.1% |
-
-The output did not justify the cost either. On a 48 ms query sampled at 5 ms,
-eight of eleven nodes collapsed onto two identical windows — the "timeline" was
-mostly quantisation. Fidelity depends on samples *per query*, so it only works
-on long ones, and streaming nodes genuinely overlap, which makes a waterfall the
-wrong mental model regardless of resolution.
-
-Read once at query end, the same counters are **exact**. If polars ever exposes
-per-node timestamps, node spans become exact and free, and they go back in.
-
 ## Failure isolation
 
 Instrumentation runs inside your data path, so nothing here may surface as an
@@ -64,3 +39,15 @@ polars-telemetry: disabling observer after 5 errors. Queries are unaffected.
 
 `on_query_planned` is a special case — polars calls `close()` on whatever it
 returns, so it always returns a guard even when it has failed internally.
+
+## Why there are no per-node spans
+
+The counters polars reports are cumulative, and none of the twenty fields is a
+timestamp. A node interval could therefore only be *sampled*, which costs 4.7%
+of query wall time at 25 ms and 15.1% at 5 ms — and still resolves poorly:
+on a 48 ms query sampled at 5 ms, eight of eleven nodes collapsed onto two
+identical windows.
+
+Read once at query end, the same counters are exact and cost nothing
+measurable. If polars exposes per-node timestamps, node spans become exact and
+free, and they go back in.
