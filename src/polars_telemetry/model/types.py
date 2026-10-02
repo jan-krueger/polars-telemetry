@@ -27,8 +27,11 @@ class NodeMetrics:
     total_time_ns: int
     total_polls: int
     total_stolen_polls: int
+    total_poll_time_ns: int
     max_poll_time_ns: int
     total_state_updates: int
+    total_state_update_time_ns: int
+    max_state_update_time_ns: int
     rows_received: int
     rows_sent: int
     morsels_received: int

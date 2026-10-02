@@ -108,7 +108,10 @@ Node-level, dimensioned by `polars.node.kind` and `polars.engine`:
 | Instrument | Type | Unit |
 | --- | --- | --- |
 | `polars.node.cpu_time` | histogram | ms |
+| `polars.node.poll_time` | histogram | ms |
 | `polars.node.max_poll_time` | histogram | ms |
+| `polars.node.state_update_time` | histogram | ms |
+| `polars.node.max_state_update_time` | histogram | ms |
 | `polars.node.largest_morsel` | histogram | rows |
 | `polars.node.stolen_ratio` | histogram | 1 |
 | `polars.node.io_time` | histogram | ms |

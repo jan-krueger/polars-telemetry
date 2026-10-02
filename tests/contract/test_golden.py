@@ -74,3 +74,20 @@ def test_decoded_json_matches_the_msgpack(captured: Path) -> None:
         blob = decode_plan((captured / f"{name}.msgpack").read_bytes())
         sidecar = json.loads((captured / f"{name}.json").read_text())
         assert blob == sidecar, f"{name}.json is stale; re-run the capture"
+
+
+def test_model_keeps_every_counter_polars_delivers(captured: Path) -> None:
+    """Dropping a field in the model is as bad as not exporting it.
+
+    An export audit that compares against our own model cannot catch this, so
+    compare against what polars actually sends.
+    """
+    import dataclasses
+
+    from polars_telemetry.model.types import NodeMetrics
+
+    raw = decode_metrics((captured / "metrics.msgpack").read_bytes())[0]
+    delivered = set(raw) - {"phys_node_key"}
+    modelled = {f.name for f in dataclasses.fields(NodeMetrics)} - {"node_id"}
+
+    assert delivered <= modelled, f"model drops: {sorted(delivered - modelled)}"
