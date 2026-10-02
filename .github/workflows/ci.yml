@@ -4,10 +4,12 @@ on:
   pull_request:
   push:
     branches: [main]
+  # release.yml re-runs the full suite before publishing.
+  workflow_call:
 
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   UV_LOCKED: "1"
