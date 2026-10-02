@@ -15,7 +15,7 @@ from polars_telemetry.model.types import Query
 FIXTURE = sorted(p for p in (Path(__file__).parents[1] / "fixtures").iterdir() if p.is_dir())[-1]
 
 
-def _query():
+def _query() -> Query:
     return Query(
         query_id=uuid4(),
         wall_ms=12.0,
