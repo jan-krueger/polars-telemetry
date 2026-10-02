@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = "Apache-2.0"
 license-files = ["LICENSE", "NOTICE"]
-authors = [{ name = "Jan Krueger", email = "jan@krueger-jan.de" }]
+authors = [{ name = "Jan Krueger", email = "git@krueger-jan.de" }]
 keywords = ["polars", "opentelemetry", "observability", "tracing", "telemetry"]
 classifiers = [
     "Development Status :: 3 - Alpha",
