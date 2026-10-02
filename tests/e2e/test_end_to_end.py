@@ -23,6 +23,7 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import (  # noqa: E4
 
 import polars_telemetry  # noqa: E402
 from polars_telemetry import Config  # noqa: E402
+from polars_telemetry.export.base import Exporter  # noqa: E402
 from polars_telemetry.export.console import ConsoleExporter  # noqa: E402
 from polars_telemetry.export.otel import OTelExporter  # noqa: E402
 
@@ -154,3 +155,38 @@ def test_node_metrics_can_be_disabled(spans):
     attrs = [s for s in spans.get_finished_spans() if s.name == "polars.collect"][-1].attributes
     assert attrs["polars.node_count"] > 0
     assert "polars.cpu_ms" not in attrs
+
+
+def test_eager_operations_do_not_disarm_the_observer():
+    """Eager DataFrame work arrives with a nil physical plan.
+
+    Treating that as a failure burned the error budget, and five eager
+    operations silently disabled telemetry for the rest of the process.
+    """
+    collected = []
+
+    class Collect(Exporter):
+        def export(self, query):
+            collected.append(query)
+
+        def shutdown(self) -> None:
+            pass
+
+    state = polars_telemetry.install(exporter=Collect())
+    assert state is not None
+    try:
+        frame = polars.DataFrame({"a": [1, 2, 3], "g": ["x", "x", "y"]})
+        for multiplier in range(7):
+            frame.with_columns(b=polars.col("a") * multiplier)
+
+        assert len(collected) == 7, "eager operations were dropped"
+        assert all(q.plan == {} for q in collected), "eager runs have no physical plan"
+        assert all(q.logical for q in collected), "the IR plan is still available"
+
+        collected.clear()
+        _query(polars).collect()
+        assert collected, "a lazy query after eager work was not instrumented"
+        assert collected[-1].plan, "the lazy query lost its physical plan"
+        assert collected[-1].metrics, "the lazy query lost its node counters"
+    finally:
+        polars_telemetry.uninstall()

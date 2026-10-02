@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
 from polars_telemetry._safety import FailureTracker
-from polars_telemetry.adapter.decode import decode_plan
+from polars_telemetry.adapter.decode import decode_optional_plan, decode_plan
 from polars_telemetry.adapter.handle import MetricsHandle
 from polars_telemetry.model.build import build_metrics, build_plan
 from polars_telemetry.model.types import Query
@@ -118,9 +118,13 @@ class QueryObserver:
         if not self._tracker.disarmed:
             try:
                 self._query_id = query_id
-                self._plan = build_plan(decode_plan(physical_plan))
+                physical = decode_optional_plan(physical_plan)
+                self._plan = {} if physical is None else build_plan(physical)
                 self._logical = build_plan(decode_plan(ir_plan))
-                self._handle = MetricsHandle(handle) if self._config.node_metrics else None
+                # Counters are keyed by phys_node_key, so without a physical
+                # plan there is nothing to attribute them to.
+                collect_metrics = self._config.node_metrics and physical is not None
+                self._handle = MetricsHandle(handle) if collect_metrics else None
                 self._started = time.perf_counter()
                 self._started_unix_ns = time.time_ns()
             except Exception as exc:

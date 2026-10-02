@@ -34,6 +34,9 @@ else:
     print(state.capabilities.polars_version, state.capabilities.node_metrics_usable)
 ```
 
+Eager `DataFrame` operations are instrumented too, but polars runs them off the
+streaming engine, so they get a query span without per-node counters.
+
 ## Configure
 
 ```python

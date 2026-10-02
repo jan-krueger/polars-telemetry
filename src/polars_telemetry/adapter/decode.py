@@ -44,17 +44,30 @@ METRIC_FIELDS: frozenset[str] = frozenset(
 _COUNTER_FIELDS: frozenset[str] = METRIC_FIELDS - {"done"}
 
 
-def _unpack(payload: bytes) -> list[dict[str, Any]]:
-    decoded: Any = msgpack.unpackb(payload, raw=False, strict_map_key=False)
+def _coerce(decoded: Any) -> list[dict[str, Any]]:
     if not isinstance(decoded, list):
         msg = f"expected a list payload, got {type(decoded).__name__}"
         raise ValueError(msg)
     return [dict(record) for record in decoded]
 
 
+def _unpack(payload: bytes) -> list[dict[str, Any]]:
+    return _coerce(msgpack.unpackb(payload, raw=False, strict_map_key=False))
+
+
 def decode_plan(payload: bytes) -> list[dict[str, Any]]:
     """Decode an IR or physical plan payload."""
     return _unpack(payload)
+
+
+def decode_optional_plan(payload: bytes) -> list[dict[str, Any]] | None:
+    """Decode a plan payload, or return None when polars sent nil.
+
+    Eager DataFrame operations do not run on the streaming engine, so there is
+    no physical plan; polars passes msgpack nil rather than omitting it.
+    """
+    decoded: Any = msgpack.unpackb(payload, raw=False, strict_map_key=False)
+    return None if decoded is None else _coerce(decoded)
 
 
 def decode_metrics(payload: bytes) -> list[dict[str, Any]]:

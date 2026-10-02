@@ -17,6 +17,7 @@ import pytest
 from polars_telemetry._safety import FailureTracker, fail_soft
 from polars_telemetry.adapter.decode import (
     decode_metrics,
+    decode_optional_plan,
     decode_plan,
     metrics_problems,
     plan_problems,
@@ -111,3 +112,13 @@ def test_callback_arity_change_does_not_escape_the_guard():
 
     assert on_query_planned(1, 2, 3, 4, "new_argument") is None  # type: ignore[call-arg]
     assert tracker.errors == 1
+
+
+def test_nil_physical_plan_is_not_an_error():
+    """Eager DataFrame operations arrive with a nil physical plan."""
+    assert decode_optional_plan(msgpack.packb(None)) is None
+
+
+def test_nil_payload_still_rejects_a_wrong_shape():
+    with pytest.raises(ValueError, match="expected a list payload"):
+        decode_optional_plan(msgpack.packb({"unexpected": "shape"}))
