@@ -42,6 +42,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   work-stealing, poll latency, state updates and IO time and bytes.
 - `Config(include_plan=True)` attaches the full plan and its counters to the
   span as JSON. Off by default.
+- `FileExporter`: writes one self-contained profile per query to a JSON Lines
+  session file, bounded by size with one retained generation. Carries both
+  plans with node properties, all 19 counters per node, the diagnostics, the
+  fingerprint, and the trace context when a span is active.
+- A client-side profile viewer shipped with the docs site. Loads a session file
+  in the browser with no upload, groups runs by fingerprint, renders both plans
+  with per-node counters, and compares two runs of the same shape.
 
 ### Removed
 - Interval sampling and per-node spans. polars exposes no per-node timestamps,

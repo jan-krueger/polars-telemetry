@@ -30,6 +30,22 @@ Per-node spans. polars reports cumulative counters and no per-node timestamps,
 so a node interval can only be sampled, and sampling measured badly on both
 axes. See [How it works](how-it-works.md#why-there-are-no-per-node-spans).
 
+## Profiles
+
+Beyond OTLP, the package can write a **profile** per query to a JSON Lines
+session file — the full plan, every counter and the derived diagnostics, in one
+self-contained document of around 10 KB.
+
+```python
+from polars_telemetry.export.file import FileExporter
+
+polars_telemetry.install(exporter=FileExporter("profiles/session.jsonl"))
+```
+
+Open the file in the [profile viewer](viewer/index.html), which runs entirely in your
+browser: the file is never uploaded, so profiles keep full plan detail without
+leaving the machine that produced them. See [Profiles](profiles.md).
+
 ## Overhead
 
 Below measurement noise on a 3M-row join-and-aggregate, interleaved against an
