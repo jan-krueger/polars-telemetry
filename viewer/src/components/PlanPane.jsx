@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { ReactFlow, Background, MiniMap, Controls } from "@xyflow/react";
 import PlanNode from "./PlanNode";
-import { layout } from "../lib/layout";
+import { NODE_H, NODE_W, layout } from "../lib/layout";
 import { cpuMs, rows as fmtRows } from "../lib/format";
 
 const nodeTypes = { plan: PlanNode };
@@ -25,6 +25,10 @@ export default function PlanPane({ title, subtitle, plan, logical, selectedId, o
       id: String(n.id),
       type: "plan",
       position: pos[n.id],
+      // The minimap and bounds helpers read dimensions off the node object we
+      // pass in, never the measured DOM, so an unsized node is skipped there.
+      width: NODE_W,
+      height: NODE_H,
       selected: selectedId === n.id,
       data: { node: n, share: (cpuMs(n) / total) * 100, logical, label: nodeLabel(n) },
     }));
@@ -62,7 +66,7 @@ export default function PlanPane({ title, subtitle, plan, logical, selectedId, o
         >
           <Background variant="dots" gap={16} size={1} color="var(--axis)" />
           <MiniMap pannable zoomable className={logical ? "logical" : undefined}
-                   style={{ width: 148, height: 104 }} />
+                   style={{ width: 112, height: 172 }} />
           <Controls showInteractive={false} />
         </ReactFlow>
       </div>

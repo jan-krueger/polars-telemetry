@@ -81,7 +81,6 @@ pre.snip{text-align:left;background:var(--surface);border:1px solid var(--border
   border-radius:8px;padding:12px 14px;font:11.5px/1.65 ui-monospace,monospace;
   color:var(--ink-2);overflow-x:auto;margin:0 0 14px}
 pre.snip b{color:var(--ink);font-weight:500}
-.note{font-size:11.5px;color:var(--muted)}
 
 .qhead{margin-bottom:10px}
 .qline{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
@@ -161,8 +160,6 @@ pre.snip b{color:var(--ink);font-weight:500}
 
 /* React Flow surfaces take our theme */
 .react-flow__minimap{background:var(--surface)!important;border:1px solid var(--rule-2);border-radius:5px}
-/* react-flow applies nodeColor as an SVG presentation attribute, which does not
-   resolve var(), so the minimap palette is set here instead. */
 .react-flow__minimap-mask{fill:var(--plane);fill-opacity:.7;stroke:var(--accent);stroke-width:2px}
 .react-flow__minimap-node{fill:var(--sq2);stroke:none}
 .react-flow__minimap.logical .react-flow__minimap-node{fill:var(--axis)}
