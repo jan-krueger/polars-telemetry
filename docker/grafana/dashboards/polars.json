@@ -141,7 +141,7 @@
   },
   {
    "type": "stat",
-   "title": "Rows through plan nodes",
+   "title": "Rows emitted by plan nodes",
    "gridPos": {
     "x": 12,
     "y": 0,
@@ -154,7 +154,7 @@
    },
    "targets": [
     {
-     "expr": "sum(polars_node_rows_total)",
+     "expr": "sum(polars_node_rows_out_total)",
      "refId": "A",
      "instant": true
     }
@@ -345,7 +345,7 @@
    },
    "targets": [
     {
-     "expr": "sum by (polars_node_kind) (rate(polars_node_rows_total[2m]))",
+     "expr": "sum by (polars_node_kind) (rate(polars_node_rows_out_total[2m]))",
      "legendFormat": "{{polars_node_kind}}",
      "refId": "A"
     }
