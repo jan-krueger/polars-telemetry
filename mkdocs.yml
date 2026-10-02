@@ -28,7 +28,6 @@ nav:
   - Attribute reference: attributes.md
   - How it works: how-it-works.md
   - Compatibility: compatibility.md
-  - Shipping to InfluxDB: influxdb.md
 
 markdown_extensions:
   - admonition
