@@ -111,7 +111,9 @@
   .nd .t1{font:600 11px ui-monospace,monospace}
   .nd .t2{font:9.5px system-ui,sans-serif}
   .edge{stroke:var(--axis);stroke-width:1.6;fill:none}
-  .edgelbl{font:9.5px ui-monospace,monospace;fill:var(--muted);font-variant-numeric:tabular-nums}
+  .edgelbl{font:9.5px ui-monospace,monospace;fill:var(--ink-2);font-variant-numeric:tabular-nums}
+  .pill{fill:var(--surface-2);stroke:var(--border);stroke-width:1}
+  .nd .t1,.nd .t2{text-anchor:start}
 
   /* node details */
   .kv{display:grid;grid-template-columns:1fr auto;gap:5px 10px;font-size:12px}
@@ -119,9 +121,28 @@
   .kv dd{margin:0;font-variant-numeric:tabular-nums;text-align:right}
   .badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;
     border:1px solid currentColor;border-radius:4px;padding:2px 7px}
-  .props{font:11px ui-monospace,monospace;color:var(--ink-2);
-    background:var(--surface-2);border-radius:5px;padding:8px 9px;margin-top:10px;
-    white-space:pre-wrap;word-break:break-word;max-height:180px;overflow:auto}
+  .card{border:1px solid var(--border);border-radius:8px;background:var(--surface);
+    padding:12px 13px;margin-bottom:12px}
+  .card .hd{display:flex;align-items:center;gap:7px;margin-bottom:10px}
+  .card .hd .nm{font:600 13px system-ui;letter-spacing:-.01em}
+  .card .hd .ic{font-size:12px;color:var(--muted)}
+  .field{padding:7px 0;border-top:1px solid var(--grid)}
+  .field:first-of-type{border-top:0;padding-top:0}
+  .field .lbl{font-size:11.5px;color:var(--muted);margin-bottom:5px}
+  .field.inline{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .field.inline .lbl{margin:0}
+  .expr{background:#15181d;color:#e6edf3;border-radius:5px;padding:7px 9px;
+    font:11px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;
+    white-space:pre-wrap;word-break:break-word;overflow-x:auto}
+  .expr .s{color:#7ec7ff}
+  .chip{font:11px ui-monospace,monospace;border:1px solid var(--border);border-radius:5px;
+    padding:3px 8px;color:var(--ink-2);white-space:nowrap}
+  .mrow{display:flex;justify-content:space-between;align-items:baseline;gap:12px;
+    padding:6px 0;border-top:1px solid var(--grid);font-size:12px}
+  .mrow:first-of-type{border-top:0}
+  .mrow .k{color:var(--muted)}
+  .mrow .v{font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .mrow .v .u{font-weight:400;color:var(--muted);font-size:11px;margin-left:2px}
   .empty{color:var(--muted);font-size:12.5px;padding:18px 4px;text-align:center}
   .delta-up{color:var(--up)} .delta-down{color:var(--down)}
   .sel{background:var(--surface-2);border:1px solid var(--border);border-radius:6px;
@@ -515,23 +536,31 @@ function drawDag(p, cmp){
     const a=pos[inp],b=pos[n.id]; if(!a||!b) continue;
     s+=`<path class="edge" d="M${a[0]} ${a[1]-H/2} C${a[0]} ${a[1]-H/2-16}, ${b[0]} ${b[1]+H/2+16}, ${b[0]} ${b[1]+H/2}"/>`;
     const rows=byId[inp].metrics?.rows_sent;
-    if(rows!=null) s+=`<text class="edgelbl" x="${(a[0]+b[0])/2+5}" y="${(a[1]-H/2+b[1]+H/2)/2+3}">${rws(rows)}</text>`;
+    if(rows!=null){
+      const label=`${rws(rows)} rows`, w=label.length*5.6+10;
+      const cx=(a[0]+b[0])/2, cy=(a[1]-H/2+b[1]+H/2)/2;
+      s+=`<rect class="pill" x="${cx-w/2}" y="${cy-8}" width="${w}" height="16" rx="8"/>`
+        +`<text class="edgelbl" x="${cx}" y="${cy+3.5}" text-anchor="middle">${label}</text>`;
+    }
   }
   for(const n of nodes){
     const q=pos[n.id], pc=cpuOf(n)/total*100;
     const label=nodeLabel(n);
+    const ink=inkOf(pc);
     s+=`<g class="nd" data-id="${n.id}" data-sel="${selNode===n.id?1:0}">
       <rect x="${q[0]-W/2}" y="${q[1]-H/2}" width="${W}" height="${H}" rx="6" fill="${fillOf(pc)}"/>
-      <text class="t1" x="${q[0]}" y="${q[1]-11}" text-anchor="middle" fill="${inkOf(pc)}">${n.kind}</text>
-      ${label?`<text class="t2" x="${q[0]}" y="${q[1]+2}" text-anchor="middle" fill="${inkOf(pc)}" opacity=".76">${label.slice(0,28)}</text>`:""}
-      ${n.metrics?`<text class="t2" x="${q[0]}" y="${q[1]+16}" text-anchor="middle" fill="${inkOf(pc)}" opacity=".92">${pc>=.1?num(pc,1)+"% · ":""}${ms(cpuOf(n))}</text>`:""}
+      <text class="t1" x="${q[0]-W/2+10}" y="${q[1]-11}" fill="${ink}">${icon(n.kind)} ${esc(n.kind)}</text>
+      ${label?`<text class="t2" x="${q[0]-W/2+10}" y="${q[1]+2}" fill="${ink}" opacity=".74">${esc(label.slice(0,26))}</text>`:""}
+      ${n.metrics?`<text class="t2" x="${q[0]-W/2+10}" y="${q[1]+16}" fill="${ink}" opacity=".92">${pc>=.1?num(pc,1)+"% · ":""}${ms(cpuOf(n))}</text>`:""}
+      ${n.metrics?`<circle cx="${q[0]+W/2-11}" cy="${q[1]-H/2+11}" r="4"
+         fill="${n.metrics.done?"var(--good)":"var(--warn)"}"><title>${n.metrics.done?"Completed":"Unfinished at snapshot"}</title></circle>`:""}
     </g>`;
   }
   const svg=document.getElementById("dag");
   svg.setAttribute("viewBox",`0 0 ${vw} ${vh}`);
   svg.setAttribute("width", Math.min(vw, 980));
   svg.innerHTML=s;
-  svg.querySelectorAll(".nd").forEach(g=>g.onclick=()=>{selNode=+g.dataset.id;render()});
+  svg.querySelectorAll(".nd").forEach(g=>g.onclick=()=>selectNode(+g.dataset.id));
 }
 
 function nodeLabel(n){
@@ -545,46 +574,119 @@ function nodeLabel(n){
 }
 
 const COUNTERS=[
-  ["Rows in","rows_received"],["Rows out","rows_sent"],
+  ["Rows in","rows_received","rows"],["Rows out","rows_sent","rows"],
   ["Morsels received","morsels_received"],["Morsels sent","morsels_sent"],
-  ["Largest morsel received","largest_morsel_received"],["Largest morsel sent","largest_morsel_sent"],
-  ["Total time","total_time_ns",1],["Total poll time","total_poll_time_ns",1],
-  ["Maximum poll time","max_poll_time_ns",1],["Total number of polls","total_polls"],
-  ["Total polls stolen","total_stolen_polls"],
-  ["Total state update time","total_state_update_time_ns",1],
-  ["Maximum state update time","max_state_update_time_ns",1],
+  ["Largest morsel received","largest_morsel_received","rows"],
+  ["Largest morsel sent","largest_morsel_sent","rows"],
+  ["Total time","total_time_ns","ns"],["Total poll time","total_poll_time_ns","ns"],
+  ["Maximum poll time","max_poll_time_ns","ns"],
+  ["Total number of polls","total_polls"],["Total polls stolen","total_stolen_polls"],
+  ["Total state update time","total_state_update_time_ns","ns"],
+  ["Maximum state update time","max_state_update_time_ns","ns"],
   ["Number state updates","total_state_updates"],
-  ["IO active time","io_total_active_ns",1],["IO bytes received","io_total_bytes_received"],
+  ["IO active time","io_total_active_ns","ns"],
+  ["IO bytes received","io_total_bytes_received","bytes"],
+  ["IO bytes requested","io_total_bytes_requested","bytes"],
 ];
+
+/* Humanised property labels. polars' own names are precise but not prose. */
+const PROP_LABELS={
+  first_source:"Source", scan_type:"Format", num_sources:"Sources",
+  file_columns:"File columns", projected_file_columns:"Projected columns",
+  projection:"Projection", predicate:"Predicate",
+  predicate_file_skip_applied:"Row groups skipped", has_table_statistics:"Table statistics",
+  how:"Join type", left_on:"Left join keys", right_on:"Right join keys",
+  nulls_equal:"Nulls equal", coalesce:"Coalesce", maintain_order:"Maintain order",
+  validation:"Validation", suffix:"Suffix", keys:"Group by keys", aggs:"Aggregations",
+  key_per_input:"Group by keys", aggs_per_input:"Aggregations", num_inputs:"Inputs",
+  columns:"Columns", sort_columns:"Sort by", slice:"Slice", limit:"Limit",
+  selectors:"Expressions", extend_original:"Extend original", dest:"Destination",
+  multithreaded:"Multithreaded", row_index_name:"Row index", pre_slice:"Pre-slice",
+  hive_columns:"Hive columns", deletion_files_type:"Deletion files",
+  column_mapping_type:"Column mapping", include_file_paths:"Include file paths",
+  output_as_boolean:"Output as boolean", row_index_offset:"Row index offset",
+};
+const ICONS={MultiScan:"▤",Scan:"▤",EquiJoin:"⋈",Join:"⋈",SemiAntiJoin:"⋈",CrossJoin:"⋈",
+  GroupBy:"∑",Sort:"↕",TopK:"↧",Filter:"⌕",Select:"ƒ",SimpleProjection:"⊞",
+  InMemorySink:"⤓",FileSink:"⤓",IoSink:"⤓",InMemorySource:"⤒",InMemoryMap:"⇄"};
+const icon=k=>ICONS[k]||"◻";
+const looksExpr=v=>typeof v==="string" && /[()"]/.test(v);
+const codeHtml=t=>esc(t).replace(/&quot;([^&]*)&quot;/g,'<span class="s">"$1"</span>');
+
+function propField(key,value){
+  const label=PROP_LABELS[key] ?? key.replace(/_/g," ").replace(/^./,c=>c.toUpperCase());
+  if(typeof value==="boolean")
+    return `<div class="field inline"><span class="lbl">${label}</span>
+      <span class="chip">${value?"✓ true":"× false"}</span></div>`;
+  if(typeof value==="number" || (typeof value==="string" && !looksExpr(value) && value.length<40))
+    return `<div class="field inline"><span class="lbl">${label}</span>
+      <span class="chip">${esc(value)}</span></div>`;
+  let lines;
+  if(Array.isArray(value)){
+    lines=value.flat().map(v=>{
+      if(v && typeof v==="object" && v.expr!=null)
+        return `${v.expr}${v.descending?"  desc":"  asc"}${v.nulls_last?"  nulls last":""}`;
+      return typeof v==="object" ? JSON.stringify(v) : String(v);
+    });
+  } else if(typeof value==="object"){ lines=[JSON.stringify(value,null,1)]; }
+  else lines=[String(value)];
+  return `<div class="field"><div class="lbl">${label}</div>
+    <div class="expr">${lines.map(codeHtml).join("\n")}</div></div>`;
+}
+
 function renderNode(p, cmp){
   const el=document.getElementById("node");
-  const nodes=p.plan[planKind];
+  const nodes=p?.plan[planKind] ?? [];
   const n=nodes.find(x=>x.id===selNode);
   if(!n){ el.innerHTML='<div class="empty">Select a node in the plan.</div>'; return; }
   const m=n.metrics;
   const other=cmp?.plan[planKind]?.find(x=>x.id===n.id)?.metrics;
-  const row=([label,key,isNs])=>{
+
+  const props=Object.entries(n.properties||{})
+    .filter(([k,v])=>v!=null && k!=="type" && !(Array.isArray(v)&&!v.length));
+
+  // IO counters are zero for local files; three rows of 0 is noise, not signal.
+  const anyIo = m && (m.io_total_active_ns || m.io_total_bytes_received || m.io_total_bytes_requested);
+  const mrow=([label,key,unit])=>{
     if(!m||m[key]==null) return "";
-    const v=isNs?ms(m[key]/1e6):num(m[key]);
+    if(key.startsWith("io_") && !anyIo) return "";
+    const raw=m[key];
+    const v = unit==="ns" ? ms(raw/1e6)
+            : unit==="bytes" ? (raw>=1048576?num(raw/1048576,1)+" MiB":num(raw/1024,1)+" KiB")
+            : num(raw)+(unit?`<span class="u">${unit}</span>`:"");
     let d="";
-    if(other&&other[key]!=null&&other[key]!==m[key]){
-      const diff=m[key]-other[key], pct=other[key]?diff/other[key]*100:0;
-      d=` <span class="${diff>0?"delta-up":"delta-down"}" style="font-size:10.5px">${diff>0?"+":""}${num(pct,0)}%</span>`;
+    if(other&&other[key]!=null&&other[key]!==raw){
+      const diff=raw-other[key], pct=other[key]?diff/other[key]*100:0;
+      d=` <span class="${diff>0?"delta-up":"delta-down"}" style="font-weight:400;font-size:10.5px">${diff>0?"+":""}${num(pct,0)}%</span>`;
     }
-    return `<dt>${label}</dt><dd>${v}${d}</dd>`;
+    return `<div class="mrow"><span class="k">${label}</span><span class="v">${v}${d}</span></div>`;
   };
-  const props=Object.entries(n.properties||{}).filter(([k,v])=>v!=null&&k!=="type");
+
   el.innerHTML=`
-    <div style="font:600 13.5px ui-monospace,monospace;margin-bottom:3px">${n.kind}</div>
-    <div style="font-size:11.5px;color:var(--muted);margin-bottom:10px">node ${n.id}</div>
-    ${m?`<div class="badge" style="color:${m.done?"var(--good)":"var(--warn)"};margin-bottom:10px">
-      ${m.done?"Completed":"Unfinished at snapshot"}</div>
-      <dl class="kv">${COUNTERS.map(row).join("")}</dl>`
-      :'<div class="empty">No counters — logical plan nodes carry structure only.</div>'}
-    ${props.length?`<div class="props">${props.map(([k,v])=>
-       `${k}: ${JSON.stringify(v)}`).join("\n")}</div>`:""}`;
+    <div class="card">
+      <div class="hd"><span class="ic">${icon(n.kind)}</span>
+        <span class="nm">${n.kind}</span>
+        <span style="margin-left:auto;font:10.5px ui-monospace,monospace;color:var(--muted)">#${n.id}</span></div>
+      ${props.length?props.map(([k,v])=>propField(k,v)).join("")
+        :'<div class="field"><span class="lbl">No properties on this node.</span></div>'}
+    </div>
+    ${m?`<div class="card">
+      <div class="hd"><span class="ic">☰</span><span class="nm">Node metrics</span>
+        <span class="badge" style="margin-left:auto;color:${m.done?"var(--good)":"var(--warn)"}">
+          ${m.done?"✓ Completed":"⚠ Unfinished"}</span></div>
+      ${COUNTERS.map(mrow).join("")}
+    </div>`:'<div class="empty">Logical plan nodes carry structure only.</div>'}`;
 }
 
+/* Selecting a node repaints only the right pane and the selection outline.
+   Re-rendering main would rebuild the scroll container and jump the plan back
+   to the top, which is exactly what you do not want mid-inspection. */
+function selectNode(id){
+  selNode=id;
+  document.querySelectorAll("#dag .nd").forEach(g=>
+    g.setAttribute("data-sel", (+g.dataset.id===id)?1:0));
+  renderNode(profiles()[sel], compareWith!=null?profiles()[compareWith]:null);
+}
 
 /* ---------- top level ---------- */
 function render(){
