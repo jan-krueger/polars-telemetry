@@ -76,6 +76,7 @@ class QueryObserver:
         "_delegate",
         "_exporter",
         "_handle",
+        "_logical",
         "_plan",
         "_query_id",
         "_started",
@@ -97,6 +98,7 @@ class QueryObserver:
         self._query_id: UUID = uuid4()
         self._handle: MetricsHandle | None = None
         self._plan: dict[int, Any] = {}
+        self._logical: dict[int, Any] = {}
         self._started = 0.0
         self._started_unix_ns = 0
 
@@ -117,6 +119,7 @@ class QueryObserver:
             try:
                 self._query_id = query_id
                 self._plan = build_plan(decode_plan(physical_plan))
+                self._logical = build_plan(decode_plan(ir_plan))
                 self._handle = MetricsHandle(handle) if self._config.node_metrics else None
                 self._started = time.perf_counter()
                 self._started_unix_ns = time.time_ns()
@@ -157,6 +160,7 @@ class QueryObserver:
                 query_id=self._query_id,
                 wall_ms=wall_ms,
                 plan=self._plan,
+                logical=self._logical,
                 metrics=metrics,
                 failed=failure,
                 started_unix_ns=self._started_unix_ns,

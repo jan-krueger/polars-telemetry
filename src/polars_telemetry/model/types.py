@@ -60,6 +60,12 @@ class Query:
     query_id: UUID
     wall_ms: float
     plan: dict[int, PlanNode]
+    """Physical plan. Node ids here are what metrics key on."""
+
+    logical: dict[int, PlanNode] = field(default_factory=dict)
+    """IR plan. Carries the user's own column names; the physical plan rewrites
+    group-by keys and aggregations to _POLARS_TMP_N."""
+
     metrics: dict[int, NodeMetrics] = field(default_factory=dict)
     failed: str | None = None
     started_unix_ns: int = 0

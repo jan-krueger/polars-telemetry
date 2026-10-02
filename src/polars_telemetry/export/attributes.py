@@ -66,6 +66,11 @@ def query_attributes(query: Query, *, redact_literals: bool = False) -> dict[str
         attrs[semconv.HOT_NODE_CPU_MS] = round(metric.cpu_ms, 3)
         attrs[semconv.HOT_NODE_SHARE] = round(metric.cpu_ms / query.cpu_ms, 4)
 
+    # The IR plan keeps the user's own column names; the physical plan rewrites
+    # group-by keys and aggregations to _POLARS_TMP_N. Prefer the IR for
+    # anything a person reads, and fall back when it is unavailable.
+    semantic = query.logical or query.plan
+
     sources: list[str] = []
     predicates: list[str] = []
     columns = 0
@@ -74,7 +79,7 @@ def query_attributes(query: Query, *, redact_literals: bool = False) -> dict[str
     groupby_keys: list[str] = []
     scans = joins = groupbys = 0
 
-    for node in query.plan.values():
+    for node in semantic.values():
         props = node.properties
         if node.kind in _SCAN_KINDS:
             scans += 1
@@ -82,7 +87,12 @@ def query_attributes(query: Query, *, redact_literals: bool = False) -> dict[str
             if isinstance(source, str):
                 sources.append(_text(source, redact_literals=redact_literals))
             predicate = props.get("predicate")
-            if predicate is not None:
+            # The IR reports a list of predicates; the physical plan one string.
+            if isinstance(predicate, list):
+                predicates.extend(
+                    _text(item, redact_literals=redact_literals) for item in predicate
+                )
+            elif predicate is not None:
                 predicates.append(_text(predicate, redact_literals=redact_literals))
             projected = props.get("projected_file_columns") or props.get("file_columns")
             if isinstance(projected, list):
@@ -97,10 +107,14 @@ def query_attributes(query: Query, *, redact_literals: bool = False) -> dict[str
                 join_keys.extend(_text(key, redact_literals=redact_literals) for key in left_on)
         elif node.kind == "GroupBy":
             groupbys += 1
-            keys = props.get("key_per_input")
+            # The IR exposes a flat `keys`; the physical plan nests them under
+            # `key_per_input` and renames them to _POLARS_TMP_N.
+            keys = props.get("keys")
             if isinstance(keys, list):
+                groupby_keys.extend(_text(key, redact_literals=redact_literals) for key in keys)
+            elif isinstance(nested := props.get("key_per_input"), list):
                 groupby_keys.extend(
-                    _text(key, redact_literals=redact_literals) for group in keys for key in group
+                    _text(key, redact_literals=redact_literals) for group in nested for key in group
                 )
 
     if scans:
