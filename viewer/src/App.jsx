@@ -230,7 +230,7 @@ polars_telemetry.install(exporter=FileExporter("profiles/session.jsonl"))`}</pre
               </div>
 
               <div className="plans">
-                <PlanPane title="Logical plan" subtitle={`${profile.plan.logical.length} nodes · as written`}
+                <PlanPane title="Logical plan"
                           plan={profile.plan.logical} logical
                           selectedId={selNode?.plan === "logical" ? selNode.id : null}
                           onSelect={(id) => setSelNode({ plan: "logical", id })} />
@@ -239,10 +239,6 @@ polars_telemetry.install(exporter=FileExporter("profiles/session.jsonl"))`}</pre
                           selectedId={selNode?.plan === "physical" ? selNode.id : null}
                           onSelect={(id) => setSelNode({ plan: "physical", id })} />
               </div>
-              <p className="note" style={{ margin: "8px 0 0" }}>
-                polars gives the two plans separate node identities and no mapping between them, so
-                selecting a node in one does not highlight its counterpart in the other.
-              </p>
             </>
           )}
         </main>

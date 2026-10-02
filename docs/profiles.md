@@ -96,7 +96,7 @@ read it in the rail.
 
     polars gives the two plans separate node identities and no mapping between
     them, so selecting a node in one does not highlight its counterpart in the
-    other. That is a limit of the data, not of the viewer.
+    other.
 - **Node details**: the node's properties as typed fields, then every counter
   for the selected node with polars' own completion flag. Each counter carries
   a `?` explaining what it measures — most are specific to the streaming engine
