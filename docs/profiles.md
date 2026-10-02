@@ -54,13 +54,35 @@ linked back to the trace for the same query.
 
 ## The viewer
 
-[Open the viewer](viewer/index.html). Drag a `.jsonl` file onto the page, or use
-**Open .jsonl**. It ships with a sample session so it is never empty.
+[Open the viewer](viewer/index.html). It starts empty. Drag one or more
+`.jsonl` files onto the page, or use **Open .jsonl**.
 
-**Nothing is uploaded.** The page does no network I/O; the file is read in the
+**Nothing is uploaded.** The page does no network I/O; files are read in the
 browser. That is why profiles keep plan literals at full fidelity by default
 while the span-side export offers redaction — a profile never leaves the
 machine unless you send it.
+
+### Sessions are kept
+
+Each imported file becomes a session, stored in the browser with IndexedDB, so
+it survives a reload. The rail lists every session with its size and import
+date; `×` removes one and **Clear all** removes the lot. Nothing is written
+anywhere else.
+
+Where storage is unavailable — a private window, blocked site data, or the page
+opened straight off disk with `file://` — the viewer keeps working for the
+current page only and says so, rather than pretending the data was kept.
+
+### What it shows
+
+- **Session overview**: query shapes ranked by total wall time, so the first
+  thing you see is which shape costs most.
+- **Query detail**: tiles, the diagnostics, and both plans as a DAG with CPU
+  share as fill and row counts on the edges.
+- **Node details**: every counter for the selected node, with polars' own
+  completion flag.
+- **Compare**: when a shape ran more than once, pick another run and the tiles
+  and every counter gain a percentage delta.
 
 Because a profile is one small file, it travels: attach it to a bug report,
 commit it next to a regression test, or send it to someone who can read the
