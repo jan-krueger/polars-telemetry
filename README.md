@@ -1,8 +1,9 @@
 # polars-telemetry
 
 OpenTelemetry instrumentation for [Polars](https://pola.rs) query execution.
-Emits a span per query, a child span per physical plan node, and per-node
-metrics — to any OTLP collector.
+Emits one span per query carrying the plan, and per-node counters as metrics —
+to any OTLP collector. Or write a profile per query to a file and read it in
+the browser, with no collector at all.
 
 > [!IMPORTANT]
 > **Unaffiliated with Polars and Polars Cloud.** This package attaches to an
@@ -15,7 +16,8 @@ metrics — to any OTLP collector.
 
 ## Status
 
-Pre-release. Nothing is published yet.
+First release. The polars interface this attaches to is internal, so treat the
+support window in the note above as the real constraint.
 
 ## Install
 
@@ -67,6 +69,23 @@ exact and cheap, and they go back in.
 
 Overhead on a 3M-row join-and-aggregate, interleaved against an uninstrumented
 baseline on the same engine: within measurement noise.
+
+## Profiles without a collector
+
+A profile is one self-contained JSON document per query: both plans with every
+node property, all 19 per-node counters, the derived diagnostics, and a
+fingerprint of the plan shape.
+
+```python
+from polars_telemetry.export.file import FileExporter
+
+polars_telemetry.install(exporter=FileExporter("profiles/session.jsonl"))
+```
+
+Drop the resulting file on the
+[profile viewer](https://jan-krueger.github.io/polars-telemetry/viewer/). It
+runs entirely in the browser — nothing is uploaded — and renders both plans,
+per-node counters, and a diff between two runs of the same shape.
 
 ## Data in your telemetry
 
