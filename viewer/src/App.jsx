@@ -235,11 +235,11 @@ polars_telemetry.install(exporter=FileExporter("profiles/session.jsonl"))`}</pre
               </div>
 
               <div className="plans">
-                <PlanPane title="Logical plan"
+                <PlanPane key={`logical-${profile.query_id}`} title="Logical plan"
                           plan={profile.plan.logical} logical
                           selectedId={state.node?.plan === "logical" ? state.node.id : null}
                           onSelect={(id) => dispatch({ type: "nodePicked", node: { plan: "logical", id } })} />
-                <PlanPane title="Physical plan" subtitle="fill = CPU · edges = rows"
+                <PlanPane key={`physical-${profile.query_id}`} title="Physical plan" subtitle="fill = CPU · edges = rows"
                           plan={profile.plan.physical} logical={false}
                           selectedId={state.node?.plan === "physical" ? state.node.id : null}
                           onSelect={(id) => dispatch({ type: "nodePicked", node: { plan: "physical", id } })} />

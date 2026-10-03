@@ -41,6 +41,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   reading them again on each load: sessions stored today keep opening when the
   schema moves on, with no storage migration. A stored profile that no longer
   reads is dropped on its own instead of taking the viewer down.
+- The viewer lays a plan out once per plan rather than on every click, and
+  refits the view when a different query is picked; it kept the previous
+  query's zoom. Layout and the shaping of React Flow's input are pure,
+  separately tested functions, so swapping the layout engine is one function.
 - The viewer's state is one reducer, with selection by query id rather than by
   position in a list, and each action resetting what it should in one place.
 - The viewer draws plan nodes in relational-algebra notation — σ selection,
