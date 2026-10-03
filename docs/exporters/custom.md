@@ -1,0 +1,62 @@
+# Write your own
+
+Any object with an `export(query)` method is an exporter.
+
+## Use it when
+
+- The data should go somewhere none of the bundled exporters reach: a
+  database, a queue, an in-house metrics client.
+- You want to act on queries as they finish, such as flagging slow ones.
+
+## Set up
+
+```python
+import logging
+
+import polars_telemetry
+from polars_telemetry.model.types import Query
+
+log = logging.getLogger("slow_queries")
+
+
+class SlowQueries:
+    def __init__(self, threshold_ms: float) -> None:
+        self.threshold_ms = threshold_ms
+
+    def export(self, query: Query) -> None:
+        if query.wall_ms > self.threshold_ms:
+            log.warning("%s took %.0f ms", query.label or query.fingerprint, query.wall_ms)
+
+
+polars_telemetry.install(exporter=SlowQueries(threshold_ms=500))
+```
+
+## What you get
+
+A [`Query`](../reference/api.md#polars_telemetry.model.types.Query) per
+finished query: its id, label, timings, call site, both plans by node id, the
+per-node counters, fingerprint and diagnostics. The JSONL exporter's
+`build_profile(query)` in `polars_telemetry.export.profile` turns one into the
+profile document, if a dictionary is easier to ship.
+
+## Options
+
+Whatever your exporter takes. `Config(redact_literals=True)` applies to yours
+too: queries are masked before any exporter receives them.
+
+## Your data
+
+Everything the query carries, as for the other exporters. Where it goes from
+there is up to you.
+
+## Cost
+
+`export()` runs on the thread that ran the query, after it finished, so its
+time is added to the caller's. Hand slow work, such as network calls, to a
+queue or a background thread.
+
+## When it fails
+
+An exception from `export()` never reaches the query. It is logged once, and
+after five errors your exporter stops receiving queries while the others carry
+on.

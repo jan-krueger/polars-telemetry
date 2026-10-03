@@ -51,3 +51,12 @@ identical windows.
 Read once at query end, the same counters are exact and cost nothing
 measurable. If polars exposes per-node timestamps, node spans become exact and
 free, and they go back in.
+
+## Overhead
+
+The instrumentation itself, measured with an exporter that does nothing, stays
+below measurement noise on a 3M-row join and aggregation, interleaved against
+an uninstrumented run on the same engine. CI fails if it exceeds 10%.
+
+Exporters add their own cost on top, on the thread that ran the query. Each
+[exporter's page](../exporters/index.md) states it.

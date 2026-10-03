@@ -16,6 +16,7 @@ theme:
     - navigation.sections
     - content.code.copy
     - toc.integrate
+    - navigation.indexes
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default
@@ -29,11 +30,24 @@ theme:
 nav:
   - Overview: index.md
   - Getting started: getting-started.md
-  - Profiles: profiles.md
-  - Attribute reference: attributes.md
-  - How it works: how-it-works.md
-  - Compatibility: compatibility.md
-  - Python API: reference/api.md
+  - Exporters:
+      - exporters/index.md
+      - OpenTelemetry: exporters/opentelemetry.md
+      - JSONL: exporters/jsonl.md
+      - Console: exporters/console.md
+      - Write your own: exporters/custom.md
+  - Label and scope queries: labels.md
+  - Profile viewer: profile-viewer.md
+  - Polars Cloud: polars-cloud.md
+  - Reference:
+      - Configuration: reference/configuration.md
+      - Spans and metrics: reference/spans-and-metrics.md
+      - Python API: reference/api.md
+  - Data and privacy: privacy.md
+  - Troubleshooting: troubleshooting.md
+  - Internals:
+      - How it works: internals/how-it-works.md
+      - Compatibility: internals/compatibility.md
 
 plugins:
   - search

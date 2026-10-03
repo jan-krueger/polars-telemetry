@@ -54,7 +54,7 @@ uv run nox -s capture -- 1.44.2
 | `bench` | overhead, gated on a budget |
 
 The attribute reference is test-guarded: `tests/unit/test_docs.py` fails if a
-declared attribute is missing from `docs/attributes.md`.
+declared attribute is missing from `docs/reference/spans-and-metrics.md`.
 
 ## The viewer
 

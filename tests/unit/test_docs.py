@@ -16,7 +16,7 @@ from polars_telemetry.export import semconv
 from polars_telemetry.export.otel import COUNTERS, HISTOGRAMS
 
 ROOT = Path(__file__).parents[2]
-REFERENCE = ROOT / "docs" / "attributes.md"
+REFERENCE = ROOT / "docs" / "reference" / "spans-and-metrics.md"
 
 
 def _declared_names() -> dict[str, str]:
@@ -35,7 +35,7 @@ def reference() -> str:
 
 def test_every_attribute_is_documented(reference):
     missing = sorted(value for value in _declared_names().values() if f"`{value}`" not in reference)
-    assert missing == [], f"undocumented in docs/attributes.md: {missing}"
+    assert missing == [], f"undocumented in docs/reference/spans-and-metrics.md: {missing}"
 
 
 def test_every_instrument_is_documented(reference):
@@ -69,7 +69,7 @@ def test_every_instrument_row_states_the_unit_it_is_registered_with(reference):
 def test_every_config_option_is_in_both_option_tables():
     """A documented knob nobody can find is the same as an undocumented one."""
     options = set(Config.__dataclass_fields__)
-    for path in (ROOT / "README.md", ROOT / "docs" / "getting-started.md"):
+    for path in (ROOT / "README.md", ROOT / "docs" / "reference" / "configuration.md"):
         text = path.read_text()
         table = set(re.findall(r"\| `([a-z_]+)` \| `?[^|]*?`? \|", text))
         assert options <= table, f"{path.name} omits {sorted(options - table)}"

@@ -1,4 +1,6 @@
-# Attribute reference
+# Spans and metrics
+
+Everything the [OpenTelemetry exporter](../exporters/opentelemetry.md) emits.
 
 Names here are public API: renaming one breaks every dashboard built on it.
 They are defined in `polars_telemetry.export.semconv`, and a test asserts this
@@ -161,19 +163,6 @@ attributes: their values are unbounded and would destroy series cardinality.
 
     `polars.plan` also contains plan detail, when enabled.
 
-A filter on `col("email") == "someone@example.com"` arrives verbatim. This is
-deliberate — knowing *which* predicate was slow is usually the point, and
-traces are already sensitive telemetry.
-
-Set `Config(redact_literals=True)` to mask literal values while keeping
-structure and column names:
-
-```text
-col("email") == "someone@example.com"   ->   col("email") == "<str>"
-col("amount") > 60.0                    ->   col("amount") > <num>
-```
-
-Redaction is best-effort over polars' textual expression form. Use it when
-exporting to a backend you do not control; it is not a compliance boundary.
-
-The authoritative list is `polars_telemetry.export.semconv.CARRIES_USER_DATA`.
+A filter on `col("email") == "someone@example.com"` arrives verbatim.
+[Data and privacy](../privacy.md) covers how to mask it. The authoritative list
+is `polars_telemetry.export.semconv.CARRIES_USER_DATA`.

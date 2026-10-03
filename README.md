@@ -56,7 +56,7 @@ Per-node counters — rows, morsels, polls, work-stealing, poll latency, state
 updates, IO time and bytes — as 15 metric instruments dimensioned by node kind.
 
 Every name is listed in the
-[attribute reference](https://jan-krueger.github.io/polars-telemetry/attributes/).
+[attribute reference](https://jan-krueger.github.io/polars-telemetry/reference/spans-and-metrics/).
 
 ## Profiles without a collector
 
