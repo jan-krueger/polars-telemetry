@@ -180,6 +180,8 @@ export function nodeLabel(node: RawNode): string {
 
 /** Expressions this short read better on one line than broken up. */
 const CHAIN_WIDTH = 36;
+/** A condition already has a line to itself, so it can run a little longer. */
+const CONDITION_WIDTH = 48;
 
 /**
  * A polars expression split into one line per method call, the way it would be
@@ -189,8 +191,8 @@ const CHAIN_WIDTH = 36;
  * and nested expressions stay whole. A line that is still too wide is left
  * for the reader to scroll, never split mid-token.
  */
-export function chainLines(expr: string): string[] {
-  if (expr.length <= CHAIN_WIDTH) return [expr];
+export function chainLines(expr: string, width = CHAIN_WIDTH): string[] {
+  if (expr.length <= width) return [expr];
   const lines: string[] = [];
   let line = "";
   let depth = 0;
@@ -216,3 +218,84 @@ export function chainLines(expr: string): string[] {
   lines.push(line);
   return lines;
 }
+
+/** Each character outside strings, with the bracket depth it sits at. */
+function* outsideStrings(text: string): Generator<[index: number, ch: string, depth: number]> {
+  let depth = 0;
+  let quote: string | null = null;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]!;
+    if (quote) {
+      if (ch === "\\") i++;
+      else if (ch === quote) quote = null;
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch;
+      continue;
+    }
+    if (ch === ")" || ch === "]") depth = Math.max(0, depth - 1);
+    yield [i, ch, depth];
+    if (ch === "(" || ch === "[") depth++;
+  }
+}
+
+/** `(a & b)` → `a & b`, as often as the whole text is one parenthesis. */
+function unwrap(text: string): string {
+  let t = text.trim();
+  while (t.startsWith("(")) {
+    let close = -1;
+    for (const [i, ch, depth] of outsideStrings(t)) {
+      if (i > 0 && ch === ")" && depth === 0) {
+        close = i;
+        break;
+      }
+    }
+    if (close !== t.length - 1) break;
+    t = t.slice(1, -1).trim();
+  }
+  return t;
+}
+
+type Condition = string | { op: "&" | "|"; terms: Condition[]; text: string };
+
+/** Split at a top-level `&` or `|`; `|` first, as it binds loosest. */
+function condition(text: string): Condition {
+  const t = unwrap(text);
+  for (const op of ["|", "&"] as const) {
+    const cuts: number[] = [];
+    for (const [i, ch, depth] of outsideStrings(t))
+      if (ch === op && depth === 0 && t[i - 1] === " " && t[i + 1] === " ") cuts.push(i);
+    if (!cuts.length) continue;
+    const parts = [...cuts, t.length].map((end, k) => t.slice(k ? cuts[k - 1]! + 1 : 0, end));
+    // (a & b) & c is one run of &: polars nests every pair in parentheses.
+    const terms = parts.map(condition).flatMap((c) => (typeof c !== "string" && c.op === op ? c.terms : [c]));
+    return { op, terms, text: t };
+  }
+  return t;
+}
+
+function conditionLines(c: Condition): string[] {
+  if (typeof c === "string") return chainLines(c, CONDITION_WIDTH);
+  if (c.text.length <= CHAIN_WIDTH) return [c.text];
+  const lines: string[] = [];
+  c.terms.forEach((term, k) => {
+    let sub = conditionLines(term);
+    // A group of the other operator keeps its parentheses, opening where the
+    // operator column is, so its own operators line up beneath them.
+    if (typeof term !== "string" && sub.length > 1)
+      sub = sub.map((line, j) => (j === 0 ? `(${line.slice(1)}` : line)).map((line, j, all) =>
+        j === all.length - 1 ? `${line})` : line);
+    else if (typeof term !== "string") sub = [`(${sub[0]})`];
+    sub.forEach((line, j) => lines.push(j > 0 ? `  ${line}` : k > 0 ? `${c.op} ${line}` : `  ${line}`));
+  });
+  return lines;
+}
+
+/**
+ * An expression laid out to read: one condition per line where it combines
+ * conditions with `&` and `|`, otherwise one method call per line. polars
+ * parenthesises every pair of conditions; only the parentheses that change
+ * the meaning are kept.
+ */
+export const exprLines = (expr: string): string[] => conditionLines(condition(expr));

@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { chainLines, derivedRole, exprColumn, nodeLabel, relationName, roleOf, type RawNode } from "../src/lib/polars";
+import { chainLines, exprLines, derivedRole, exprColumn, nodeLabel, relationName, roleOf, type RawNode } from "../src/lib/polars";
 
 const profile = JSON.parse(
   readFileSync(new URL("./fixtures/profile.json", import.meta.url), "utf8"),
@@ -109,5 +109,45 @@ describe("chainLines", () => {
   it("loses no characters", () => {
     const expr = 'col("x").cast(Int64).fill_null(0).alias("a long alias name")';
     expect(chainLines(expr).map((l) => l.replace(/^  /, "")).join("")).toBe(expr);
+  });
+});
+
+describe("exprLines", () => {
+  it("leaves a short condition as written", () => {
+    expect(exprLines('col("l_shipdate") <= 1998-09-02')).toEqual(['col("l_shipdate") <= 1998-09-02']);
+  });
+
+  it("puts each condition of a long & on its own line, without polars' pair parentheses", () => {
+    expect(exprLines('((col("a") == 1) & col("b").is_between([1, 11])) & col("c").is_null()')).toEqual([
+      '  col("a") == 1',
+      '& col("b").is_between([1, 11])',
+      '& col("c").is_null()',
+    ]);
+  });
+
+  it("keeps the parentheses that group & under |", () => {
+    const lines = exprLines(
+      '(((col("p_brand") == "Brand#12") & col("p_size").is_between([1, 5])) | ' +
+        '((col("p_brand") == "Brand#23") & col("p_size").is_between([1, 10])))',
+    );
+    expect(lines).toEqual([
+      '  ( col("p_brand") == "Brand#12"',
+      '  & col("p_size").is_between([1, 5]))',
+      '| ( col("p_brand") == "Brand#23"',
+      '  & col("p_size").is_between([1, 10]))',
+    ]);
+  });
+
+  it("does not split at an operator inside a string or a call", () => {
+    expect(exprLines('(col("a") == "x & y") & (col("b") | col("c"))')).toEqual([
+      '  col("a") == "x & y"',
+      '& (col("b") | col("c"))',
+    ]);
+  });
+
+  it("still breaks a long method chain", () => {
+    expect(exprLines('col("_POLARS_TMP_2").sum().alias("_POLARS_TMP_3")')).toEqual(
+      chainLines('col("_POLARS_TMP_2").sum().alias("_POLARS_TMP_3")'),
+    );
   });
 });

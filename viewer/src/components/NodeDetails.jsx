@@ -1,6 +1,6 @@
 import { PROP_LABELS, GLOSSARY } from "../lib/glossary";
 import { visibleCounters } from "../lib/counters";
-import { ROLES, chainLines, roleOf } from "../lib/polars";
+import { ROLES, exprLines, roleOf } from "../lib/polars";
 import { ms, num } from "../lib/format";
 import Help from "./Help";
 import Code from "./Code";
@@ -14,7 +14,7 @@ function Expr({ lines }) {
     <div className="expr code">
       {lines.map((expr, i) => (
         <div className="expr-item" key={i}>
-          {chainLines(String(expr)).map((line, j) => <div key={j}><Code code={line} /></div>)}
+          {exprLines(String(expr)).map((line, j) => <div key={j}><Code code={line} /></div>)}
         </div>
       ))}
     </div>
