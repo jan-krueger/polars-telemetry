@@ -6,6 +6,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- Each node in a profile carries its `role`, so a reader can render the plan
+  without learning polars' kind names. Additive: `profile@1` readers that
+  predate it are unaffected.
+
 ### Changed
 - polars' node vocabulary is translated in one place. Every plan node now
   carries a `role` — selection, projection, join, aggregation and so on, in

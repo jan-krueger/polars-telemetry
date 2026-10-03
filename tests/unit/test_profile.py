@@ -77,3 +77,15 @@ def test_fingerprint_matches_the_shape(query):
     from polars_telemetry.model.fingerprint import fingerprint
 
     assert build_profile(query)["fingerprint"] == fingerprint(query.logical)
+
+
+def test_every_node_carries_its_role(query):
+    """Readers use the role rather than re-learning polars' kind names."""
+    from polars_telemetry.model.types import NodeRole
+
+    document = build_profile(query)
+    roles = {
+        NodeRole(n["role"]) for side in ("physical", "logical") for n in document["plan"][side]
+    }
+    assert NodeRole.UNKNOWN not in roles
+    assert NodeRole.JOIN in roles

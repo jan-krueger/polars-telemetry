@@ -1,8 +1,8 @@
 {
  "schema": "polars-telemetry/profile@1",
- "polars_version": "1.44.2",
+ "polars_version": "unknown",
  "polars_telemetry_version": "0.1.1",
- "query_id": "17150fb1-2512-4664-ba66-6328cb392b6b",
+ "query_id": "8ba2038d-bbca-4702-8674-6dfa08f0e999",
  "fingerprint": "94b7e38a9c1e",
  "started_unix_ns": 1759478400000000000,
  "wall_ms": 48.1,
@@ -29,6 +29,7 @@
    {
     "id": 4294967307,
     "kind": "InMemorySink",
+    "role": "sink",
     "inputs": [
      4294967306
     ],
@@ -51,8 +52,8 @@
      "largest_morsel_received": 1,
      "largest_morsel_sent": 0,
      "io_total_active_ns": 0,
-     "io_total_bytes_requested": 0,
      "io_total_bytes_received": 0,
+     "io_total_bytes_requested": 0,
      "io_total_bytes_sent": 0,
      "done": true
     }
@@ -60,6 +61,7 @@
    {
     "id": 4294967306,
     "kind": "Sort",
+    "role": "sort",
     "inputs": [
      4294967305
     ],
@@ -93,8 +95,8 @@
      "largest_morsel_received": 1,
      "largest_morsel_sent": 1,
      "io_total_active_ns": 0,
-     "io_total_bytes_requested": 0,
      "io_total_bytes_received": 0,
+     "io_total_bytes_requested": 0,
      "io_total_bytes_sent": 0,
      "done": true
     }
@@ -102,6 +104,7 @@
    {
     "id": 4294967305,
     "kind": "SimpleProjection",
+    "role": "projection",
     "inputs": [
      4294967304
     ],
@@ -129,8 +132,8 @@
      "largest_morsel_received": 1,
      "largest_morsel_sent": 1,
      "io_total_active_ns": 0,
-     "io_total_bytes_requested": 0,
      "io_total_bytes_received": 0,
+     "io_total_bytes_requested": 0,
      "io_total_bytes_sent": 0,
      "done": true
     }
@@ -138,6 +141,7 @@
    {
     "id": 4294967304,
     "kind": "GroupBy",
+    "role": "aggregation",
     "inputs": [
      4294967303
     ],
@@ -172,8 +176,8 @@
      "largest_morsel_received": 148,
      "largest_morsel_sent": 1,
      "io_total_active_ns": 0,
-     "io_total_bytes_requested": 0,
      "io_total_bytes_received": 0,
+     "io_total_bytes_requested": 0,
      "io_total_bytes_sent": 0,
      "done": true
     }
@@ -181,6 +185,7 @@
    {
     "id": 4294967303,
     "kind": "SimpleProjection",
+    "role": "projection",
     "inputs": [
      4294967302
     ],
@@ -208,8 +213,8 @@
      "largest_morsel_received": 148,
      "largest_morsel_sent": 148,
      "io_total_active_ns": 0,
-     "io_total_bytes_requested": 0,
      "io_total_bytes_received": 0,
+     "io_total_bytes_requested": 0,
      "io_total_bytes_sent": 0,
      "done": true
     }
@@ -217,6 +222,7 @@
    {
     "id": 4294967302,
     "kind": "SimpleProjection",
+    "role": "projection",
     "inputs": [
      4294967301
     ],
@@ -244,8 +250,8 @@
      "largest_morsel_received": 148,
      "largest_morsel_sent": 148,
      "io_total_active_ns": 0,
-     "io_total_bytes_requested": 0,
      "io_total_bytes_received": 0,
+     "io_total_bytes_requested": 0,
      "io_total_bytes_sent": 0,
      "done": true
     }
@@ -253,6 +259,7 @@
    {
     "id": 4294967301,
     "kind": "Select",
+    "role": "map",
     "inputs": [
      4294967300
     ],
@@ -279,8 +286,8 @@
      "largest_morsel_received": 148,
      "largest_morsel_sent": 148,
      "io_total_active_ns": 0,
-     "io_total_bytes_requested": 0,
      "io_total_bytes_received": 0,
+     "io_total_bytes_requested": 0,
      "io_total_bytes_sent": 0,
      "done": true
     }
@@ -288,6 +295,7 @@
    {
     "id": 4294967300,
     "kind": "SimpleProjection",
+    "role": "projection",
     "inputs": [
      4294967299
     ],
@@ -316,8 +324,8 @@
      "largest_morsel_received": 148,
      "largest_morsel_sent": 148,
      "io_total_active_ns": 0,
-     "io_total_bytes_requested": 0,
      "io_total_bytes_received": 0,
+     "io_total_bytes_requested": 0,
      "io_total_bytes_sent": 0,
      "done": true
     }
@@ -325,6 +333,7 @@
    {
     "id": 4294967299,
     "kind": "EquiJoin",
+    "role": "join",
     "inputs": [
      4294967297,
      4294967298
@@ -360,8 +369,8 @@
      "largest_morsel_received": 148,
      "largest_morsel_sent": 148,
      "io_total_active_ns": 0,
-     "io_total_bytes_requested": 0,
      "io_total_bytes_received": 0,
+     "io_total_bytes_requested": 0,
      "io_total_bytes_sent": 0,
      "done": true
     }
@@ -369,6 +378,7 @@
    {
     "id": 4294967297,
     "kind": "MultiScan",
+    "role": "scan",
     "inputs": [],
     "properties": {
      "deletion_files_type": null,
@@ -407,8 +417,8 @@
      "largest_morsel_received": 0,
      "largest_morsel_sent": 148,
      "io_total_active_ns": 0,
-     "io_total_bytes_requested": 0,
      "io_total_bytes_received": 0,
+     "io_total_bytes_requested": 0,
      "io_total_bytes_sent": 0,
      "done": true
     }
@@ -416,6 +426,7 @@
    {
     "id": 4294967298,
     "kind": "MultiScan",
+    "role": "scan",
     "inputs": [],
     "properties": {
      "deletion_files_type": null,
@@ -452,8 +463,8 @@
      "largest_morsel_received": 0,
      "largest_morsel_sent": 5,
      "io_total_active_ns": 0,
-     "io_total_bytes_requested": 0,
      "io_total_bytes_received": 0,
+     "io_total_bytes_requested": 0,
      "io_total_bytes_sent": 0,
      "done": true
     }
@@ -463,6 +474,7 @@
    {
     "id": 11,
     "kind": "Sink",
+    "role": "sink",
     "inputs": [
      6
     ],
@@ -474,6 +486,7 @@
    {
     "id": 6,
     "kind": "Sort",
+    "role": "sort",
     "inputs": [
      5
     ],
@@ -494,6 +507,7 @@
    {
     "id": 5,
     "kind": "GroupBy",
+    "role": "aggregation",
     "inputs": [
      8
     ],
@@ -513,6 +527,7 @@
    {
     "id": 8,
     "kind": "SimpleProjection",
+    "role": "projection",
     "inputs": [
      4
     ],
@@ -528,6 +543,7 @@
    {
     "id": 4,
     "kind": "HStack",
+    "role": "map",
     "inputs": [
      9
     ],
@@ -542,6 +558,7 @@
    {
     "id": 9,
     "kind": "SimpleProjection",
+    "role": "projection",
     "inputs": [
      3
     ],
@@ -558,6 +575,7 @@
    {
     "id": 3,
     "kind": "Join",
+    "role": "join",
     "inputs": [
      1,
      2
@@ -582,6 +600,7 @@
    {
     "id": 1,
     "kind": "Scan",
+    "role": "scan",
     "inputs": [],
     "properties": {
      "column_mapping_type": null,
@@ -611,6 +630,7 @@
    {
     "id": 2,
     "kind": "Scan",
+    "role": "scan",
     "inputs": [],
     "properties": {
      "column_mapping_type": null,

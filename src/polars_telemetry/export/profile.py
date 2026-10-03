@@ -51,6 +51,9 @@ def _node(node: PlanNode, metric: NodeMetrics | None) -> dict[str, Any]:
     entry: dict[str, Any] = {
         "id": node.node_id,
         "kind": node.kind,
+        # The stable vocabulary, so a reader need not learn polars' kind names.
+        # Additive, so profile@1 readers that predate it are unaffected.
+        "role": node.role.value,
         "inputs": list(node.inputs),
         "properties": node.properties,
     }
