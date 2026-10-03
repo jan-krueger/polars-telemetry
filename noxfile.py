@@ -122,13 +122,16 @@ def viewer(session: nox.Session) -> None:
 
 @nox.session(venv_backend="none", name="viewer-test")
 def viewer_test(session: nox.Session) -> None:
-    """The viewer's unit tests and its CSS collision check."""
+    """The viewer's type check, unit tests, CSS collision check and audit."""
     root = Path.cwd()
     session.chdir("viewer")
     try:
         session.run("npm", "ci", external=True)
+        session.run("npx", "tsc", "--noEmit", external=True)
         session.run("npx", "vitest", "run", external=True)
         session.run("node", "scripts/check-css.mjs", external=True)
+        # Only what ships in the page; build tooling is audited by its own advisories.
+        session.run("npm", "audit", "--omit=dev", external=True)
     finally:
         session.chdir(root)
 

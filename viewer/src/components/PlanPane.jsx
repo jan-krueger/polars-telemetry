@@ -3,18 +3,9 @@ import { ReactFlow, Background, MiniMap, Controls } from "@xyflow/react";
 import PlanNode from "./PlanNode";
 import { NODE_H, NODE_W, layout } from "../lib/layout";
 import { cpuMs, rows as fmtRows } from "../lib/format";
+import { nodeLabel } from "../lib/polars";
 
 const nodeTypes = { plan: PlanNode };
-
-function nodeLabel(n) {
-  const p = n.properties || {};
-  if (p.first_source) return String(p.first_source).split("/").pop() + (p.predicate ? " · pushdown" : "");
-  if (p.how) return String(p.how);
-  if (p.keys) return p.keys.map((x) => String(x).slice(4, -1).replace(/"/g, "")).join(", ");
-  if (p.sort_columns?.length) return String(p.sort_columns[0].expr).slice(4, -1).replace(/"/g, "");
-  if (p.columns) return `${p.columns.length} cols`;
-  return "";
-}
 
 export default function PlanPane({ title, subtitle, plan, logical, selectedId, onSelect }) {
   const { nodes, edges } = useMemo(() => {

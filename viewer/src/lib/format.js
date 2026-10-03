@@ -1,3 +1,5 @@
+import { groupKeys, relationName, roleOf } from "./polars";
+
 export const num = (v, d = 0) =>
   (v ?? 0).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
 export const ms = (v) =>
@@ -9,15 +11,19 @@ export const bytes = (b) =>
 export const cpuMs = (n) => (n.metrics?.total_time_ns ?? 0) / 1e6;
 
 /** A readable name for a query shape, from the plan the user actually wrote. */
+const JOIN_ROLES = new Set(["join", "theta_join", "cross_join", "semi_anti_join"]);
+
 export function shapeName(p) {
   const l = p.plan.logical;
-  const joins = l.filter((n) => n.kind === "Join").length;
-  const keys = l.find((n) => n.kind === "GroupBy")?.properties?.keys || [];
-  const src = l.find((n) => n.kind === "Scan")?.properties?.first_source;
+  const joins = l.filter((n) => JOIN_ROLES.has(roleOf(n))).length;
+  const grouping = l.find((n) => roleOf(n) === "aggregation");
+  const keys = grouping ? groupKeys(grouping.properties ?? {}) : [];
+  const scan = l.find((n) => roleOf(n) === "scan");
+  const src = scan ? relationName(scan.properties ?? {}) : "";
   const bits = [];
-  if (src) bits.push(String(src).split("/").pop());
+  if (src) bits.push(src);
   if (joins) bits.push(`${joins} join${joins > 1 ? "s" : ""}`);
-  if (keys.length) bits.push("by " + keys.map((x) => String(x).slice(4, -1).replace(/"/g, "")).join(", "));
+  if (keys.length) bits.push("by " + keys.join(", "));
   return bits.join(" · ") || `${p.plan.physical.length} nodes`;
 }
 

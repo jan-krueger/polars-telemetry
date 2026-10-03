@@ -1,5 +1,5 @@
 import { Handle, Position } from "@xyflow/react";
-import { icon } from "../lib/glossary";
+import { ROLES, relationName, roleOf } from "../lib/polars";
 import { ms, num } from "../lib/format";
 
 const bin = (p) => (p >= 50 ? 4 : p >= 10 ? 3 : p >= 1 ? 2 : 1);
@@ -8,6 +8,11 @@ const bin = (p) => (p >= 50 ? 4 : p >= 10 ? 3 : p >= 1 ? 2 : 1);
  *  node by CPU share would imply a cost it does not have. */
 export default function PlanNode({ data, selected }) {
   const { node, share, logical, label } = data;
+  const role = roleOf(node);
+  const info = ROLES[role];
+  // A relation is a leaf in the algebra: it is named, not given an operator.
+  const relation = role === "scan" ? relationName(node.properties ?? {}) : "";
+  const title = relation || node.kind;
   const b = bin(share);
   const style = logical
     ? {}
@@ -17,7 +22,10 @@ export default function PlanNode({ data, selected }) {
     <div className={`pnode${logical ? " logical" : ""}${selected ? " pnode--sel" : ""}`}
          style={{ ...style, position: "relative" }}>
       <Handle type="target" position={Position.Bottom} />
-      <div className="t1"><span>{icon(node.kind)}</span>{node.kind}</div>
+      <div className="t1" title={`${info.name} — polars ${node.kind}`}>
+        {info.symbol ? <span className={`ra${info.muted ? " ra--muted" : ""}`}>{info.symbol}</span> : null}
+        {title}
+      </div>
       {label ? <div className="t2">{label}</div> : null}
       {node.metrics ? (
         <div className="t3">

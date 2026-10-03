@@ -1,23 +1,8 @@
-import { PROP_LABELS, GLOSSARY, icon } from "../lib/glossary";
+import { PROP_LABELS, GLOSSARY } from "../lib/glossary";
+import { visibleCounters } from "../lib/counters";
+import { ROLES, roleOf } from "../lib/polars";
 import { ms, num } from "../lib/format";
 import Help from "./Help";
-
-export const COUNTERS = [
-  ["Rows in", "rows_received", "rows"], ["Rows out", "rows_sent", "rows"],
-  ["Morsels received", "morsels_received"], ["Morsels sent", "morsels_sent"],
-  ["Largest morsel received", "largest_morsel_received", "rows"],
-  ["Largest morsel sent", "largest_morsel_sent", "rows"],
-  ["Total time", "total_time_ns", "ns"], ["Total poll time", "total_poll_time_ns", "ns"],
-  ["Maximum poll time", "max_poll_time_ns", "ns"],
-  ["Total number of polls", "total_polls"], ["Total polls stolen", "total_stolen_polls"],
-  ["Total state update time", "total_state_update_time_ns", "ns"],
-  ["Maximum state update time", "max_state_update_time_ns", "ns"],
-  ["Number state updates", "total_state_updates"],
-  ["IO active time", "io_total_active_ns", "ns"],
-  ["IO bytes received", "io_total_bytes_received", "bytes"],
-  ["IO bytes requested", "io_total_bytes_requested", "bytes"],
-  ["IO bytes sent", "io_total_bytes_sent", "bytes"],
-];
 
 const looksExpr = (v) => typeof v === "string" && /[()"]/.test(v);
 
@@ -63,14 +48,16 @@ export default function NodeDetails({ node, compareNode }) {
   const m = node.metrics, other = compareNode?.metrics;
   const props = Object.entries(node.properties || {})
     .filter(([k, v]) => v != null && k !== "type" && !(Array.isArray(v) && !v.length));
-  const anyIo = m && (m.io_total_active_ns || m.io_total_bytes_received || m.io_total_bytes_requested);
+  const info = ROLES[roleOf(node)];
 
   return (
     <>
       <div className="card">
         <div className="hd">
-          <span className="ic">{icon(node.kind)}</span>
-          <span className="nm">{node.kind}</span>
+          {info.symbol
+            ? <span className={`ra${info.muted ? " ra--muted" : ""}`} title={info.name}>{info.symbol}</span>
+            : null}
+          <span className="nm" title={info.name}>{node.kind}</span>
           <span style={{ marginLeft: "auto", font: "10.5px ui-monospace,monospace", color: "var(--muted)" }}>
             #{node.id}
           </span>
@@ -89,9 +76,7 @@ export default function NodeDetails({ node, compareNode }) {
               {m.done ? "✓ Completed" : "⚠ Unfinished"}
             </span>
           </div>
-          {COUNTERS.map(([label, key, unit]) => {
-            if (m[key] == null) return null;
-            if (key.startsWith("io_") && !anyIo) return null;
+          {visibleCounters(m).map(({ label, key, unit }) => {
             const raw = m[key];
             const v = unit === "ns" ? ms(raw / 1e6)
               : unit === "bytes" ? (raw >= 1048576 ? num(raw / 1048576, 1) + " MiB" : num(raw / 1024, 1) + " KiB")
@@ -106,8 +91,8 @@ export default function NodeDetails({ node, compareNode }) {
             return (
               <div className="mrow" key={key}>
                 <span className="k">{label}<Help term={key} /></span>
-                <span className="v">{v}{unit && unit !== "ns" && unit !== "bytes"
-                  ? <span className="u">{unit}</span> : null} {delta}</span>
+                <span className="v">{v}{unit === "rows"
+                  ? <span className="u">rows</span> : null} {delta}</span>
               </div>
             );
           })}

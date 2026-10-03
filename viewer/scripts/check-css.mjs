@@ -10,7 +10,8 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
-const SHARED_ON_PURPOSE = new Set(["delta-up", "delta-down", "btn", "link", "small", "mono"]);
+// `ra` is the relational-algebra notation, styled the same wherever it appears.
+const SHARED_ON_PURPOSE = new Set(["delta-up", "delta-down", "btn", "link", "small", "mono", "ra", "ra--muted"]);
 
 const walk = (dir) =>
   readdirSync(dir).flatMap((entry) => {

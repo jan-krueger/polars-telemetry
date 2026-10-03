@@ -2,7 +2,7 @@
  "schema": "polars-telemetry/profile@1",
  "polars_version": "unknown",
  "polars_telemetry_version": "0.1.1",
- "query_id": "8ba2038d-bbca-4702-8674-6dfa08f0e999",
+ "query_id": "01a10000-0000-7000-8000-000000000000",
  "fingerprint": "94b7e38a9c1e",
  "started_unix_ns": 1759478400000000000,
  "wall_ms": 48.1,

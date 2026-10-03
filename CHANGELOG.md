@@ -12,6 +12,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   predate it are unaffected.
 
 ### Changed
+- The viewer draws plan nodes in relational-algebra notation — σ selection,
+  π projection, χ map, ⋈ join, ⋉ semi/anti join, γ aggregation, τ sort, δ
+  distinct, ⊎ union — and names scans by the relation they read. Engine
+  plumbing and sinks are drawn muted, as not being operations on your data.
+  Each symbol's tooltip names the operator and polars' own kind.
+- The viewer reads each node's role from the profile and keeps a fallback
+  table, tested kind-for-kind against the Python dialect, for files written
+  before roles existed. Its vocabulary and counter list each live in one typed
+  module; the physical plan's group-by keys, which were never labelled, now are.
 - polars' node vocabulary is translated in one place. Every plan node now
   carries a `role` — selection, projection, join, aggregation and so on, in
   relational-algebra terms — assigned by the adapter's dialect, and nothing
@@ -34,6 +43,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   attribute and diagnostic that depended on it.
 
 ### Fixed
+- The viewer shows a sink's IO counters when it only writes; the check for
+  whether to show the IO group ignored bytes sent.
 - Profiles record the polars version that ran the query again. A refactor in
   this release dropped it, so every profile said `unknown`; the test that
   should have caught it only checked that the field was present.

@@ -46,14 +46,3 @@ export const PROP_LABELS = {
   column_mapping_type: "Column mapping", include_file_paths: "Include file paths",
   output_as_boolean: "Output as boolean", row_index_offset: "Row index offset",
 };
-
-export const ICONS = {
-  MultiScan: "▤", Scan: "▤", DataFrameScan: "▦",
-  EquiJoin: "⋈", Join: "⋈", SemiAntiJoin: "⋈", CrossJoin: "⋈", IEJoin: "⋈",
-  GroupBy: "∑", Sort: "↕", TopK: "↧", Filter: "⌕", Select: "ƒ", InputIndependentSelect: "ƒ",
-  SimpleProjection: "⊞", HStack: "⊕", Distinct: "≠",
-  Union: "⊎", UnorderedUnion: "⊎", Multiplexer: "⑂", Map: "λ", MapFunction: "λ",
-  InMemorySink: "⤓", FileSink: "⤓", IoSink: "⤓", Sink: "⤓",
-  InMemorySource: "⤒", InMemoryMap: "⇄", Reduce: "∑", WithRowIndex: "№",
-};
-export const icon = (k) => ICONS[k] || "◻";

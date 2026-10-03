@@ -126,6 +126,7 @@ pre.snip b{color:var(--ink);font-weight:500}
 .card .hd{display:flex;align-items:center;gap:7px;margin-bottom:10px}
 .card .hd .nm{font:600 13px system-ui;letter-spacing:-.01em}
 .card .hd .ic{font-size:12px;color:var(--muted)}
+.card .hd .ra{font-size:20px}
 .field{padding:7px 0;border-top:1px solid var(--grid)}
 .field:first-of-type{border-top:0;padding-top:0}
 .field .lbl{font-size:11.5px;color:var(--muted);margin-bottom:5px}
@@ -175,3 +176,9 @@ pre.snip b{color:var(--ink);font-weight:500}
 .crash{max-width:640px;margin:48px auto;padding:0 16px}
 .crash pre{background:var(--surface-2);border:1px solid var(--border);border-radius:6px;
   padding:10px;overflow-x:auto;font:11.5px ui-monospace,SFMono-Regular,Menlo,monospace}
+/* Greek in a serif reads smaller than the monospace label beside it, so the
+   symbol is set larger and given a fixed slot to keep labels aligned. */
+.ra{font-family:"STIX Two Math","Cambria Math","Latin Modern Math","DejaVu Serif",Georgia,serif;
+  font-size:1.5em;font-weight:400;line-height:1;min-width:1.1em;text-align:center;
+  display:inline-block}
+.ra--muted{opacity:.55}
