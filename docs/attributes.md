@@ -133,16 +133,16 @@ Node-level, dimensioned by `polars.node.kind` and `polars.engine`:
 | `polars.node.max_poll_time` | histogram | ms |
 | `polars.node.state_update_time` | histogram | ms |
 | `polars.node.max_state_update_time` | histogram | ms |
-| `polars.node.largest_morsel` | histogram | rows |
+| `polars.node.largest_morsel` | histogram | {row} |
 | `polars.node.stolen_ratio` | histogram | 1 |
 | `polars.node.io_time` | histogram | ms |
-| `polars.node.rows_in` | counter | rows |
-| `polars.node.rows_out` | counter | rows |
-| `polars.node.morsels_in` | counter | morsels |
-| `polars.node.morsels_out` | counter | morsels |
-| `polars.node.polls` | counter | polls |
-| `polars.node.state_updates` | counter | updates |
-| `polars.node.io_bytes` | counter | bytes |
+| `polars.node.rows_in` | counter | {row} |
+| `polars.node.rows_out` | counter | {row} |
+| `polars.node.morsels_in` | counter | {morsel} |
+| `polars.node.morsels_out` | counter | {morsel} |
+| `polars.node.polls` | counter | {poll} |
+| `polars.node.state_updates` | counter | {update} |
+| `polars.node.io_bytes` | counter | By |
 
 `polars.node.io_bytes` and `polars.node.largest_morsel` carry one extra
 dimension, `polars.direction`. For bytes its values are `requested`,

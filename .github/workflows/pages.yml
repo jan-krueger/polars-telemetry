@@ -7,11 +7,17 @@ on:
       - "docs/**"
       - "viewer/**"
       - "mkdocs.yml"
+      - "pyproject.toml"
+      - "uv.lock"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
 permissions:
   contents: read
+
+# Build the published site from the same locked versions CI validated.
+env:
+  UV_LOCKED: "1"
 
 # Never cancel a running deploy: a half-published site is worse than a slow one.
 concurrency:

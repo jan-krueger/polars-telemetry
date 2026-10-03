@@ -14,8 +14,8 @@ at all.
 > internal and carries no deprecation guarantee, so it can change or disappear
 > in any polars release.
 >
-> Supported polars: **1.44.1 – 1.44.x**. On anything else the package degrades
-> to reduced telemetry with a warning; it will not break your queries.
+> Supported polars: **1.44.1 – 1.44.x**. On anything else the package emits
+> less — or declines to install — with a warning; it will not break your queries.
 
 ## Install
 
@@ -101,6 +101,7 @@ polars_telemetry.install(Config(node_metrics=False))
 | --- | --- | --- |
 | `node_metrics` | `True` | Read per-node counters once at query end |
 | `include_plan` | `False` | Attach the full plan to the span as JSON |
+| `call_site` | `True` | Record the file, line and function that ran the query |
 | `redact_literals` | `False` | Mask literal values in plan expressions |
 | `resource_attributes` | `{}` | Extra resource attributes |
 

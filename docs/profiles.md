@@ -30,10 +30,13 @@ record. A write failure is logged once and never reaches your query.
 ```json
 {
   "schema": "polars-telemetry/profile@1",
-  "polars_version": "1.44.2",
-  "polars_telemetry_version": "0.1.0",
+  "polars_version": "1.44.2", "polars_telemetry_version": "...",
   "query_id": "...", "fingerprint": "e0933ac0fac3",
+  "started_unix_ns": 1759478400000000000,
   "wall_ms": 100.7, "cpu_ms": 284.0, "result_rows": 8,
+  "call_site": { "filepath": "/srv/app/pipeline.py", "lineno": 142,
+                 "function": "build_report" },
+  "failed": null,
   "trace_id": "...", "span_id": "...",
   "diagnostics": { "parallel_efficiency": 0.24, "morsel_skew": 1.96, ... },
   "plan": { "physical": [ ... ], "logical": [ ... ] }

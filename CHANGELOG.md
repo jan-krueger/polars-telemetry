@@ -7,6 +7,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Fixed
+- Documentation corrected against the code: eight metric units were wrong
+  (`rows` for `{row}`, `bytes` for `By`, and so on, which decides the series
+  name an OTLP-to-Prometheus translator produces), `call_site` was missing from
+  both option tables, and the install page stated a polars floor with no
+  ceiling. Instrument units and `Config` options are now test-enforced, and
+  mkdocs validates anchors so a renamed heading fails the build.
 - `polars.projection_efficiency` always reported nothing. The two halves of the
   ratio live on different plans — the physical scan says how many columns were
   read, the IR scan how many the file holds — and only one was read, so the

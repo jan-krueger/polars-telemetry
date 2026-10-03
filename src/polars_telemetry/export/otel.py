@@ -11,7 +11,7 @@ query-span aggregates instead.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 from opentelemetry import metrics, trace
 from opentelemetry.trace import SpanKind, Status, StatusCode
@@ -32,6 +32,38 @@ if TYPE_CHECKING:
 _MS_TO_NS = 1_000_000
 
 
+# The instrument registry: name, unit, description. Units are public API --
+# an OTLP-to-Prometheus translator derives the series suffix from them --
+# so they are declared here and checked against the attribute reference.
+HISTOGRAMS: Final[tuple[tuple[str, str, str], ...]] = (
+    (semconv.QUERY_DURATION, "ms", "Wall time per query"),
+    (semconv.QUERY_CPU_TIME, "ms", "Summed node self time per query"),
+    (semconv.QUERY_PARALLEL_EFFICIENCY, "1", "CPU time over wall time over cores"),
+    (semconv.NODE_CPU_TIME, "ms", "Self time per plan node"),
+    (semconv.NODE_POLL_TIME, "ms", "Time a node spent being polled"),
+    (semconv.NODE_MAX_POLL_TIME, "ms", "Longest single poll of a node"),
+    (semconv.NODE_STATE_UPDATE_TIME, "ms", "Time a node spent in state updates"),
+    (
+        semconv.NODE_MAX_STATE_UPDATE_TIME,
+        "ms",
+        "Longest single state update of a node",
+    ),
+    (semconv.NODE_LARGEST_MORSEL, "{row}", "Largest morsel a node received"),
+    (semconv.NODE_STOLEN_RATIO, "1", "Share of a node's polls that were stolen"),
+    (semconv.NODE_IO_TIME, "ms", "Time a node spent active on IO"),
+)
+
+COUNTERS: Final[tuple[tuple[str, str, str], ...]] = (
+    (semconv.NODE_ROWS_IN, "{row}", "Rows received by a plan node"),
+    (semconv.NODE_ROWS_OUT, "{row}", "Rows emitted by a plan node"),
+    (semconv.NODE_MORSELS_IN, "{morsel}", "Morsels received by a plan node"),
+    (semconv.NODE_MORSELS_OUT, "{morsel}", "Morsels emitted by a plan node"),
+    (semconv.NODE_POLLS, "{poll}", "Times a node was polled"),
+    (semconv.NODE_STATE_UPDATES, "{update}", "State updates on a node"),
+    (semconv.NODE_IO_BYTES, "By", "Bytes moved by a node"),
+)
+
+
 class OTelExporter:
     """A query span, plus per-node metric instruments."""
 
@@ -44,35 +76,11 @@ class OTelExporter:
 
         self._histograms: dict[str, Histogram] = {
             name: self._meter.create_histogram(name, unit=unit, description=desc)
-            for name, unit, desc in (
-                (semconv.QUERY_DURATION, "ms", "Wall time per query"),
-                (semconv.QUERY_CPU_TIME, "ms", "Summed node self time per query"),
-                (semconv.QUERY_PARALLEL_EFFICIENCY, "1", "CPU time over wall time over cores"),
-                (semconv.NODE_CPU_TIME, "ms", "Self time per plan node"),
-                (semconv.NODE_POLL_TIME, "ms", "Time a node spent being polled"),
-                (semconv.NODE_MAX_POLL_TIME, "ms", "Longest single poll of a node"),
-                (semconv.NODE_STATE_UPDATE_TIME, "ms", "Time a node spent in state updates"),
-                (
-                    semconv.NODE_MAX_STATE_UPDATE_TIME,
-                    "ms",
-                    "Longest single state update of a node",
-                ),
-                (semconv.NODE_LARGEST_MORSEL, "{row}", "Largest morsel a node received"),
-                (semconv.NODE_STOLEN_RATIO, "1", "Share of a node's polls that were stolen"),
-                (semconv.NODE_IO_TIME, "ms", "Time a node spent active on IO"),
-            )
+            for name, unit, desc in HISTOGRAMS
         }
         self._counters: dict[str, Counter] = {
             name: self._meter.create_counter(name, unit=unit, description=desc)
-            for name, unit, desc in (
-                (semconv.NODE_ROWS_IN, "{row}", "Rows received by a plan node"),
-                (semconv.NODE_ROWS_OUT, "{row}", "Rows emitted by a plan node"),
-                (semconv.NODE_MORSELS_IN, "{morsel}", "Morsels received by a plan node"),
-                (semconv.NODE_MORSELS_OUT, "{morsel}", "Morsels emitted by a plan node"),
-                (semconv.NODE_POLLS, "{poll}", "Times a node was polled"),
-                (semconv.NODE_STATE_UPDATES, "{update}", "State updates on a node"),
-                (semconv.NODE_IO_BYTES, "By", "Bytes moved by a node"),
-            )
+            for name, unit, desc in COUNTERS
         }
 
     def export(self, query: Query) -> None:

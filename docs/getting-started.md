@@ -7,7 +7,7 @@ pip install polars-telemetry          # API only; bring your own OTel SDK
 pip install 'polars-telemetry[otlp]'  # with SDK and OTLP exporter
 ```
 
-Requires Python 3.10+ and polars 1.44.1 or newer.
+Requires Python 3.10+ and polars 1.44.1 – 1.44.x; see [Compatibility](compatibility.md).
 
 ## Activate
 
@@ -49,6 +49,7 @@ polars_telemetry.install(Config(node_metrics=False))
 | --- | --- | --- |
 | `node_metrics` | `True` | Read per-node counters once at query end |
 | `include_plan` | `False` | Attach the full plan to the span as JSON |
+| `call_site` | `True` | Record the file, line and function that ran the query |
 | `redact_literals` | `False` | Mask literal values in plan expressions |
 | `resource_attributes` | `{}` | Extra resource attributes |
 
@@ -114,6 +115,7 @@ polars_telemetry.install(exporter=ConsoleExporter())
 
 ```text
 polars query 01a0fd9a ok wall=48.1ms cpu=235.3ms parallelism=4.90x nodes=11 rows_out=4
+  at pipeline.py:142 in build_report()
   GroupBy              128.4ms  in=   3,134,012  out=           4
   Filter                79.4ms  in=   4,000,000  out=   3,134,012
   EquiJoin              0.73ms  in=   3,135,012  out=   3,134,012

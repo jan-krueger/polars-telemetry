@@ -11,6 +11,11 @@ all.
     so it can change or disappear in any polars release. See
     [Compatibility](compatibility.md) for what happens when it does.
 
+!!! note
+    This site tracks `main`, so it can describe work that is not released
+    yet. The [changelog](https://github.com/jan-krueger/polars-telemetry/blob/main/CHANGELOG.md)
+    says what shipped.
+
 ```bash
 pip install 'polars-telemetry[otlp]'
 ```

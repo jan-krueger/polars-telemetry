@@ -5,6 +5,11 @@ repo_url: https://github.com/jan-krueger/polars-telemetry
 edit_uri: ""
 strict: true
 
+# --strict alone leaves anchors at INFO, so a renamed heading breaks links
+# silently. File links are already checked.
+validation:
+  anchors: warn
+
 theme:
   name: material
   features:

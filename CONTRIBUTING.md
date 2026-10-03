@@ -73,8 +73,8 @@ There is no API token in the repository or its secrets.
 ```bash
 # 1. Move the Unreleased section of CHANGELOG.md under the new version
 # 2. Bump __version__ in src/polars_telemetry/__init__.py
-git commit -am "chore: release 0.1.0"
-git tag v0.1.0
+git commit -am "chore: release X.Y.Z"
+git tag vX.Y.Z
 git push origin main --tags
 ```
 
