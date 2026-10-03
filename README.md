@@ -22,6 +22,7 @@ at all.
 ```bash
 pip install polars-telemetry          # API only; bring your own OTel SDK
 pip install 'polars-telemetry[otlp]'  # with SDK and OTLP exporter
+pip install 'polars-telemetry[datadog]'  # for the DogStatsD exporter
 ```
 
 Python 3.10+.
@@ -57,6 +58,27 @@ updates, IO time and bytes — as 15 metric instruments dimensioned by node kind
 
 Every name is listed in the
 [attribute reference](https://jan-krueger.github.io/polars-telemetry/reference/spans-and-metrics/).
+
+## Where it goes
+
+| Exporter | Sends | To |
+| --- | --- | --- |
+| `OTelExporter`, the default | a span and per-node metrics | your OpenTelemetry SDK |
+| `DogStatsdExporter` | the same metrics, with tags | the Datadog Agent, or Telegraf into InfluxDB |
+| `FileExporter` | a profile per query: both plans, every counter | a `.jsonl` file for the viewer |
+| `ConsoleExporter` | a short summary | standard error |
+
+```python
+from datadog import DogStatsd
+from polars_telemetry.export.dogstatsd import DogStatsdExporter
+
+statsd = DogStatsd(disable_buffering=False, disable_background_sender=False)
+polars_telemetry.install(exporter=DogStatsdExporter(statsd))
+```
+
+`exporter` takes a list, so several can run at once. Each has a
+[page in the docs](https://jan-krueger.github.io/polars-telemetry/exporters/),
+with its options and what it costs.
 
 ## Profiles without a collector
 
