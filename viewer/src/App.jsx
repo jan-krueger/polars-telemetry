@@ -7,6 +7,7 @@ import Help from "./components/Help";
 import Code from "./components/Code";
 import { allSessions, dropAll, dropSession, saveSession, storageUnavailable } from "./lib/storage";
 import { bytes, diagnostics, ms, num, shapeName } from "./lib/format";
+import { clock, instant, iso, ranBetween, spansDays } from "./lib/time";
 import { readJsonl, readSession, toJsonl } from "./model/read";
 import {
   compareProfile, currentProfile, currentSession, findNode, initialState, reducer, title,
@@ -34,6 +35,7 @@ export default function App() {
   const profiles = current?.profiles ?? [];
   const profile = currentProfile(state);
   const compare = compareProfile(state);
+  const withDates = useMemo(() => spansDays(profiles), [profiles]);
 
   const importFiles = useCallback(async (files) => {
     const added = [];
@@ -116,8 +118,9 @@ export default function App() {
                 <div className="sessrow" key={s.id} aria-current={s.id === state.sessionId}>
                   <button className="pick" onClick={() => dispatch({ type: "sessionPicked", sessionId: s.id })}>
                     <div className="nm">{s.name}</div>
-                    <div className="mt">{s.profiles.length} profiles · {bytes(s.bytes || 0)} ·{" "}
-                      {new Date(s.importedAt).toLocaleDateString()}</div>
+                    <div className="mt">{s.profiles.length} profiles · {bytes(s.bytes || 0)}</div>
+                    <div className="mt">{ranBetween(s.profiles)
+                      ?? `imported ${new Date(s.importedAt).toLocaleDateString()}`}</div>
                   </button>
                   <button className="x dl" title="Download this session" aria-label={`Download ${s.name}`}
                           onClick={() => download(s)}>
@@ -213,7 +216,9 @@ polars_telemetry.install(exporter=FileExporter("profiles/session.jsonl"))`} />
                 <div className="qline">
                   <span className="qname">{title(profile)}</span>
                   <span className="qmeta">{profile.label ? `${shapeName(profile)} · ` : ""}{profile.fingerprint} ·{" "}
-                    {new Date(profile.started_unix_ns / 1e6).toLocaleTimeString()}</span>
+                    <time dateTime={iso(profile.started_unix_ns)}
+                          title={instant(profile.started_unix_ns)}>
+                      {clock(profile.started_unix_ns, withDates)}</time></span>
                   {profile.call_site && (
                     <span className="qsite" title={profile.call_site.filepath}>
                       {profile.call_site.filepath.split("/").pop()}:{profile.call_site.lineno}
@@ -227,7 +232,7 @@ polars_telemetry.install(exporter=FileExporter("profiles/session.jsonl"))`} />
                       <option value="">compare with…</option>
                       {siblings.map((q) => (
                         <option value={q.query_id} key={q.query_id}>
-                          {new Date(q.started_unix_ns / 1e6).toLocaleTimeString()} · {ms(q.wall_ms)}
+                          {clock(q.started_unix_ns, withDates)} · {ms(q.wall_ms)}
                         </option>))}
                     </select>
                   )}
