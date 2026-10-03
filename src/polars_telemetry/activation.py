@@ -66,8 +66,8 @@ def install(
             `OTelExporter`.
 
     Returns:
-        What was installed, including what the probe found about this polars;
-        None when this polars cannot be instrumented at all.
+        What was installed, including what the probe found about this
+            polars; None when this polars cannot be instrumented at all.
 
     Enabling polars' monitoring sets its engine affinity to `"streaming"`, so
     this changes how queries execute and never happens on import. Calling it

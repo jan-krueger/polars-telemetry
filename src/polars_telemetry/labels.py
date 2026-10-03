@@ -26,8 +26,9 @@ _path: ContextVar[tuple[str, ...]] = ContextVar("polars_telemetry_label", defaul
 def label(name: str) -> Iterator[None]:
     """Label every query run inside the block.
 
-    >>> with label("etl"), label("customers"):
-    ...     frame.collect()  # labelled "etl/customers"
+    Examples:
+        >>> with label("etl"), label("customers"):
+        ...     frame.collect()  # labelled "etl/customers"
 
     Args:
         name: Any non-empty text. Nested labels are joined with `/`.

@@ -80,9 +80,10 @@ class Session:
 def profile(config: Config | None = None) -> Iterator[Session]:
     """Collect every query run inside the block.
 
-    >>> with profile() as session:
-    ...     frame.collect()
-    >>> session.slowest.call_site
+    Examples:
+        >>> with profile() as session:
+        ...     frame.collect()
+        >>> session.slowest.call_site
 
     Args:
         config: Used only when nothing is installed yet; an existing

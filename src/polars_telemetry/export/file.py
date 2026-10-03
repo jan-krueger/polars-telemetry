@@ -34,10 +34,10 @@ class FileExporter:
 
     Args:
         path: The session file. Its directory is created if missing.
-        max_bytes: When the file would grow past this, it moves to
-            `<name>.1`, replacing the previous one, and a new file starts. At
-            most about twice this is on disk. A profile is never split, so a
-            file can run over by one record.
+        max_bytes: 64 MiB by default. When the file would grow past this,
+            it moves to `<name>.1`, replacing the previous one, and a new file
+            starts. At most about twice this is on disk. A profile is never
+            split, so a file can run over by one record.
         redact_literals: Mask literal values in the plans written.
     """
 

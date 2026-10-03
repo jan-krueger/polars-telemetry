@@ -33,6 +33,29 @@ nav:
   - Attribute reference: attributes.md
   - How it works: how-it-works.md
   - Compatibility: compatibility.md
+  - Python API: reference/api.md
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            docstring_style: google
+            heading_level: 3
+            show_root_heading: true
+            show_root_full_path: false
+            show_source: false
+            show_bases: false
+            separate_signature: true
+            show_signature_annotations: true
+            signature_crossrefs: false
+            merge_init_into_class: true
+            members_order: source
+            filters: ["!^_"]
+            show_labels: false
+            docstring_section_style: list
 
 markdown_extensions:
   - admonition
