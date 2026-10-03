@@ -18,6 +18,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Viewer: query times carry a date when a session spans days, and show the
   exact UTC instant on hover; sessions list when their queries ran rather than
   when they were imported.
+- Viewer: the overview sorts by query, runs, total wall or mean CPU; names
+  sort as numbers read, so `q2` comes before `q10`.
 - `install(exporter=[...])` takes several exporters. Each receives every
   query, and one that keeps raising disables itself without costing the others.
 - Each node in a profile carries its `role`, so a reader can render the plan

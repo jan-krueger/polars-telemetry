@@ -82,7 +82,9 @@ export default function App() {
   }, [importFiles]);
 
   const pick = (queryId) => dispatch({ type: "queryPicked", queryId });
-  const overview = useMemo(() => visibleShapes(state), [state.sessions, state.sessionId, state.search]);
+  const overview = useMemo(() => visibleShapes(state),
+    [state.sessions, state.sessionId, state.search, state.sort]);
+  const widest = overview.reduce((a, r) => Math.max(a, r.wallMs), 0) || 1;
   const totalWall = overview.reduce((a, r) => a + r.wallMs, 0) || 1;
 
   const selectedNode = findNode(profile, state.node);
@@ -215,11 +217,15 @@ polars_telemetry.install(exporter=FileExporter("profiles/session.jsonl"))`} />
               <div style={{ fontSize: 15, fontWeight: 600, margin: "-4px 0 4px" }}>
                 {profiles.length} profiles · {overview.length} query shape{overview.length > 1 ? "s" : ""}
               </div>
-              <p style={{ color: "var(--ink-2)", fontSize: 12.5, margin: "0 0 14px" }}>
-                Ranked by total wall time. Pick a shape to see its plans.
-              </p>
               <table className="ovw">
-                <thead><tr><th>query shape</th><th>runs</th><th>total wall</th><th>share</th><th>mean cpu</th><th /></tr></thead>
+                <thead><tr>
+                  <SortHeader sort={state.sort} by="name" dispatch={dispatch}>query</SortHeader>
+                  <SortHeader sort={state.sort} by="runs" dispatch={dispatch}>runs</SortHeader>
+                  <SortHeader sort={state.sort} by="wall" dispatch={dispatch}>total wall</SortHeader>
+                  <th>share</th>
+                  <SortHeader sort={state.sort} by="cpu" dispatch={dispatch}>mean cpu</SortHeader>
+                  <th />
+                </tr></thead>
                 <tbody>
                   {overview.map((r) => (
                     <tr key={r.fingerprint} onClick={() => pick(r.runs[0].query_id)}>
@@ -229,7 +235,7 @@ polars_telemetry.install(exporter=FileExporter("profiles/session.jsonl"))`} />
                       <td>{r.runs.length}</td><td>{ms(r.wallMs)}</td>
                       <td>{num((r.wallMs / totalWall) * 100, 1)}%</td><td>{ms(r.cpuMs / r.runs.length)}</td>
                       <td style={{ width: 140 }}>
-                        <div className="bar" style={{ width: `${(r.wallMs / (overview[0].wallMs || 1)) * 100}%` }} /></td>
+                        <div className="bar" style={{ width: `${(r.wallMs / widest) * 100}%` }} /></td>
                     </tr>
                   ))}
                 </tbody>
@@ -301,6 +307,18 @@ polars_telemetry.install(exporter=FileExporter("profiles/session.jsonl"))`} />
         </aside>
       </div>
     </>
+  );
+}
+
+/** A column header that sorts the overview, and says how it is sorted. */
+function SortHeader({ sort, by, dispatch, children }) {
+  const active = sort.key === by;
+  return (
+    <th aria-sort={active ? (sort.descending ? "descending" : "ascending") : "none"}>
+      <button className="sorth" onClick={() => dispatch({ type: "sorted", key: by })}>
+        {children}<span className="sorth-mark" aria-hidden="true">{active ? (sort.descending ? "▼" : "▲") : ""}</span>
+      </button>
+    </th>
   );
 }
 

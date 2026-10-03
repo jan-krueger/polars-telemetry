@@ -24,6 +24,14 @@ export interface ViewerState {
   node: NodeRef | null;
   /** Filters the query list; kept across sessions, as a view setting. */
   search: string;
+  /** Orders the query list and overview; a view setting too. */
+  sort: Sort;
+}
+
+export type SortKey = "name" | "runs" | "wall" | "cpu";
+export interface Sort {
+  key: SortKey;
+  descending: boolean;
 }
 
 export type Action =
@@ -35,7 +43,8 @@ export type Action =
   | { type: "queryPicked"; queryId: string }
   | { type: "comparePicked"; queryId: string | null }
   | { type: "nodePicked"; node: NodeRef }
-  | { type: "searched"; text: string };
+  | { type: "searched"; text: string }
+  | { type: "sorted"; key: SortKey };
 
 export const initialState: ViewerState = {
   booted: false,
@@ -45,6 +54,7 @@ export const initialState: ViewerState = {
   compareId: null,
   node: null,
   search: "",
+  sort: { key: "wall", descending: true },
 };
 
 const nothingSelected = { queryId: null, compareId: null, node: null } as const;
@@ -82,6 +92,12 @@ export function reducer(state: ViewerState, action: Action): ViewerState {
       return { ...state, node: action.node };
     case "searched":
       return { ...state, search: action.text };
+    case "sorted": {
+      // The same column again flips it; a new one starts where it reads best:
+      // names A to Z, numbers largest first.
+      const descending = state.sort.key === action.key ? !state.sort.descending : action.key !== "name";
+      return { ...state, sort: { key: action.key, descending } };
+    }
   }
 }
 
@@ -149,9 +165,25 @@ export function matches(profile: Profile, search: string): boolean {
   return haystack.some((text) => text?.toLowerCase().includes(needle));
 }
 
-/** The query shapes to list: grouped, ranked, and narrowed by the search. */
+const byName = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
+
+const SORTS: Record<SortKey, (a: ShapeRow, b: ShapeRow) => number> = {
+  // Numeric collation, so tpch/q2 comes before tpch/q10.
+  name: (a, b) => byName.compare(title(a.runs[0]!), title(b.runs[0]!)),
+  runs: (a, b) => a.runs.length - b.runs.length,
+  wall: (a, b) => a.wallMs - b.wallMs,
+  cpu: (a, b) => a.cpuMs / a.runs.length - b.cpuMs / b.runs.length,
+};
+
+/** Shapes in the order asked for; ties keep the most expensive first. */
+export function sortShapes(rows: ShapeRow[], sort: Sort): ShapeRow[] {
+  const compare = SORTS[sort.key];
+  return [...rows].sort((a, b) => (sort.descending ? -1 : 1) * compare(a, b) || b.wallMs - a.wallMs);
+}
+
+/** The query shapes to list: grouped, narrowed by the search, and sorted. */
 export const visibleShapes = (state: ViewerState): ShapeRow[] =>
-  shapes((currentSession(state)?.profiles ?? []).filter((p) => matches(p, state.search)));
+  sortShapes(shapes((currentSession(state)?.profiles ?? []).filter((p) => matches(p, state.search))), state.sort);
 
 /** What to call a query: its label, else a name derived from its plan. */
 export const title = (profile: Profile): string => profile.label ?? shapeName(profile);

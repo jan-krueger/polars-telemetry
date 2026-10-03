@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readProfile } from "../src/model/read";
 import type { Profile, Session } from "../src/model/profile";
-import { currentProfile, initialState, matches, reducer, shapes, title, visibleShapes, type ViewerState } from "../src/state/viewer";
+import { currentProfile, initialState, matches, reducer, shapes, sortShapes, title, visibleShapes, type ViewerState } from "../src/state/viewer";
 
 function profile(id: string, fingerprint: string, wall: number, hotNode = 7): Profile {
   const result = readProfile({
@@ -125,5 +125,37 @@ describe("search", () => {
   it("is titled by its label, else by its shape", () => {
     expect(title(q3)).toBe("tpch/q3");
     expect(title(labelled("x", null, "fx"))).not.toBe("");
+  });
+});
+
+describe("sorting", () => {
+  const run = (label: string, wall_ms: number, cpu_ms = 1) => {
+    const read = readProfile({
+      schema: "polars-telemetry/profile@1", query_id: crypto.randomUUID(), label, fingerprint: label,
+      wall_ms, cpu_ms, plan: { physical: [{ id: 1, kind: "Filter", inputs: [] }], logical: [] },
+    });
+    if ("problem" in read) throw new Error(read.problem);
+    return read.profile;
+  };
+  const rows = shapes([run("tpch/q10", 5), run("tpch/q2", 50), run("tpch/q1", 20), run("tpch/q1", 1)]);
+  const names = (sorted: ReturnType<typeof shapes>) => sorted.map((r) => r.fingerprint);
+
+  it("starts with the most expensive shape", () => {
+    expect(names(visibleShapes(reducer(initialState, { type: "loaded", sessions: [session("s1", ...rows.flatMap((r) => r.runs))] }))))
+      .toEqual(["tpch/q2", "tpch/q1", "tpch/q10"]);
+  });
+
+  it("sorts names as numbers would read", () => {
+    expect(names(sortShapes(rows, { key: "name", descending: false }))).toEqual(["tpch/q1", "tpch/q2", "tpch/q10"]);
+  });
+
+  it("starts a name column A to Z and a number column largest first, and flips on a second click", () => {
+    let state = reducer(initialState, { type: "sorted", key: "name" });
+    expect(state.sort).toEqual({ key: "name", descending: false });
+    state = reducer(state, { type: "sorted", key: "name" });
+    expect(state.sort).toEqual({ key: "name", descending: true });
+    state = reducer(state, { type: "sorted", key: "runs" });
+    expect(state.sort).toEqual({ key: "runs", descending: true });
+    expect(names(sortShapes(rows, state.sort))[0]).toBe("tpch/q1");
   });
 });
