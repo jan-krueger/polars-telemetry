@@ -29,18 +29,19 @@ describe("diagnostics", () => {
   });
 });
 
-describe("shapeName, joins", () => {
-  it("does not count joins", () => {
+describe("shapeName, contents", () => {
+  it("names the first table read, without counting joins or listing keys", () => {
     const p = {
       plan: {
         physical: [],
         logical: [
+          { id: 3, kind: "GroupBy", role: "aggregation", inputs: [0], properties: { keys: ["col(\"n_name\")"] } },
           { id: 0, kind: "Join", role: "join", inputs: [1, 2], properties: {} },
-          { id: 1, kind: "Scan", role: "scan", inputs: [], properties: { paths: ["/d/part.parquet"] } },
-          { id: 2, kind: "Scan", role: "scan", inputs: [], properties: { paths: ["/d/lineitem.parquet"] } },
+          { id: 1, kind: "Scan", role: "scan", inputs: [], properties: { first_source: "/d/part.parquet" } },
+          { id: 2, kind: "Scan", role: "scan", inputs: [], properties: { first_source: "/d/lineitem.parquet" } },
         ],
       },
     };
-    expect(shapeName(p)).not.toMatch(/join/);
+    expect(shapeName(p)).toBe("part.parquet");
   });
 });

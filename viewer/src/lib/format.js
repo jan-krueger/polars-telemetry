@@ -1,4 +1,4 @@
-import { groupKeys, relationName, roleOf } from "./polars";
+import { relationName, roleOf } from "./polars";
 
 export const num = (v, d = 0) =>
   (v ?? 0).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -10,17 +10,10 @@ export const bytes = (b) =>
   b >= 1048576 ? num(b / 1048576, 1) + " MB" : num(b / 1024, 0) + " KB";
 export const cpuMs = (n) => (n.metrics?.total_time_ns ?? 0) / 1e6;
 
-/** A readable name for a query shape, from the plan the user actually wrote. */
+/** A name for a query without a label: the first table it reads. */
 export function shapeName(p) {
-  const l = p.plan.logical;
-  const grouping = l.find((n) => roleOf(n) === "aggregation");
-  const keys = grouping ? groupKeys(grouping.properties ?? {}) : [];
-  const scan = l.find((n) => roleOf(n) === "scan");
-  const src = scan ? relationName(scan.properties ?? {}) : "";
-  const bits = [];
-  if (src) bits.push(src);
-  if (keys.length) bits.push("by " + keys.join(", "));
-  return bits.join(" · ") || `${p.plan.physical.length} nodes`;
+  const scan = p.plan.logical.find((n) => roleOf(n) === "scan");
+  return (scan && relationName(scan.properties ?? {})) || `${p.plan.physical.length} nodes`;
 }
 
 /** Thresholds turn a measurement into a verdict. */
