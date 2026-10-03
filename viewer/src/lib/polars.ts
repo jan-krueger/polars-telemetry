@@ -219,65 +219,106 @@ export function chainLines(expr: string, width = CHAIN_WIDTH): string[] {
   return lines;
 }
 
-/** Each character outside strings, with the bracket depth it sits at. */
-function* outsideStrings(text: string): Generator<[index: number, ch: string, depth: number]> {
-  let depth = 0;
-  let quote: string | null = null;
+type Op = "&" | "|";
+
+interface Scanned {
+  text: string;
+  /** For each opening bracket, where it closes; -1 elsewhere. */
+  closes: Int32Array;
+  /** Positions of each operator, by the bracket depth it sits at. */
+  ops: Map<number, Record<Op, number[]>>;
+}
+
+/** polars prints strings unescaped: one ends at a quote that can be followed
+ *  by the end, a closing bracket, a comma, a dot or a binary operator. */
+const STRING_END = /^(?:$|[)\],.]| [&|=!<>+\-*\/%])/;
+
+function scan(text: string): Scanned {
+  const closes = new Int32Array(text.length).fill(-1);
+  const ops = new Map<number, Record<Op, number[]>>();
+  const open: number[] = [];
   for (let i = 0; i < text.length; i++) {
     const ch = text[i]!;
-    if (quote) {
-      if (ch === "\\") i++;
-      else if (ch === quote) quote = null;
-      continue;
-    }
     if (ch === '"' || ch === "'") {
-      quote = ch;
-      continue;
+      let j = text.indexOf(ch, i + 1);
+      while (j !== -1 && !STRING_END.test(text.slice(j + 1, j + 3))) j = text.indexOf(ch, j + 1);
+      i = j === -1 ? text.length : j;
+    } else if (ch === "(" || ch === "[") open.push(i);
+    else if (ch === ")" || ch === "]") {
+      const from = open.pop();
+      if (from !== undefined) closes[from] = i;
+    } else if ((ch === "&" || ch === "|") && text[i - 1] === " " && text[i + 1] === " ") {
+      const depth = open.length;
+      if (!ops.has(depth)) ops.set(depth, { "&": [], "|": [] });
+      ops.get(depth)![ch].push(i);
     }
-    if (ch === ")" || ch === "]") depth = Math.max(0, depth - 1);
-    yield [i, ch, depth];
-    if (ch === "(" || ch === "[") depth++;
+  }
+  return { text, closes, ops };
+}
+
+/** The first index in sorted `values` that is at least `target`. */
+function lowerBound(values: number[], target: number): number {
+  let lo = 0;
+  let hi = values.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (values[mid]! < target) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo;
+}
+
+type Condition = string | { op: Op; terms: Condition[]; length: number; text: () => string };
+
+type Range = [lo: number, hi: number, depth: number];
+
+/** `(a & b)` → `a & b`, as often as the whole range is one parenthesis. */
+function unwrap(s: Scanned, [lo, hi, depth]: Range): Range {
+  for (;;) {
+    while (lo < hi && s.text[lo] === " ") lo++;
+    while (hi > lo && s.text[hi - 1] === " ") hi--;
+    if (s.text[lo] !== "(" || s.closes[lo] !== hi - 1) return [lo, hi, depth];
+    lo++;
+    hi--;
+    depth++;
   }
 }
 
-/** `(a & b)` → `a & b`, as often as the whole text is one parenthesis. */
-function unwrap(text: string): string {
-  let t = text.trim();
-  while (t.startsWith("(")) {
-    let close = -1;
-    for (const [i, ch, depth] of outsideStrings(t)) {
-      if (i > 0 && ch === ")" && depth === 0) {
-        close = i;
-        break;
-      }
-    }
-    if (close !== t.length - 1) break;
-    t = t.slice(1, -1).trim();
-  }
-  return t;
+/** Where `op` splits the range at its top level. */
+function cutsOf(s: Scanned, [lo, hi, depth]: Range, op: Op): number[] {
+  const all = s.ops.get(depth)?.[op] ?? [];
+  return all.slice(lowerBound(all, lo), lowerBound(all, hi));
 }
 
-type Condition = string | { op: "&" | "|"; terms: Condition[]; text: string };
+function parts([lo, hi, depth]: Range, cuts: number[]): Range[] {
+  const bounds = [lo, ...cuts.map((c) => c + 1), hi];
+  return cuts.map((cut, k) => [bounds[k]!, cut, depth] as Range).concat([[bounds[cuts.length]!, hi, depth]]);
+}
 
-/** Split at a top-level `&` or `|`; `|` first, as it binds loosest. */
-function condition(text: string): Condition {
-  const t = unwrap(text);
+/** Split at the top-level `|`, else `&`; `|` binds loosest. A run of one
+ *  operator, which polars nests a pair at a time, is flattened in a loop. */
+function condition(s: Scanned, range: Range): Condition {
+  const whole = unwrap(s, range);
   for (const op of ["|", "&"] as const) {
-    const cuts: number[] = [];
-    for (const [i, ch, depth] of outsideStrings(t))
-      if (ch === op && depth === 0 && t[i - 1] === " " && t[i + 1] === " ") cuts.push(i);
+    const cuts = cutsOf(s, whole, op);
     if (!cuts.length) continue;
-    const parts = [...cuts, t.length].map((end, k) => t.slice(k ? cuts[k - 1]! + 1 : 0, end));
-    // (a & b) & c is one run of &: polars nests every pair in parentheses.
-    const terms = parts.map(condition).flatMap((c) => (typeof c !== "string" && c.op === op ? c.terms : [c]));
-    return { op, terms, text: t };
+    const terms: Condition[] = [];
+    const pending = parts(whole, cuts).reverse();
+    while (pending.length) {
+      const part = unwrap(s, pending.pop()!);
+      const inner = cutsOf(s, part, op);
+      if (inner.length) pending.push(...parts(part, inner).reverse());
+      else terms.push(condition(s, part));
+    }
+    const [lo, hi] = whole;
+    return { op, terms, length: hi - lo, text: () => s.text.slice(lo, hi) };
   }
-  return t;
+  return s.text.slice(whole[0], whole[1]);
 }
 
 function conditionLines(c: Condition): string[] {
   if (typeof c === "string") return chainLines(c, CONDITION_WIDTH);
-  if (c.text.length <= CHAIN_WIDTH) return [c.text];
+  if (c.length <= CHAIN_WIDTH) return [c.text()];
   const lines: string[] = [];
   c.terms.forEach((term, k) => {
     let sub = conditionLines(term);
@@ -298,4 +339,14 @@ function conditionLines(c: Condition): string[] {
  * parenthesises every pair of conditions; only the parentheses that change
  * the meaning are kept.
  */
-export const exprLines = (expr: string): string[] => conditionLines(condition(expr));
+export function exprLines(expr: string): string[] {
+  let lines = laidOut.get(expr);
+  if (!lines) {
+    lines = conditionLines(condition(scan(expr), [0, expr.length, 0]));
+    if (laidOut.size >= 500) laidOut.clear();
+    laidOut.set(expr, lines);
+  }
+  return lines;
+}
+
+const laidOut = new Map<string, string[]>();

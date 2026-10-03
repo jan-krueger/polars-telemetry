@@ -151,3 +151,18 @@ describe("exprLines", () => {
     );
   });
 });
+
+describe("exprLines on large or unusual predicates", () => {
+  it("lays out thousands of nested conditions, one per line", () => {
+    let predicate = 'col("c0") == 0';
+    for (let i = 1; i < 5000; i++) predicate = `(${predicate}) | (col("c${i}") == ${i})`;
+    expect(exprLines(predicate)).toHaveLength(5000);
+  });
+
+  it("is not thrown off by a string that ends in a backslash", () => {
+    expect(exprLines('(col("path") == "C:\\\\Users\\\\") | (col("email") == "alice@example.com")')).toEqual([
+      '  col("path") == "C:\\\\Users\\\\"',
+      '| col("email") == "alice@example.com"',
+    ]);
+  });
+});

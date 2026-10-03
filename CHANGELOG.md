@@ -65,6 +65,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Viewer: plan nodes could be focused from the keyboard but not selected, so
   their details stayed out of reach. Enter or Space now selects them, and the
   remaining mouse-only tooltips can be reached with Tab.
+- Viewer: laying out a long predicate took time quadratic in its length, and was
+  redone on every render, so a node with thousands of conditions froze the tab
+  for seconds at each keystroke. Layout is now linear and cached, and strings
+  ending in a backslash no longer throw it off.
 - `uninstall()` left polars' engine affinity on `"streaming"`. It now puts back
   the affinity from before `install()`, engine objects such as `GPUEngine`
   included, unless the application chose another engine in the meantime.
