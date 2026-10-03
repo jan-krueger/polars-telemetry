@@ -21,9 +21,13 @@ Nested labels join with `/`, so this query is `nightly/revenue_by_region`.
 | Console | the header, in place of the query id |
 | Metrics | never: a free-form value would make unbounded metric series |
 
-Each thread and asyncio task has its own labels, so concurrent work does not
-mix them up. Labels need no exporter of their own and cost nothing when
-nothing is installed.
+Each thread has its own labels, so concurrent work does not mix them up.
+Labels need no exporter of their own and cost nothing when nothing is
+installed.
+
+!!! note "Not for `collect_async()` or `collect_batches()`"
+    polars reports those queries from its own threads, where neither the
+    label nor your call site is visible, so they arrive without both.
 
 ## Scope a block of code
 

@@ -111,11 +111,6 @@ def test_overlapping_blocks_keep_instrumentation_until_the_last_closes():
     assert installed() is None, "the last block to close takes it back out"
 
 
-def test_resource_attributes_warns_that_it_does_nothing():
-    with pytest.warns(DeprecationWarning, match="resource_attributes"):
-        Config(resource_attributes={"service.name": "x"})
-
-
 def test_an_application_exporter_receives_redacted_queries():
     """Redaction used to cover only the bundled exporters."""
     mine = Collect()
@@ -158,12 +153,6 @@ def test_each_exporter_can_have_its_own_redaction():
     assert default.queries[-1].label == "nightly"
     assert strict.queries[-1].label is None
     assert strict.queries[-1].call_site is None
-
-
-def test_the_deprecated_config_flag_still_masks():
-    with pytest.warns(DeprecationWarning, match="redact_literals"):
-        config = Config(redact_literals=True)
-    assert config.redaction == Redaction()
 
 
 def test_an_otel_exporter_keeps_masking_by_its_own_config():
@@ -222,3 +211,166 @@ def test_a_slow_close_does_not_hold_up_another_install():
     finally:
         release.set()
         leaving.join(timeout=10)
+
+
+def _nothing_left_behind() -> None:
+    import os
+    import sys
+
+    assert installed() is None
+    assert "POLARS_QUERY_MONITORING" not in os.environ
+    assert os.environ.get("POLARS_ENGINE_AFFINITY") is None
+    assert "polars_cloud" not in sys.modules
+
+
+@pytest.mark.parametrize("bad", ["not-an-exporter", object()])
+def test_an_invalid_exporter_is_rejected_before_anything_changes(bad):
+    with pytest.raises(TypeError, match="export"):
+        polars_telemetry.install(exporter=[Collect(), bad])
+    _nothing_left_behind()
+
+
+def test_a_failed_install_is_undone_and_a_retry_delivers_once(monkeypatch):
+    import polars_telemetry.activation as activation
+
+    def broken(config: object) -> object:
+        msg = "exporter construction failed"
+        raise RuntimeError(msg)
+
+    monkeypatch.setattr(activation, "_default_exporter", broken)
+    with pytest.raises(RuntimeError, match="construction failed"):
+        polars_telemetry.install()
+    _nothing_left_behind()
+
+    mine = Collect()
+    polars_telemetry.install(exporter=mine)
+    polars.LazyFrame({"a": [1]}).collect()
+    assert len(mine.queries) == 1
+    polars_telemetry.uninstall()
+    _nothing_left_behind()
+
+
+def test_a_config_of_the_wrong_type_is_rejected():
+    with pytest.raises(TypeError, match="Config"):
+        polars_telemetry.install({"node_metrics": False}, exporter=Collect())  # type: ignore[arg-type]
+    _nothing_left_behind()
+
+
+@pytest.fixture
+def polars_cloud(monkeypatch):
+    """A stand-in for the real polars-cloud package, recording what polars asks of it."""
+    import sys
+    import types
+
+    calls: list[tuple[str | None, str | None]] = []
+
+    class Observer:
+        def on_query_started(self, query_id: object) -> None:
+            pass
+
+        def on_query_planned(self, *args: object) -> object:
+            return types.SimpleNamespace(close=lambda: None)
+
+        def on_query_failed(self, *args: object) -> None:
+            pass
+
+    def factory(workspace: str | None = None, organization: str | None = None) -> Observer:
+        calls.append((workspace, organization))
+        return Observer()
+
+    module = types.ModuleType("polars_cloud")
+    module.authenticate = lambda *args, **kwargs: None  # type: ignore[attr-defined]
+    module.QueryCloudObserver = factory  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "polars_cloud", module)
+    for key in (
+        "POLARS_QUERY_MONITORING",
+        "POLARS_QUERY_MONITORING_WORKSPACE",
+        "POLARS_QUERY_MONITORING_ORGANIZATION",
+    ):
+        monkeypatch.delenv(key, raising=False)
+    yield module, calls
+    polars_telemetry.uninstall()
+    polars.Config.enable_monitoring(False)
+    polars.Config.set_engine_affinity(None)
+
+
+def test_polars_cloud_keeps_its_workspace_and_stays_on_after_uninstall(polars_cloud):
+    import inspect
+    import sys
+
+    module, calls = polars_cloud
+    query = polars.LazyFrame({"a": [1, 2]}).filter(polars.col("a") > 1)
+    chosen: tuple[str | None, str | None]
+    if "workspace" in inspect.signature(polars.Config.enable_monitoring).parameters:
+        polars.Config.enable_monitoring(workspace="prod", organization="acme")
+        chosen = ("prod", "acme")
+    else:
+        polars.Config.enable_monitoring()
+        chosen = (None, None)
+
+    mine = Collect()
+    polars_telemetry.install(exporter=mine)
+    calls.clear()
+    query.collect()
+    assert calls == [chosen], "polars-cloud still receives every query, for its workspace"
+    assert len(mine.queries) == 1, "and so does polars-telemetry"
+
+    polars_telemetry.uninstall()
+    assert sys.modules["polars_cloud"] is module
+    calls.clear()
+    query.collect()
+    assert calls == [chosen], "polars-cloud monitoring is still on after uninstall"
+
+
+def _capabilities(**problems: Any) -> object:
+    from dataclasses import replace
+
+    from polars_telemetry.compat import Capabilities
+
+    healthy = Capabilities(
+        polars_version=polars.__version__,
+        has_monitoring_api=True,
+        observer_callbacks_ok=True,
+        plan_payload_ok=True,
+        ir_payload_ok=True,
+        metrics_snapshot_ok=True,
+    )
+    return replace(healthy, **problems)
+
+
+def test_an_unusable_polars_installs_nothing_and_undoes_itself(monkeypatch, caplog):
+    import polars_telemetry.activation as activation
+
+    monkeypatch.setattr(
+        activation, "probe", lambda binding: _capabilities(observer_callbacks_ok=False)
+    )
+    polars.Config.set_engine_affinity("in-memory")
+    try:
+        assert polars_telemetry.install(exporter=Collect()) is None
+        assert installed() is None
+        assert activation._engine_affinity() == "in-memory"
+        assert any("not installed" in r.getMessage() for r in caplog.records)
+    finally:
+        polars.Config.set_engine_affinity(None)
+
+
+@pytest.mark.parametrize("problem", ["metrics_snapshot_ok", "plan_payload_ok"])
+def test_unusable_payloads_fall_back_to_query_spans(monkeypatch, problem):
+    import polars_telemetry.activation as activation
+
+    monkeypatch.setattr(activation, "probe", lambda binding: _capabilities(**{problem: False}))
+    mine = Collect()
+    state = polars_telemetry.install(exporter=mine)
+    assert state is not None
+    assert state.config.node_metrics is False
+    polars.LazyFrame({"a": [1]}).collect()
+    assert mine.queries, "query spans still flow"
+    assert mine.queries[-1].metrics == {}
+
+
+def test_an_unexpected_ir_is_reported(monkeypatch, caplog):
+    import polars_telemetry.activation as activation
+
+    monkeypatch.setattr(activation, "probe", lambda binding: _capabilities(ir_payload_ok=False))
+    assert polars_telemetry.install(exporter=Collect()) is not None
+    assert any("unexpected IR plan" in r.getMessage() for r in caplog.records)

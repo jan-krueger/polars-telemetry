@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 from dataclasses import replace
-from pathlib import Path
 from uuid import uuid4
 
 import pytest
@@ -13,8 +12,9 @@ from polars_telemetry import _dispatch
 from polars_telemetry.adapter.build import build_plan, enrich
 from polars_telemetry.model.redaction import Redaction, redact, redact_query
 from polars_telemetry.model.types import Query
+from tests.fixture_paths import latest_fixture
 
-FIXTURE = Path(__file__).parents[1] / "fixtures" / "1.44.2"
+FIXTURE = latest_fixture()
 
 
 @pytest.fixture
@@ -191,3 +191,23 @@ def test_receivers_with_different_redactions_each_get_their_own(isolated, query)
     assert raw[0].redaction is None
     assert literals[0].redaction == Redaction()
     assert strict[0].redaction == Redaction(paths=True)
+
+
+def test_the_strictest_redaction_masks_what_any_of_them_masks():
+    from polars_telemetry.model.redaction import strictest
+
+    def upper(text: str) -> str:
+        return text.upper()
+
+    def tagged(text: str) -> str:
+        return text + "!"
+
+    combined = strictest(
+        Redaction(paths=True, custom=upper), None, Redaction(labels=True, custom=tagged)
+    )
+    assert combined is not None
+    assert (combined.paths, combined.labels, combined.strings) == (True, True, True)
+    assert combined.custom is not None
+    assert combined.custom("a") == "A!"
+    assert strictest(None, None) is None
+    assert strictest(Redaction(), Redaction()) == Redaction()

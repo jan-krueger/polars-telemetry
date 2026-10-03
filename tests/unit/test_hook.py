@@ -73,3 +73,15 @@ def test_polars_cloud_is_forwarded_every_callback():
     observer.on_query_started(uuid4())
     observer.on_query_planned(uuid4(), None, b"", b"").close()
     assert calls == ["started", "planned", "closed"]
+
+
+def test_a_failing_polars_cloud_observer_never_disarms_ours(caplog):
+    def expired(*_: object) -> object:
+        msg = "polars cloud session expired"
+        raise RuntimeError(msg)
+
+    factory = ObserverFactory(Log, delegate=expired)
+    for _ in range(10):
+        factory()
+    assert not factory.tracker.disarmed
+    assert sum("session expired" in r.getMessage() for r in caplog.records) == 1

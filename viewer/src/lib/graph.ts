@@ -59,7 +59,8 @@ export interface FlowData extends Record<string, unknown> {
   label: string;
 }
 
-const cpuMs = (n: PlanNode): number => Number(n.metrics?.total_time_ns ?? 0) / 1e6;
+/** A node's own CPU time in milliseconds; 0 without counters. */
+export const cpuMs = (n: PlanNode): number => Number(n.metrics?.total_time_ns ?? 0) / 1e6;
 
 export interface FocusStep {
   /** Nodes costing at least this much CPU time stay lit; 0 lights every node. */
@@ -87,8 +88,7 @@ export function focusSteps(plan: PlanNode[]): FocusStep[] {
     const covered = lit.reduce((sum, n) => sum + cpuMs(n), 0);
     steps.push({ thresholdMs, coverage: (covered / total) * 100, shown: lit.length });
   }
-  // Fewest lit last; the step lighting every costed node is "all" unless
-  // some nodes cost nothing at all.
+  if (!steps.length) return [all];
   steps.reverse();
   return steps[0]!.shown === plan.length ? [all, ...steps.slice(1)] : [all, ...steps];
 }

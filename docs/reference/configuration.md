@@ -16,8 +16,6 @@ polars_telemetry.install(Config(include_plan=True, redaction=Redaction()))
 | `include_plan` | `False` | Put the whole plan and its counters on the span as JSON in `polars.plan` | Kilobytes per span |
 | `call_site` | `True` | Record the file, line and function that ran the query | Under a microsecond |
 | `redaction` | `None` | What to mask before any exporter receives a query; see [Data and privacy](../privacy.md) | Small, once per query and setting |
-| `redact_literals` | `False` | Deprecated: sets `redaction=Redaction()` | — |
-| `resource_attributes` | `{}` | Deprecated and never applied; set resource attributes on your OpenTelemetry provider | — |
 
 Exporter options, such as a file's size limit, are on each
 [exporter's page](../exporters/index.md).

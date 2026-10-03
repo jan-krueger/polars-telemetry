@@ -37,8 +37,8 @@ polars_telemetry.install()
 
 `install()` enables polars' query monitoring, which sets the engine affinity to
 `"streaming"` and therefore changes how your queries execute — so it never
-happens on import. `uninstall()` turns monitoring off but cannot restore the
-previous affinity; polars exposes no way to read it back.
+happens on import. `uninstall()` turns monitoring off and puts the previous
+affinity back.
 
 ## What you get
 
@@ -138,8 +138,6 @@ polars_telemetry.install(Config(node_metrics=False))
 | `include_plan` | `False` | Attach the full plan to the span as JSON |
 | `call_site` | `True` | Record the file, line and function that ran the query |
 | `redaction` | `None` | What to mask before exporters see a query; `Redaction()` masks literal values |
-| `redact_literals` | `False` | Deprecated: use `redaction=Redaction()` |
-| `resource_attributes` | `{}` | Deprecated: never applied; set them on your OpenTelemetry provider |
 
 ## Your data
 

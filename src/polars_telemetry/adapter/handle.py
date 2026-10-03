@@ -53,10 +53,6 @@ class MetricsHandle:
             records = self.snapshot()
         return records
 
-    @property
-    def failures(self) -> int:
-        return self._failures
-
 
 def _settled(records: list[dict[str, Any]]) -> bool:
     """Done, or no way to tell: without a `done` flag -- polars having renamed

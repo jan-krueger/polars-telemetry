@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import atexit
 import logging
+import os
 import threading
 from collections.abc import Sequence
 from dataclasses import dataclass, field, replace
@@ -31,8 +32,6 @@ if TYPE_CHECKING:
 
 _log = logging.getLogger("polars_telemetry")
 
-SUPPORTED_MESSAGE = f"polars {SUPPORTED}"
-
 
 @dataclass(frozen=True, slots=True)
 class Installation:
@@ -46,6 +45,7 @@ class Installation:
     """Made by a profile() block, not by the application; the last block to
     close takes it back out."""
     receivers: tuple[_dispatch.Receiver, ...] = field(default=(), repr=False)
+    before: Before | None = field(default=None, repr=False)
 
 
 _lock = threading.RLock()
@@ -83,8 +83,8 @@ def install(
 def uninstall() -> None:
     """Stop instrumenting, and hand queries back to Polars Cloud if it was there.
 
-    The engine affinity stays `"streaming"`; polars exposes no way to read the
-    previous value back.
+    The engine affinity goes back to what it was before `install()`, unless
+    the application chose another engine in the meantime.
     """
     with _lock:
         detached = _detach()
@@ -102,18 +102,78 @@ def _detach() -> tuple[Exporter, ...]:
     global _state, _scoped_holders
     if _state is None:
         return ()
-    import polars as pl
 
     exporters = _state.exporters
     for receiver in _state.receivers:
         _dispatch.remove(receiver)
     try:
-        pl.Config.enable_monitoring(False)
+        _monitoring_off(_state.before)
     finally:
         mod.unbind(_state.binding)
         _state = None
         _scoped_holders = 0
     return exporters
+
+
+def _engine_affinity() -> object:
+    """The engine `collect()` defaults to: an engine object, a name, or None."""
+    try:
+        # Where polars keeps engine objects, such as a configured GPUEngine.
+        from polars.lazyframe.engine_config import get_engine_affinity_override
+    except ImportError:
+        override = None
+    else:
+        override = get_engine_affinity_override()
+    return override if override is not None else os.environ.get("POLARS_ENGINE_AFFINITY")
+
+
+@dataclass(frozen=True)
+class Before:
+    """polars' settings that monitoring changes, as they were before install()."""
+
+    affinity: object
+    monitoring: dict[str, str | None]
+
+
+_MONITORING_ENV = (
+    "POLARS_QUERY_MONITORING",
+    "POLARS_QUERY_MONITORING_WORKSPACE",
+    "POLARS_QUERY_MONITORING_ORGANIZATION",
+)
+
+
+def _monitoring_on() -> Before:
+    import polars as pl
+
+    before = Before(_engine_affinity(), {key: os.environ.get(key) for key in _MONITORING_ENV})
+    pl.Config.enable_monitoring()
+    _restore_env(before, _MONITORING_ENV[1:])
+    return before
+
+
+def _monitoring_off(before: Before | None) -> None:
+    """Put polars' monitoring settings and engine affinity back as they were.
+
+    The affinity only while it is still the streaming one monitoring set: an
+    engine chosen since is the application's choice, and stays.
+    """
+    import polars as pl
+
+    pl.Config.enable_monitoring(False)
+    if before is None:
+        return
+    _restore_env(before, _MONITORING_ENV)
+    if _engine_affinity() == "streaming":
+        pl.Config.set_engine_affinity(before.affinity)  # type: ignore[arg-type]
+
+
+def _restore_env(before: Before, keys: tuple[str, ...]) -> None:
+    for key in keys:
+        value = before.monitoring[key]
+        if value is None:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = value
 
 
 def _close(exporters: tuple[Exporter, ...]) -> None:
@@ -143,28 +203,34 @@ def _close_at_exit() -> None:
         _close(state.exporters)
 
 
-def acquire_scoped(config: Config | None) -> bool:
+def acquire_scoped(config: Config | None) -> Installation | None:
     """For a profile() block: make sure something is installed.
 
-    Returns True when the block holds a scoped installation and must call
-    `release_scoped()` when it closes.
+    Returns the scoped installation the block now holds, to hand back to
+    `release_scoped()` when it closes, or None when it holds none.
     """
     global _scoped_holders
     with _lock:
         state = _install(config, (), scoped=True)
         if state is None or not state.scoped:
-            return False
+            return None
         _scoped_holders += 1
-        return True
+        return state
 
 
-def release_scoped() -> None:
+def release_scoped(held: Installation) -> None:
+    """Let go of `held`; the last block holding it takes it down.
+
+    An installation already taken down, and replaced since, is not the one
+    the block held, so its release leaves the current one alone.
+    """
     global _scoped_holders
     detached: tuple[Exporter, ...] = ()
     with _lock:
+        if _state is not held:
+            return
         _scoped_holders = max(_scoped_holders - 1, 0)
-        # An application may have adopted the installation meanwhile.
-        if _scoped_holders == 0 and _state is not None and _state.scoped:
+        if _scoped_holders == 0 and _state.scoped:
             detached = _detach()
     _close(detached)
 
@@ -174,6 +240,7 @@ def _install(
 ) -> Installation | None:
     """Called with the lock held."""
     global _state
+    _check(config, exporters)
     if _state is not None:
         return _join(config, exporters, scoped=scoped)
 
@@ -186,12 +253,30 @@ def _install(
             "polars-telemetry: polars %s has no query monitoring API (need %s); "
             "instrumentation not installed.",
             pl.__version__,
-            SUPPORTED_MESSAGE,
+            f"polars {SUPPORTED}",
         )
         mod.unbind(binding)
         return None
 
-    pl.Config.enable_monitoring()
+    before = _monitoring_on()
+    try:
+        return _activate(binding, config, exporters, before, scoped=scoped)
+    except BaseException:
+        _monitoring_off(before)
+        mod.unbind(binding)
+        raise
+
+
+def _activate(
+    binding: mod.Binding,
+    config: Config | None,
+    exporters: tuple[Exporter, ...],
+    before: Before,
+    *,
+    scoped: bool,
+) -> Installation | None:
+    """Called with the lock held and monitoring on; undone by the caller if it raises."""
+    global _state
     capabilities = probe(binding)
 
     if not capabilities.usable:
@@ -201,7 +286,7 @@ def _install(
             capabilities.polars_version,
             "; ".join(capabilities.problems) or "no detail",
         )
-        pl.Config.enable_monitoring(False)
+        _monitoring_off(before)
         mod.unbind(binding)
         return None
 
@@ -223,6 +308,7 @@ def _install(
         exporters=exporters,
         scoped=scoped,
         receivers=_register(exporters, effective),
+        before=before,
     )
     return _state
 
@@ -280,15 +366,31 @@ def _effective(config: Config, capabilities: Capabilities) -> Config:
 
 
 def _register(exporters: tuple[Exporter, ...], config: Config) -> tuple[_dispatch.Receiver, ...]:
-    # Masked before delivery, so an exporter the application wrote is covered
-    # as much as the bundled ones are.
-    receivers = []
-    for exporter in exporters:
-        target, redaction = _redaction_for(exporter, config)
-        receivers.append(
-            _dispatch.add(target.export, f"exporter {type(target).__name__}", redaction=redaction)
-        )
+    receivers: list[_dispatch.Receiver] = []
+    try:
+        for exporter in exporters:
+            target, redaction = _redaction_for(exporter, config)
+            receivers.append(
+                _dispatch.add(
+                    target.export, f"exporter {type(target).__name__}", redaction=redaction
+                )
+            )
+    except BaseException:
+        for receiver in receivers:
+            _dispatch.remove(receiver)
+        raise
     return tuple(receivers)
+
+
+def _check(config: object, exporters: tuple[object, ...]) -> None:
+    if config is not None and not isinstance(config, Config):
+        msg = f"config must be a polars_telemetry.Config, not {type(config).__name__}"
+        raise TypeError(msg)
+    for exporter in exporters:
+        target = exporter.exporter if isinstance(exporter, Redacted) else exporter
+        if not callable(getattr(target, "export", None)):
+            msg = f"an exporter needs an export(query) method; got {target!r}"
+            raise TypeError(msg)
 
 
 def _unwrapped(exporter: Exporter) -> Exporter:

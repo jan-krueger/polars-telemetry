@@ -35,7 +35,9 @@ a backend that already understands them links a query to its source.
 | `code.function.name` | str | Enclosing function |
 
 Absent when the query came from code with no file on disk — `exec`, the REPL,
-or a notebook cell, whose temporary filename changes on every run.
+or a notebook cell, whose temporary filename changes on every run — and for
+`collect_async()` and `collect_batches()`, which polars reports from its own
+threads.
 
 This is the identity a person can act on. The fingerprint groups runs of the
 same plan but is a hash, and it changes whenever polars changes its optimiser;
@@ -48,8 +50,11 @@ file above it is edited, which would restart every series on an unrelated edit.
 
 A hash of node kinds, topology and column identity — **not** literal values. So
 `amount > 10` and `amount > 90` produce the same fingerprint, while a different
-grouping column produces a different one. It is bounded by your code paths,
-which is what makes it safe as a metric dimension where `polars.query_id` is not.
+grouping column produces a different one. A scanned file counts by its name,
+with numbers and dates masked: `data-2024-01-01.parquet` and
+`data-2024-01-02.parquet` in any directory are the same shape, `orders.parquet`
+is another. It is bounded by your code paths, which is what makes it safe as a
+metric dimension where `polars.query_id` is not.
 
 ### Hot node
 
@@ -159,7 +164,7 @@ attributes: their values are unbounded and would destroy series cardinality.
 
 !!! danger "These contain query content"
     `polars.scan.sources` · `polars.scan.predicates` · `polars.join.keys` ·
-    `polars.groupby.keys`
+    `polars.groupby.keys` · `polars.sort.columns`
 
     `polars.plan` also contains plan detail, when enabled.
 

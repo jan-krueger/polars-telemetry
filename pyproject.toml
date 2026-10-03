@@ -24,8 +24,8 @@ classifiers = [
     "Typing :: Typed",
 ]
 
-# Floor only, no upper pin: the support window is enforced at runtime by the
-# capability probe, so a newer polars degrades rather than failing to resolve.
+# Floor only, no upper pin: a newer polars is probed at install and degrades
+# rather than failing to resolve.
 dependencies = [
     "polars>=1.44.1",
     "msgpack>=1.0",

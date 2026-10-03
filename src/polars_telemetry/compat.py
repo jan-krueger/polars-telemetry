@@ -16,8 +16,7 @@ from polars_telemetry.adapter.decode import (
 )
 from polars_telemetry.adapter.hook import ObserverFactory
 
-# The observer hook was added in 1.44.0; 1.44.0's runtime is yanked.
-# No upper bound: unknown newer versions are probed, not refused.
+# The tested window, quoted in messages. Versions outside it are probed, not refused.
 SUPPORTED = ">=1.44.1,<1.45"
 
 _log = logging.getLogger("polars_telemetry")
@@ -104,13 +103,6 @@ def probe(binding: mod.Binding) -> Capabilities:
     import polars as pl
 
     version = pl.__version__
-    if not hasattr(pl.Config, "enable_monitoring"):
-        return Capabilities(
-            polars_version=version,
-            has_monitoring_api=False,
-            problems=("polars.Config.enable_monitoring is missing",),
-        )
-
     result = _ProbeResult()
     previous = getattr(binding.module, mod.FACTORY_ATTR, None)
     mod.set_factory(binding, ObserverFactory(lambda _: _ProbeRecorder(result), label="probe"))

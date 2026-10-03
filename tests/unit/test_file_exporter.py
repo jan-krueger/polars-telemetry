@@ -11,8 +11,9 @@ import pytest
 from polars_telemetry.adapter.build import build_metrics, build_plan
 from polars_telemetry.export.file import FileExporter
 from polars_telemetry.model.types import Query
+from tests.fixture_paths import latest_fixture
 
-FIXTURE = sorted(p for p in (Path(__file__).parents[1] / "fixtures").iterdir() if p.is_dir())[-1]
+FIXTURE = latest_fixture()
 
 
 def _query() -> Query:
@@ -78,18 +79,6 @@ def test_rejects_a_nonsense_bound(tmp_path):
         FileExporter(tmp_path / "s.jsonl", max_bytes=0)
 
 
-def test_the_deprecated_redaction_flag_still_masks(tmp_path):
-    plain = FileExporter(tmp_path / "plain.jsonl")
-    with pytest.warns(DeprecationWarning, match="redact_literals"):
-        masked = FileExporter(tmp_path / "masked.jsonl", redact_literals=True)
-    query = _query()
-    plain.export(query)
-    masked.export(query)
-
-    assert "10.0" in plain.path.read_text()
-    assert "<num>" in masked.path.read_text()
-
-
 def test_a_write_failure_does_not_raise(tmp_path, monkeypatch):
     exporter = FileExporter(tmp_path / "s.jsonl")
     query = _query()  # built before patching: the fixture load also uses Path.open
@@ -129,3 +118,16 @@ def test_redaction_reaches_the_failure_message(tmp_path):
         _query(), failed="conversion failed in column 'a' for 1 out of 1 values: [\"secret\"]"
     )
     assert "secret" not in str(build_profile(redact_query(failed))["failed"])
+
+
+def test_a_session_file_and_the_file_exporter_write_the_same_line(tmp_path):
+    from polars_telemetry import Session
+
+    query = _query()
+    exporter = FileExporter(tmp_path / "exported.jsonl")
+    exporter.export(query)
+    session = Session()
+    session.queries.append(query)
+    written = session.write(tmp_path / "session.jsonl")
+
+    assert written.read_text() == exporter.path.read_text()

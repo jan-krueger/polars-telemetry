@@ -1,92 +1,70 @@
-"""Failure isolation behaviour."""
+"""Failure isolation behaviour, through the observer polars actually calls."""
 
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 import pytest
 
-from polars_telemetry._safety import FailureTracker, fail_soft
+from polars_telemetry._safety import FailureTracker
+from polars_telemetry.adapter.hook import QueryObserver
 
 
-def test_successful_calls_pass_through():
-    tracker = FailureTracker("x")
+class Failing:
+    """A recorder whose every callback raises the given exception."""
 
-    @fail_soft(tracker)
-    def add(a, b):
-        return a + b
+    def __init__(self, exc: BaseException) -> None:
+        self.exc = exc
+        self.calls = 0
 
-    assert add(1, 2) == 3
-    assert tracker.errors == 0
+    def _fail(self, *args: Any) -> None:
+        self.calls += 1
+        raise self.exc
+
+    started = planned = failed = closed = _fail
 
 
-def test_exceptions_become_none():
-    tracker = FailureTracker("x")
+def test_a_failing_recorder_never_reaches_polars():
+    tracker = FailureTracker("observer")
+    observer = QueryObserver(Failing(ValueError("nope")), tracker)
 
-    @fail_soft(tracker)
-    def boom():
-        raise ValueError("nope")
-
-    assert boom() is None
-    assert tracker.errors == 1
+    observer.on_query_started("q")
+    guard = observer.on_query_planned("q", None, b"", b"")
+    guard.close()
+    assert tracker.errors == 3
 
 
 def test_distinct_errors_are_logged_once_each(caplog):
     tracker = FailureTracker("adapter")
-
-    @fail_soft(tracker)
-    def boom(message):
-        raise ValueError(message)
-
     with caplog.at_level(logging.WARNING, logger="polars_telemetry"):
-        for _ in range(3):
-            boom("same")
-        boom("different")
+        for message in ("same", "same", "same", "different"):
+            tracker.record(ValueError(message))
 
-    logged = [r for r in caplog.records if "failed" in r.message]
-    assert len(logged) == 2
+    assert len([r for r in caplog.records if "failed" in r.message]) == 2
     assert tracker.errors == 4
 
 
 def test_disarms_after_threshold_and_stops_calling():
-    tracker = FailureTracker("x", max_errors=3)
-    calls = 0
-
-    @fail_soft(tracker)
-    def boom():
-        nonlocal calls
-        calls += 1
-        raise RuntimeError("bang")
+    recorder = Failing(RuntimeError("bang"))
+    tracker = FailureTracker("observer", max_errors=3)
+    observer = QueryObserver(recorder, tracker)
 
     for _ in range(10):
-        boom()
+        observer.on_query_started("q")
 
     assert tracker.disarmed
-    assert calls == 3, "calls must stop once disarmed"
+    assert recorder.calls == 3, "calls must stop once disarmed"
 
 
 def test_base_exception_is_not_swallowed():
     """KeyboardInterrupt and SystemExit must still reach the caller."""
-    tracker = FailureTracker("x")
-
-    @fail_soft(tracker)
-    def interrupted():
-        raise KeyboardInterrupt
+    tracker = FailureTracker("observer")
+    observer = QueryObserver(Failing(KeyboardInterrupt()), tracker)
 
     with pytest.raises(KeyboardInterrupt):
-        interrupted()
+        observer.on_query_started("q")
     assert tracker.errors == 0
-
-
-def test_wrapper_preserves_metadata():
-    tracker = FailureTracker("x")
-
-    @fail_soft(tracker)
-    def documented():
-        """Docstring."""
-
-    assert documented.__name__ == "documented"
-    assert documented.__doc__ == "Docstring."
 
 
 def test_a_noted_payload_departure_never_disarms(caplog):

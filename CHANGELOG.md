@@ -4,13 +4,90 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.4.0] - 2026-10-03
 
 ### Added
 - Viewer: the hosted viewer loads a TPC-H example session with one click, so it
   can be tried without a workload of your own.
 - Python 3.14 is supported, and tested in CI in place of 3.13 as the newest
   version.
+
+### Changed
+- The plan fingerprint no longer depends on literal values or on where a
+  scanned file lives: literals are masked before hashing, and a file counts by
+  its name with numbers and dates masked. Queries that differ only in a value
+  or a dated file name share a fingerprint, as the docs promised, instead of
+  starting a metric series each. **Fingerprints of plans with such literals or
+  paths change once on upgrade**, and so do the metric series keyed on them.
+
+### Removed
+As announced in 0.3.0:
+- `Config(redact_literals=True)`: use `Config(redaction=Redaction())`.
+- `FileExporter(redact_literals=True)`: use
+  `redacted(FileExporter(...), Redaction())`.
+- `Config.resource_attributes`, which was never applied: set resource
+  attributes on your OpenTelemetry provider.
+
+### Fixed
+- `Redaction(paths=True)` left the paths of written files readable: a sink's
+  target in both plans. They are masked like scanned paths now.
+- String literals containing a quote or ending in a backslash, such as a
+  Windows path, threw off the masking, and other literals in the same
+  expression stayed readable. polars prints such strings unescaped; they are
+  now delimited by what may follow them.
+- A `profile(config)` block inside an installation that masks data handed its
+  session unmasked queries whenever `config` did not repeat the redaction. A
+  session now masks everything the installation masks, plus what its own
+  config adds.
+- `polars.sort.columns` can carry literals, but was missing from
+  `CARRIES_USER_DATA` and the documented list of attributes that do.
+- When polars-cloud is installed and its observer fails, for instance on an
+  expired session, polars-telemetry counted that against itself and stopped
+  recording after five queries. It now logs the failure once and carries on.
+- An `install()` that failed part-way, such as on an object without an
+  `export` method in the exporter list, left monitoring on and its hook in
+  place, and a retry then delivered every query several times. Arguments are
+  now checked first, with a `TypeError`, and a failure undoes everything.
+- With Polars Cloud monitoring on, `install()` sent its metrics to the default
+  workspace instead of the chosen one, and `uninstall()` turned Polars Cloud
+  monitoring off. Its workspace, organization and on/off state are now kept.
+- The docs promised labels per asyncio task, but queries run with
+  `collect_async()` or `collect_batches()` carry no label or call site: polars
+  reports them from its own threads. The docs now say so.
+- Had polars passed an observer callback a new argument, the callback would
+  have raised before its own error handling ran. Callbacks now accept any
+  arguments and unpack them inside it.
+- Viewer: a profile with a malformed number, such as a counter given as text or
+  an out-of-range start time, crashed the viewer on every load, and the only
+  way out deleted every stored session. Such values are now dropped when read,
+  and the error page offers to remove just the open session.
+- Viewer: one failed save, such as a session too big for the browser's
+  storage, switched storage off for the rest of the page, so sessions removed
+  afterwards came back on the next load. A failed save or removal is now
+  reported, and storage keeps working.
+- Viewer: removing the open session showed the empty start page while other
+  sessions were still stored. The next one opens now.
+- Viewer: a profile without a `query_id` got a new random id on every load, so
+  links, reload and the back button lost it, and one with an empty id could not
+  be opened. Such profiles are now numbered by their place in the session.
+- Viewer: plan nodes could be focused from the keyboard but not selected, so
+  their details stayed out of reach. Enter or Space now selects them, and the
+  remaining mouse-only tooltips can be reached with Tab.
+- Viewer: laying out a long predicate took time quadratic in its length, and was
+  redone on every render, so a node with thousands of conditions froze the tab
+  for seconds at each keystroke. Layout is now linear and cached, and strings
+  ending in a backslash no longer throw it off.
+- Viewer: a profile written on Windows showed full paths where a file name
+  belonged, in query titles, the call site and search.
+- A `profile()` block opened before an `uninstall()` took down the installation
+  of a block opened after it, which then collected nothing. Each block now
+  releases only the installation it held.
+- uv itself escaped the 7-day rule: CI installed the newest uv on every run,
+  and the dev image named a 4-day-old uv by tag. Both now use uv 0.12.19, the
+  image by digest.
+- `uninstall()` left polars' engine affinity on `"streaming"`. It now puts back
+  the affinity from before `install()`, engine objects such as `GPUEngine`
+  included, unless the application chose another engine in the meantime.
 
 ## [0.3.1] - 2026-10-03
 
@@ -334,6 +411,7 @@ All three are removed in 0.4.0.
   and collapsed most nodes onto identical windows. The same counters read once
   at query end are exact and cost nothing measurable.
 
+[0.4.0]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.4.0
 [0.3.1]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.3.1
 [0.3.0]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.3.0
 [0.2.0]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.2.0

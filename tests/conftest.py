@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-FIXTURE_ROOT = Path(__file__).parent / "fixtures"
+from tests.fixture_paths import FIXTURE_ROOT
 
 
 @pytest.fixture(scope="session")

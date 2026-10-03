@@ -1,7 +1,8 @@
 """Export to a real OTel collector.
 
 Run the stack first: `docker compose -f docker/compose.yaml up -d --wait`.
-Skipped when nothing is listening, so a plain `pytest` still works.
+Skipped when nothing is listening, so a plain `pytest` still works, unless
+REQUIRE_COLLECTOR is set, as in CI.
 """
 
 from __future__ import annotations
@@ -22,7 +23,11 @@ from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (  # noqa: E40
 )
 from opentelemetry.sdk.resources import Resource  # noqa: E402
 from opentelemetry.sdk.trace import TracerProvider  # noqa: E402
-from opentelemetry.sdk.trace.export import BatchSpanProcessor  # noqa: E402
+from opentelemetry.sdk.trace.export import (  # noqa: E402
+    BatchSpanProcessor,
+    SpanExporter,
+    SpanExportResult,
+)
 
 import polars_telemetry  # noqa: E402
 from polars_telemetry import Config  # noqa: E402
@@ -42,19 +47,46 @@ def _reachable(endpoint: str) -> bool:
 
 
 pytestmark.append(
-    pytest.mark.skipif(not _reachable(ENDPOINT), reason=f"no collector at {ENDPOINT}")
+    pytest.mark.skipif(
+        not os.environ.get("REQUIRE_COLLECTOR") and not _reachable(ENDPOINT),
+        reason=f"no collector at {ENDPOINT}",
+    )
 )
 
 
+class Recording(SpanExporter):
+    """The OTLP exporter, keeping what each export sent and how it went."""
+
+    def __init__(self, inner: SpanExporter) -> None:
+        self.inner = inner
+        self.results: list[tuple[list[str], SpanExportResult]] = []
+
+    def export(self, spans):
+        result = self.inner.export(spans)
+        self.results.append(([span.name for span in spans], result))
+        return result
+
+    def shutdown(self) -> None:
+        self.inner.shutdown()
+
+    def force_flush(self, timeout_millis: int = 30_000) -> bool:
+        return self.inner.force_flush(timeout_millis)
+
+
 @pytest.fixture
-def provider():
+def exporter():
+    return Recording(OTLPSpanExporter(endpoint=ENDPOINT))
+
+
+@pytest.fixture
+def provider(exporter):
     provider = TracerProvider(resource=Resource.create({"service.name": "polars-telemetry-tests"}))
-    provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint=ENDPOINT)))
+    provider.add_span_processor(BatchSpanProcessor(exporter))
     yield provider
     provider.shutdown()
 
 
-def test_spans_reach_the_collector(provider, monkeypatch):
+def test_spans_reach_the_collector(provider, exporter, monkeypatch):
     """Exercises the wire format, which in-memory exporters never check."""
     from opentelemetry import trace
 
@@ -74,4 +106,6 @@ def test_spans_reach_the_collector(provider, monkeypatch):
     finally:
         polars_telemetry.uninstall()
 
-    assert provider.force_flush(timeout_millis=10_000), "collector did not accept the spans"
+    provider.force_flush(timeout_millis=10_000)
+    accepted = [names for names, result in exporter.results if result is SpanExportResult.SUCCESS]
+    assert any("polars.collect" in names for names in accepted), exporter.results

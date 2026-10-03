@@ -16,25 +16,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
+          version: "0.12.19"
           enable-cache: true
 
       - run: uv sync --locked
 
-      # Lift the 7-day release quarantine for polars only; seeing new polars
-      # early is the point of this job.
-      - name: Install newest polars
-        run: |
-          uv pip install --prerelease=allow --upgrade \
-            --exclude-newer-package "polars=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            polars
-          uv run python -c "import polars; print(polars.__version__)"
-
       - id: contract
-        run: uv run pytest -m "contract and live" -v
+        run: uv run nox -s canary
 
-      - run: uv run pytest -m bench
+      - run: uv run nox -s bench
 
       - name: Report a broken contract
         if: failure()

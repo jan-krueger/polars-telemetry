@@ -12,6 +12,7 @@ polars has added a twentieth counter.
 
 from __future__ import annotations
 
+import json
 from typing import TYPE_CHECKING, Any
 
 from polars_telemetry._version import __version__
@@ -102,3 +103,8 @@ def build_profile(query: Query, *, diagnostics: Diagnostics | None = None) -> di
     }
     document.update(_trace_context())
     return document
+
+
+def profile_line(document: dict[str, Any]) -> str:
+    """One line of a session file. Values JSON has no form for become text."""
+    return json.dumps(document, separators=(",", ":"), default=str)

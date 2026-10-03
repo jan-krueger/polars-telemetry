@@ -16,9 +16,6 @@ if TYPE_CHECKING:
 
 SEPARATOR = "/"
 
-# A context variable rather than a global: concurrent threads and asyncio tasks
-# each see their own labels. polars runs the observer on the thread that called
-# collect(), so the label in force there is the one recorded.
 _path: ContextVar[tuple[str, ...]] = ContextVar("polars_telemetry_label", default=())
 
 
@@ -38,7 +35,9 @@ def label(name: str) -> Iterator[None]:
 
     The label goes on the query's span as `polars.query.label` and into its
     profile, but never onto metrics: free-form values would make unbounded
-    metric series. Each thread and asyncio task has its own labels.
+    metric series. Each thread has its own labels. Queries run with
+    `collect_async()` or `collect_batches()` carry none: polars reports those
+    from its own threads.
     """
     if not isinstance(name, str) or not name.strip():
         msg = "a label must be a non-empty string"

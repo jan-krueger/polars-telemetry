@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from uuid import uuid4
 
 import pytest
@@ -11,8 +10,9 @@ import pytest
 from polars_telemetry.adapter.build import build_metrics, build_plan
 from polars_telemetry.model.diagnostics import derive
 from polars_telemetry.model.types import Query
+from tests.fixture_paths import latest_fixture
 
-FIXTURE = sorted(p for p in (Path(__file__).parents[1] / "fixtures").iterdir() if p.is_dir())[-1]
+FIXTURE = latest_fixture()
 
 
 @pytest.fixture

@@ -24,6 +24,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
+          version: "0.12.19"
           enable-cache: true
       - run: uv run nox -s lint
 
@@ -33,6 +34,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
+          version: "0.12.19"
           enable-cache: true
       - run: uv run nox -s typecheck
 
@@ -55,14 +57,19 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
+          version: "0.12.19"
           enable-cache: true
           python-version: ${{ matrix.python }}
       - run: uv sync --locked
       - name: Install the polars under test
         run: |
           if [ "${{ matrix.polars }}" = "2 pre-release" ]; then
-            # Exempt from the release quarantine, for polars only, as the canary is.
-            uv pip install --prerelease=allow --exclude-newer-package polars=2099-01-01 "polars>=2.0.0rc1,<3"
+            uv pip install --prerelease=allow \
+              --exclude-newer-package polars=2099-01-01 \
+              --exclude-newer-package polars-runtime-32=2099-01-01 \
+              --exclude-newer-package polars-runtime-64=2099-01-01 \
+              --exclude-newer-package polars-runtime-compat=2099-01-01 \
+              "polars>=2.0.0rc1,<3"
           else
             uv pip install "polars==${{ matrix.polars }}"
           fi
@@ -86,12 +93,14 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
+          version: "0.12.19"
           enable-cache: true
       - run: docker compose -f docker/compose.yaml up -d --wait
       - run: uv sync --locked
       - run: uv run nox -s integration
         env:
           OTEL_EXPORTER_OTLP_ENDPOINT: http://localhost:4317
+          REQUIRE_COLLECTOR: "1"
       - if: always()
         run: docker compose -f docker/compose.yaml down -v
 
@@ -108,6 +117,7 @@ jobs:
           cache-dependency-path: viewer/package-lock.json
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
+          version: "0.12.19"
           enable-cache: true
       - run: uv run nox -s viewer-test
 
@@ -124,6 +134,7 @@ jobs:
       # output, which is generated rather than committed.
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
+          version: "0.12.19"
           enable-cache: true
       # --strict turns broken links and nav errors into failures.
       - run: uv run nox -s docs-build
@@ -138,6 +149,8 @@ jobs:
           cache: npm
           cache-dependency-path: viewer/package-lock.json
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: "0.12.19"
       - run: uv sync --locked
       - run: uv run nox -s audit
       - uses: google/osv-scanner-action/osv-scanner-action@a345acffa64b0eaede81a3d9aae6141214d9c8fc # v2.6.0

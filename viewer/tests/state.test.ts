@@ -50,9 +50,15 @@ describe("viewer state", () => {
     expect([state.queryId, state.compareId, state.node]).toEqual([null, null, null]);
   });
 
-  it("removing the open session clears everything selected in it", () => {
+  it("removing the open session opens the next, with nothing selected", () => {
     const state = reducer(busy(), { type: "removed", sessionId: "s1" });
-    expect([state.sessionId, state.queryId, state.compareId, state.node]).toEqual([null, null, null, null]);
+    expect([state.sessionId, state.queryId, state.compareId, state.node]).toEqual(["s2", null, null, null]);
+  });
+
+  it("removing the last session leaves none open", () => {
+    let state = reducer(busy(), { type: "removed", sessionId: "s1" });
+    state = reducer(state, { type: "removed", sessionId: "s2" });
+    expect(state.sessionId).toBeNull();
   });
 
   it("removing another session keeps the selection", () => {

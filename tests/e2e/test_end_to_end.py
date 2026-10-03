@@ -357,3 +357,41 @@ def test_a_profile_records_the_polars_that_ran_it():
 
     assert collected[-1].polars_version == polars.__version__
     assert build_profile(collected[-1])["polars_version"] == polars.__version__
+
+
+@pytest.fixture
+def affinity():
+    """Leave the process's engine affinity as the test found it."""
+    yield
+    polars_telemetry.uninstall()
+    polars.Config.set_engine_affinity(None)
+
+
+def _affinity() -> object:
+    from polars_telemetry.activation import _engine_affinity
+
+    return _engine_affinity()
+
+
+@pytest.mark.parametrize("before", ["in-memory", None])
+def test_uninstall_restores_the_engine_affinity(affinity, before):
+    polars.Config.set_engine_affinity(before)
+    polars_telemetry.install(exporter=[])
+    assert _affinity() == "streaming", "monitoring needs the streaming engine"
+    polars_telemetry.uninstall()
+    assert _affinity() == before
+
+
+def test_an_engine_chosen_while_installed_is_kept(affinity):
+    polars_telemetry.install(exporter=[])
+    polars.Config.set_engine_affinity("in-memory")
+    polars_telemetry.uninstall()
+    assert _affinity() == "in-memory"
+
+
+def test_an_engine_object_affinity_is_restored(affinity):
+    gpu = polars.GPUEngine(raise_on_fail=False)
+    polars.Config.set_engine_affinity(gpu)
+    polars_telemetry.install(exporter=[])
+    polars_telemetry.uninstall()
+    assert _affinity() is gpu

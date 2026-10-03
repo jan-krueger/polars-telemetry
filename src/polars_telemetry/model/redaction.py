@@ -57,23 +57,46 @@ class Redaction:
     @property
     def masks(self) -> tuple[str, ...]:
         """What this masks, by field name, for a reader to show."""
-        names = ("strings", "numbers", "temporal", "paths", "call_site", "labels")
-        chosen = tuple(name for name in names if getattr(self, name))
+        chosen = tuple(name for name in _SWITCHES if getattr(self, name))
         return (*chosen, "custom") if self.custom is not None else chosen
 
 
 LITERALS = Redaction()
+
+_SWITCHES = ("strings", "numbers", "temporal", "paths", "call_site", "labels")
+
+
+def strictest(*redactions: Redaction | None) -> Redaction | None:
+    """A redaction masking everything any of `redactions` masks."""
+    given = [r for r in redactions if r is not None]
+    if len(set(given)) <= 1:
+        return given[0] if given else None
+    rules = [r.custom for r in given if r.custom is not None]
+
+    def every_rule(text: str) -> str:
+        for rule in rules:
+            text = rule(text)
+        return text
+
+    return Redaction(
+        **{switch: any(getattr(r, switch) for r in given) for switch in _SWITCHES},
+        custom=every_rule if rules else None,
+    )
+
 
 # Where a literal may end: not inside a word, and not before more digits. A
 # dot before a letter is a method call on the literal, as in `1.5.alias("x")`.
 _END = r"(?!\w)(?!\.\d)"
 _START = r"(?<![\w.])"
 
-# One pass, longest form first, so a date is never read as three numbers and
-# nothing inside a quoted string is read as anything but the string.
+# polars prints string literals raw, without escaping quotes or backslashes,
+# so a literal ends only at a quote that something a literal can precede
+# follows. A literal with no such end runs to the end of the text.
+_STRING_END = re.compile(r'"(?=$|[)\],.]| [&|=!<>+\-*/%])')
+
+# Longest form first, so a date is never read as three numbers.
 _TOKEN = re.compile(
-    r'(?P<str>"(?:[^"\\]|\\.)*")'
-    rf"|(?P<datetime>{_START}\d{{4}}-\d{{2}}-\d{{2}}[ T]\d{{2}}:\d{{2}}(?::\d{{2}}(?:\.\d+)?)?"
+    rf"(?P<datetime>{_START}\d{{4}}-\d{{2}}-\d{{2}}[ T]\d{{2}}:\d{{2}}(?::\d{{2}}(?:\.\d+)?)?"
     rf"(?:Z|[+-]\d{{2}}:?\d{{2}})?{_END})"
     rf"|(?P<date>{_START}\d{{4}}-\d{{2}}-\d{{2}}{_END})"
     rf"|(?P<time>(?<![\w.:])\d{{2}}:\d{{2}}:\d{{2}}(?:\.\d+)?{_END})"
@@ -85,7 +108,7 @@ _TOKEN = re.compile(
 _NAME_CONTEXT = re.compile(r"(?:col|alias|name|nth|field|prefix|suffix)\($")
 
 # Plan properties holding a file path rather than an expression.
-_PATH_KEYS = frozenset({"first_source", "dest", "path", "paths", "sources"})
+_PATH_KEYS = frozenset({"first_source", "dest", "target", "path", "paths", "sources"})
 
 
 def redact(text: str, redaction: Redaction = LITERALS) -> str:
@@ -97,15 +120,29 @@ def redact(text: str, redaction: Redaction = LITERALS) -> str:
 
     def mask(match: re.Match[str]) -> str:
         kind, value = match.lastgroup, match.group(0)
-        if kind == "str":
-            named = _NAME_CONTEXT.search(text[max(0, match.start() - 8) : match.start()])
-            return '"<str>"' if redaction.strings and not named else value
         if kind == "num":
             return "<num>" if redaction.numbers else value
         return f"<{kind}>" if redaction.temporal else value
 
-    masked = _TOKEN.sub(mask, text)
+    parts, last = [], 0
+    for start, end in _quoted(text):
+        parts.append(_TOKEN.sub(mask, text[last:start]))
+        named = _NAME_CONTEXT.search(text[max(0, start - 8) : start])
+        parts.append('"<str>"' if redaction.strings and not named else text[start:end])
+        last = end
+    parts.append(_TOKEN.sub(mask, text[last:]))
+    masked = "".join(parts)
     return redaction.custom(masked) if redaction.custom is not None else masked
+
+
+def _quoted(text: str) -> list[tuple[int, int]]:
+    spans, position = [], 0
+    while (start := text.find('"', position)) != -1:
+        end = _STRING_END.search(text, start + 1)
+        stop = end.end() if end else len(text)
+        spans.append((start, stop))
+        position = stop
+    return spans
 
 
 def _path_text(value: str, redaction: Redaction) -> str:
@@ -116,6 +153,8 @@ def _path_text(value: str, redaction: Redaction) -> str:
 def _path(value: object, redaction: Redaction) -> object:
     if isinstance(value, list):
         return [_path(item, redaction) for item in value]
+    if isinstance(value, dict):
+        return {key: _path(item, redaction) for key, item in value.items()}
     return _path_text(value, redaction) if isinstance(value, str) else value
 
 

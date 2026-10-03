@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { chainLines, exprLines, derivedRole, exprColumn, nodeLabel, relationName, roleOf, type RawNode } from "../src/lib/polars";
+import { basename, chainLines, exprLines, derivedRole, exprColumn, nodeLabel, relationName, roleOf, type RawNode } from "../src/lib/polars";
 
 const profile = JSON.parse(
   readFileSync(new URL("./fixtures/profile.json", import.meta.url), "utf8"),
@@ -149,5 +149,28 @@ describe("exprLines", () => {
     expect(exprLines('col("_POLARS_TMP_2").sum().alias("_POLARS_TMP_3")')).toEqual(
       chainLines('col("_POLARS_TMP_2").sum().alias("_POLARS_TMP_3")'),
     );
+  });
+});
+
+describe("exprLines on large or unusual predicates", () => {
+  it("lays out thousands of nested conditions, one per line", () => {
+    let predicate = 'col("c0") == 0';
+    for (let i = 1; i < 5000; i++) predicate = `(${predicate}) | (col("c${i}") == ${i})`;
+    expect(exprLines(predicate)).toHaveLength(5000);
+  });
+
+  it("is not thrown off by a string that ends in a backslash", () => {
+    expect(exprLines('(col("path") == "C:\\\\Users\\\\") | (col("email") == "alice@example.com")')).toEqual([
+      '  col("path") == "C:\\\\Users\\\\"',
+      '| col("email") == "alice@example.com"',
+    ]);
+  });
+});
+
+describe("basename", () => {
+  it("takes a file name from paths written on any system", () => {
+    expect(basename("/srv/data/orders.parquet")).toBe("orders.parquet");
+    expect(basename("C:\\data\\orders.parquet")).toBe("orders.parquet");
+    expect(relationName({ first_source: "C:\\data\\orders.parquet" })).toBe("orders.parquet");
   });
 });

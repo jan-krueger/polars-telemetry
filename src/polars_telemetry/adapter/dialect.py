@@ -6,9 +6,9 @@ against `EquiJoin`, `Scan` against `MultiScan` -- and either can change in a
 release, so both are mapped here onto `NodeRole` and nothing downstream
 compares kind strings.
 
-A kind missing from these tables becomes `NodeRole.UNKNOWN` and is reported by
-`unknown_kinds`, so a rename shows up in the probe and the contract tests
-instead of silently emptying every attribute that depended on it.
+A kind missing from these tables becomes `NodeRole.UNKNOWN`. The recorder warns
+once per such kind, and the contract tests check `unknown_kinds`, so a rename
+shows up instead of silently emptying every attribute that depended on it.
 """
 
 from __future__ import annotations
@@ -75,7 +75,6 @@ _BY_KIND: dict[str, NodeRole] = {
 }
 
 # Kinds whose role depends on a property, not the kind alone; see `role_of`.
-_RULED = frozenset({"Join", "Select", "MapFunction"})
 _IR_SEMI_ANTI = frozenset({"SEMI", "ANTI"})
 
 
@@ -98,8 +97,8 @@ def role_of(kind: str, properties: Mapping[str, object]) -> NodeRole:
 
 
 def unknown_kinds(kinds: Iterable[str]) -> list[str]:
-    """Kinds the tables above do not recognise. Reportable, never fatal."""
-    return sorted({kind for kind in kinds if kind not in _BY_KIND and kind not in _RULED})
+    """Kinds `role_of` does not recognise. Reportable, never fatal."""
+    return sorted({kind for kind in kinds if role_of(kind, {}) is NodeRole.UNKNOWN})
 
 
 class Facets(TypedDict, total=False):

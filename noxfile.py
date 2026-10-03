@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import os
 import shutil
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import nox
@@ -19,6 +20,8 @@ import nox
 nox.options.default_venv_backend = "uv"
 nox.options.reuse_existing_virtualenvs = True
 nox.options.sessions = ["lint", "typecheck", "test"]
+
+POLARS_PACKAGES = ["polars", "polars-runtime-32", "polars-runtime-64", "polars-runtime-compat"]
 
 PYTHONS = ["3.10", "3.11", "3.12", "3.13", "3.14"]
 
@@ -76,21 +79,37 @@ def matrix(session: nox.Session, polars: str) -> None:
 def canary(session: nox.Session) -> None:
     """Live contract against the newest polars, pre-releases included.
 
-    Lifts the release quarantine for polars only.
+    Lifts the release quarantine for polars and its runtime packages only.
     """
-    session.install("-e", ".", "pytest")
+    session.install("-e", ".", "--group", "dev")
+    exempt = [
+        arg
+        for package in POLARS_PACKAGES
+        for arg in ("--exclude-newer-package", f"{package}=2099-01-01")
+    ]
     session.run(
-        "uv",
-        "pip",
-        "install",
-        "--prerelease=allow",
-        "--exclude-newer-package",
-        "polars=2099-01-01",
-        "--upgrade",
-        "polars",
-        external=True,
+        "uv", "pip", "install", "--prerelease=allow", *exempt, "--upgrade", "polars", external=True
     )
+    installed = session.run(
+        "python", "-c", "import importlib.metadata as m; print(m.version('polars'))", silent=True
+    )
+    newest = _newest_polars()
+    session.log(f"testing against polars {str(installed).strip()} (newest on PyPI: {newest})")
+    if str(installed).strip() != newest:
+        session.error(f"polars {newest} is on PyPI, but {str(installed).strip()} was installed")
     session.run("pytest", "-m", "contract and live", "-v", *session.posargs)
+
+
+def _newest_polars() -> str:
+    import json
+    from urllib.request import urlopen
+
+    from packaging.version import Version
+
+    with urlopen("https://pypi.org/pypi/polars/json", timeout=30) as response:
+        releases = json.load(response)["releases"]
+    live = [v for v, files in releases.items() if files and not all(f.get("yanked") for f in files)]
+    return max(live, key=Version)
 
 
 @nox.session
@@ -114,6 +133,21 @@ def audit(session: nox.Session) -> None:
         session.run("npm", "ci", external=True)
         # Only what ships in the page; build tooling has its own advisories.
         session.run("npm", "audit", "--omit=dev", external=True)
+        session.run("node", "scripts/check-lock-age.mjs", external=True)
+    finally:
+        session.chdir(root)
+
+
+@nox.session(venv_backend="none", name="viewer-lock")
+def viewer_lock(session: nox.Session) -> None:
+    """Re-resolve the viewer's dependencies from releases at least 7 days old."""
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=7)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    root = Path.cwd()
+    session.chdir("viewer")
+    try:
+        (root / "viewer" / "package-lock.json").unlink(missing_ok=True)
+        shutil.rmtree(root / "viewer" / "node_modules", ignore_errors=True)
+        session.run("npm", "install", f"--before={cutoff}", external=True)
     finally:
         session.chdir(root)
 

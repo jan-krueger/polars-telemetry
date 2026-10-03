@@ -40,7 +40,7 @@ polars query 01a1013c ok wall=2.63ms cpu=2.33ms parallelism=0.89x nodes=5 rows_o
 !!! note "Activation is always explicit"
     `install()` enables polars' query monitoring, which sets the engine
     affinity to `"streaming"` and so changes how your queries execute. It never
-    happens on import, and `uninstall()` cannot restore the previous affinity.
+    happens on import, and `uninstall()` puts the previous affinity back.
 
 `install()` returns what was installed, or `None` when this polars cannot be
 instrumented:

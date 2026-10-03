@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -206,3 +208,98 @@ def test_queries_outside_a_label_have_none():
     with profile() as session:
         _run()
     assert session[0].label is None
+
+
+@pytest.mark.parametrize(
+    ("value", "secret"),
+    [
+        ("C:\\Users\\alice\\", "alice@example.com"),
+        ('O"Brien SSN 123-45-6789', "Brien"),
+        ('"ssn":"123-45-6789"', "ssn"),
+    ],
+)
+def test_literals_with_quotes_or_backslashes_are_masked(value, secret):
+    frame = polars.LazyFrame({"a": ["x"], "b": ["y"]})
+    with profile(Config(redaction=Redaction())) as session:
+        either = (polars.col("a") == value) | (polars.col("b") == "alice@example.com")
+        frame.filter(either).collect()
+    text = json.dumps(session.profiles())
+    assert secret not in text
+    assert "123-45-6789" not in text
+
+
+def test_written_paths_are_masked_with_paths_on(tmp_path):
+    target = tmp_path / "alice_private" / "out.parquet"
+    target.parent.mkdir()
+    with profile(Config(redaction=Redaction(paths=True))) as session:
+        polars.LazyFrame({"a": [1]}).sink_parquet(target)
+    assert session.profiles(), "the sink ran as a query"
+    assert "alice_private" not in json.dumps(session.profiles())
+
+
+def test_a_block_config_never_masks_less_than_the_installation():
+    polars_telemetry.install(Config(redaction=Redaction(call_site=True)), exporter=_Nothing())
+    with profile(Config(include_plan=True)) as session:
+        _filter_on_a_secret()
+    assert "secret@corp.com" not in json.dumps(session.profiles())
+    assert session[0].call_site is None
+
+
+def test_a_block_config_can_mask_more_than_the_installation():
+    polars_telemetry.install(Config(redaction=Redaction()), exporter=_Nothing())
+    with profile(Config(redaction=Redaction(call_site=True))) as session:
+        _filter_on_a_secret()
+    assert "secret@corp.com" not in json.dumps(session.profiles())
+    assert session[0].call_site is None
+
+
+def _fingerprint(frame: Any) -> str:
+    with profile() as session:
+        frame.collect()
+    return session[-1].fingerprint
+
+
+def _write(path: Path) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    polars.DataFrame({"k": ["a"], "v": [1], "c": ["cust_1"]}).write_parquet(path)
+    return path
+
+
+@pytest.mark.parametrize(
+    "build",
+    [
+        lambda n: (
+            polars.LazyFrame({"k": ["a"], "v": [1], "c": [f"cust_{n}"]})
+            .group_by("k")
+            .agg(polars.col("v").filter(polars.col("c") == f"cust_{n}").sum())
+        ),
+        lambda n: polars.LazyFrame({"v": [1]}).group_by(polars.col("v") > n).len(),
+        lambda n: polars.LazyFrame({"v": [1]}).sort(polars.col("v") * n),
+    ],
+    ids=["literal in an aggregation", "literal in a key", "literal in a sort"],
+)
+def test_literals_do_not_change_the_fingerprint(build):
+    assert _fingerprint(build(123)) == _fingerprint(build(456))
+
+
+def test_dated_file_names_share_a_fingerprint_and_tables_do_not(tmp_path):
+    def scan(path: Path) -> Any:
+        return polars.scan_parquet(path).select("v")
+
+    monday = _write(tmp_path / "2024" / "data-2024-01-01.parquet")
+    tuesday = _write(tmp_path / "other" / "data-2024-01-02.parquet")
+    orders = _write(tmp_path / "orders.parquet")
+    assert _fingerprint(scan(monday)) == _fingerprint(scan(tuesday))
+    assert _fingerprint(scan(monday)) != _fingerprint(scan(orders))
+
+
+def test_an_older_block_leaves_a_newer_blocks_installation_alone():
+    first = profile()
+    first.__enter__()
+    polars_telemetry.uninstall()
+    with profile() as second:
+        first.__exit__(None, None, None)
+        assert installed() is not None, "the older block took down the newer one's installation"
+        _filter_on_a_secret()
+    assert len(second) == 1
+    assert installed() is None

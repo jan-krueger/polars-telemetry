@@ -9,6 +9,8 @@
 
 import type { PlanNode, Profile, Session } from "../model/profile";
 import { shapeName } from "../lib/format";
+import { cpuMs } from "../lib/graph";
+import { basename } from "../lib/polars";
 import type { Route } from "./route";
 
 export interface NodeRef {
@@ -83,7 +85,7 @@ export function reducer(state: ViewerState, action: Action): ViewerState {
     case "removed": {
       const sessions = state.sessions.filter((s) => s.id !== action.sessionId);
       if (state.sessionId !== action.sessionId) return { ...state, sessions };
-      return { ...state, ...nothingSelected, sessions, sessionId: null };
+      return { ...state, ...nothingSelected, sessions, sessionId: sessions[0]?.id ?? null };
     }
     case "cleared":
       return { ...state, ...nothingSelected, sessions: [], sessionId: null };
@@ -147,9 +149,8 @@ export function findNode(profile: Profile | null, ref: NodeRef | null): PlanNode
 export function hottest(profile: Profile): NodeRef | null {
   let best: PlanNode | null = null;
   for (const node of profile.plan.physical) {
-    const time = Number(node.metrics?.total_time_ns);
-    if (!Number.isFinite(time)) continue;
-    if (!best || time > Number(best.metrics?.total_time_ns)) best = node;
+    if (!node.metrics) continue;
+    if (!best || cpuMs(node) > cpuMs(best)) best = node;
   }
   return best ? { plan: "physical", id: best.id } : null;
 }
@@ -181,7 +182,7 @@ export function matches(profile: Profile, search: string): boolean {
   const site = profile.call_site;
   const haystack = [
     profile.label,
-    site && `${site.filepath.split("/").pop()}:${site.lineno} ${site.function}`,
+    site && `${basename(site.filepath)}:${site.lineno} ${site.function}`,
     shapeName(profile),
     profile.fingerprint,
   ];

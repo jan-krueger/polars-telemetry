@@ -118,3 +118,10 @@ describe("focus", () => {
     expect(fadedNodes(at(80, null, true))).toEqual([]);
   });
 });
+
+describe("focus on a plan without usable times", () => {
+  it("offers only the step that lights every node", () => {
+    const plan = [{ id: 1, kind: "Scan", role: "scan", label: "", properties: {}, inputs: [], metrics: { total_time_ns: Number.NaN } }] as unknown as PlanNode[];
+    expect(focusSteps(plan)).toHaveLength(1);
+  });
+});

@@ -1,7 +1,7 @@
 {
  "schema": "polars-telemetry/profile@1",
  "polars_version": "1.44.2",
- "polars_telemetry_version": "0.3.1",
+ "polars_telemetry_version": "0.4.0",
  "query_id": "01a10000-0000-7000-8000-000000000000",
  "label": null,
  "fingerprint": "94b7e38a9c1e",
@@ -17,8 +17,8 @@
  "failed": null,
  "redacted": null,
  "diagnostics": {
-  "parallel_efficiency": 0.006232550242550243,
-  "cpu_count": 12,
+  "parallel_efficiency": 0.009348825363825364,
+  "cpu_count": 8,
   "join_amplification": 1.0,
   "projection_efficiency": 1.0,
   "morsel_skew": 1.7899945024738866,

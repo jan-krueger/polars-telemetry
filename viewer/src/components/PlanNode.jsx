@@ -1,6 +1,7 @@
 import { Handle, Position } from "@xyflow/react";
 import { ROLES, relationName, roleOf } from "../lib/polars";
 import { ms, num } from "../lib/format";
+import { cpuMs } from "../lib/graph";
 import Tip, { TipText } from "./Tip";
 
 const bin = (p) => (p >= 50 ? 4 : p >= 10 ? 3 : p >= 1 ? 2 : 1);
@@ -32,7 +33,7 @@ export default function PlanNode({ data, selected }) {
       {label ? <div className="t2">{label}</div> : null}
       {node.metrics ? (
         <div className="t3">
-          {share >= 0.1 ? `${num(share, 1)}% · ` : ""}{ms((node.metrics.total_time_ns ?? 0) / 1e6)}
+          {share >= 0.1 ? `${num(share, 1)}% · ` : ""}{ms(cpuMs(node))}
         </div>
       ) : null}
       {!logical && node.metrics ? (

@@ -53,7 +53,7 @@ def _message(args: tuple[Any, ...]) -> str:
 class ObserverFactory:
     """Called by polars once per query; makes that query's observer."""
 
-    __slots__ = ("_delegate", "_make_recorder", "_tracker")
+    __slots__ = ("_delegate", "_delegate_errors", "_make_recorder", "_tracker")
 
     def __init__(
         self,
@@ -65,6 +65,7 @@ class ObserverFactory:
         """delegate: the real polars-cloud factory, if one was installed."""
         self._make_recorder = make_recorder
         self._delegate = delegate
+        self._delegate_errors: set[str] = set()
         self._tracker = FailureTracker(label)
 
     @property
@@ -79,8 +80,14 @@ class ObserverFactory:
             try:
                 delegate = self._delegate(workspace, organization)
             except Exception as exc:
-                self._tracker.record(exc)
+                self._report_delegate(exc)
         return QueryObserver(self._make_recorder(self._tracker), self._tracker, delegate)
+
+    def _report_delegate(self, exc: Exception) -> None:
+        key = f"{type(exc).__name__}: {exc}"
+        if key not in self._delegate_errors:
+            self._delegate_errors.add(key)
+            _log.warning("polars-telemetry: the polars-cloud observer failed (%s).", key)
 
 
 class QueryObserver:
@@ -95,20 +102,19 @@ class QueryObserver:
         self._tracker = tracker
         self._delegate = delegate
 
-    def on_query_started(self, query_id: UUID) -> None:
+    def on_query_started(self, *args: Any) -> None:
         if not self._tracker.disarmed:
             try:
-                self._recorder.started(query_id)
+                self._recorder.started(args[0])
             except Exception as exc:
                 self._tracker.record(exc)
-        self._forward("on_query_started", query_id)
+        self._forward("on_query_started", *args)
 
-    def on_query_planned(
-        self, query_id: UUID, handle: Any, ir_plan: bytes, physical_plan: bytes
-    ) -> ExecutionGuard:
-        delegate_guard = self._forward("on_query_planned", query_id, handle, ir_plan, physical_plan)
+    def on_query_planned(self, *args: Any) -> ExecutionGuard:
+        delegate_guard = self._forward("on_query_planned", *args)
         if not self._tracker.disarmed:
             try:
+                query_id, handle, ir_plan, physical_plan = args[:4]
                 self._recorder.planned(query_id, ir_plan, physical_plan, handle)
             except Exception as exc:
                 self._tracker.record(exc)

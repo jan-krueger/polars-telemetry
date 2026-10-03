@@ -8,6 +8,7 @@ import Code from "./components/Code";
 import Tip, { TipText } from "./components/Tip";
 import { allSessions, dropAll, dropSession, saveSession, storageUnavailable } from "./lib/storage";
 import { bytes, diagnostics, ms, num, shapeName } from "./lib/format";
+import { basename } from "./lib/polars";
 import { clock, instant, iso, ranBetween, spansDays } from "./lib/time";
 import { readJsonl, readSession, toJsonl } from "./model/read";
 import { fromHash, isNewPage, routeOf, toHash } from "./state/route";
@@ -88,7 +89,11 @@ export default function App() {
         rejected.push(`${f.name}: skipped ${n} line${n > 1 ? "s" : ""} (${read.rejected[0]})`);
       }
       const meta = { id: crypto.randomUUID(), name: f.name, importedAt: Date.now(), bytes: f.size };
-      await saveSession({ ...meta, profiles: read.raw });
+      try {
+        await saveSession({ ...meta, profiles: read.raw });
+      } catch (e) {
+        rejected.push(`${f.name}: open for this page only, not stored (${e?.message ?? e})`);
+      }
       added.push({ ...meta, profiles: read.profiles, raw: read.raw });
     }
     setRejectedFiles(rejected);
@@ -189,7 +194,11 @@ export default function App() {
                   <Tip content="Remove this session">
                   <button className="x" aria-label={`Remove ${s.name}`}
                           onClick={async () => {
-                            await dropSession(s.id);
+                            try {
+                              await dropSession(s.id);
+                            } catch (e) {
+                              setRejectedFiles([`${s.name}: removed from this page, but still stored (${e?.message ?? e})`]);
+                            }
                             dispatch({ type: "removed", sessionId: s.id });
                           }}>×</button>
                   </Tip>
@@ -200,7 +209,12 @@ export default function App() {
                   <span>Remove all {sessions.length} sessions?</span>
                   <span className="railfoot-actions">
                     <button className="link link--crit" onClick={async () => {
-                      await dropAll(); setConfirmingClear(false); dispatch({ type: "cleared" });
+                      try {
+                        await dropAll();
+                      } catch (e) {
+                        setRejectedFiles([`Sessions removed from this page, but still stored (${e?.message ?? e})`]);
+                      }
+                      setConfirmingClear(false); dispatch({ type: "cleared" });
                     }}>Remove</button>
                     <button className="link" onClick={() => setConfirmingClear(false)}>Keep</button>
                   </span>
@@ -226,11 +240,13 @@ export default function App() {
                   <div className="fp"><span>{row.fingerprint}</span>
                     <span>{row.runs.length} run{row.runs.length > 1 ? "s" : ""}</span></div>
                   {row.runs.map((p) => (
-                    <button className="run" key={p.query_id} aria-pressed={p.query_id === state.queryId}
-                            onClick={() => pick(p.query_id)}>
-                      <Tip content={p.label ? shapeName(p) : null}><div className="l1">{title(p)}</div></Tip>
-                      <div className="l2">{ms(p.wall_ms)} wall · {ms(p.cpu_ms)} cpu</div>
-                    </button>
+                    <Tip key={p.query_id} content={p.label ? shapeName(p) : null}>
+                      <button className="run" aria-pressed={p.query_id === state.queryId}
+                              onClick={() => pick(p.query_id)}>
+                        <div className="l1">{title(p)}</div>
+                        <div className="l2">{ms(p.wall_ms)} wall · {ms(p.cpu_ms)} cpu</div>
+                      </button>
+                    </Tip>
                   ))}
                 </div>
               ))}
@@ -242,7 +258,7 @@ export default function App() {
           {rejectedFiles.length > 0 && (
             <div className="notice" role="alert">
               <div className="notice-text">
-                <b>Not everything was imported</b>
+                <b>Not everything worked</b>
                 {rejectedFiles.map((r) => <div key={r}>{r}</div>)}
               </div>
               <button className="x" aria-label="Dismiss" onClick={() => setRejectedFiles([])}>×</button>
@@ -310,7 +326,7 @@ polars_telemetry.install(exporter=FileExporter("profiles/session.jsonl"))`} />
                   {profile.call_site && (
                     <Tip content={profile.call_site.filepath}>
                     <span className="qsite" tabIndex={0}>
-                      {profile.call_site.filepath.split("/").pop()}:{profile.call_site.lineno}
+                      {basename(profile.call_site.filepath)}:{profile.call_site.lineno}
                       {" in "}{profile.call_site.function}()
                     </span>
                     </Tip>
