@@ -59,6 +59,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   reported, and storage keeps working.
 - Viewer: removing the open session showed the empty start page while other
   sessions were still stored. The next one opens now.
+- Viewer: a profile without a `query_id` got a new random id on every load, so
+  links, reload and the back button lost it, and one with an empty id could not
+  be opened. Such profiles are now numbered by their place in the session.
 - `uninstall()` left polars' engine affinity on `"streaming"`. It now puts back
   the affinity from before `install()`, engine objects such as `GPUEngine`
   included, unless the application chose another engine in the meantime.

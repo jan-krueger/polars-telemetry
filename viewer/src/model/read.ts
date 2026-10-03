@@ -22,13 +22,15 @@ const num = (value: unknown, fallback = 0): number =>
 
 const str = (value: unknown, fallback = ""): string => (typeof value === "string" ? value : fallback);
 
-export function readProfile(raw: unknown): Read {
+/** `position` within its session gives a profile without a query_id the same
+ *  id on every load. */
+export function readProfile(raw: unknown, position?: number): Read {
   if (!isObject(raw)) return { problem: "not an object" };
   const schema = str(raw.schema);
   if (!schema.startsWith(SCHEMA_PREFIX)) return { problem: "not a polars-telemetry profile" };
   const version = Number(schema.slice(SCHEMA_PREFIX.length));
   if (!SUPPORTED_VERSIONS.has(version)) return { problem: `schema ${schema} needs a newer viewer` };
-  return readV1(raw, schema);
+  return readV1(raw, schema, position);
 }
 
 const MAX_DATE_NS = 8.64e21;
@@ -66,7 +68,7 @@ function readNodes(value: unknown, side: string): PlanNode[] | string {
   return nodes;
 }
 
-function readV1(raw: Record<string, unknown>, schema: string): Read {
+function readV1(raw: Record<string, unknown>, schema: string, position?: number): Read {
   if (!isObject(raw.plan)) return { problem: "no plan" };
   const physical = readNodes(raw.plan.physical, "physical");
   if (typeof physical === "string") return { problem: physical };
@@ -76,7 +78,7 @@ function readV1(raw: Record<string, unknown>, schema: string): Read {
   const site = isObject(raw.call_site) ? raw.call_site : null;
   return {
     profile: {
-      query_id: str(raw.query_id, crypto.randomUUID()),
+      query_id: str(raw.query_id) || (position === undefined ? crypto.randomUUID() : `profile-${position}`),
       label: typeof raw.label === "string" && raw.label ? raw.label : null,
       redacted: Array.isArray(raw.redacted) ? raw.redacted.filter((k): k is string => typeof k === "string") : null,
       schema,
@@ -111,7 +113,7 @@ export function readJsonl(text: string): { profiles: Profile[]; raw: unknown[]; 
       rejected.push("not valid JSON");
       continue;
     }
-    const read = readProfile(parsed);
+    const read = readProfile(parsed, raw.length);
     if ("problem" in read) {
       rejected.push(read.problem);
     } else {
@@ -130,8 +132,8 @@ export const toJsonl = (raw: unknown[]): string =>
  *  rather than taking the whole viewer down. */
 export function readSession(stored: StoredSession): Session {
   const profiles: Profile[] = [];
-  for (const raw of stored.profiles) {
-    const read = readProfile(raw);
+  for (const [position, raw] of stored.profiles.entries()) {
+    const read = readProfile(raw, position);
     if ("profile" in read) profiles.push(read.profile);
   }
   return { ...stored, profiles, raw: stored.profiles };

@@ -122,3 +122,20 @@ describe("malformed numbers", () => {
     expect(profile.result_rows).toBeNull();
   });
 });
+
+describe("profiles without a query_id", () => {
+  it("get the same id on every load, and an empty id counts as none", () => {
+    const stored = { id: "s", name: "s.jsonl", importedAt: 0, bytes: 0, profiles: [minimal(), minimal({ query_id: "" })] };
+    const first = readSession(stored).profiles.map((p) => p.query_id);
+    const again = readSession(stored).profiles.map((p) => p.query_id);
+    expect(first).toEqual(again);
+    expect(first).toEqual(["profile-0", "profile-1"]);
+  });
+
+  it("are numbered the same when imported as when stored", () => {
+    const text = [minimal(), minimal()].map((d) => JSON.stringify(d)).join("\n");
+    const imported = readJsonl(text);
+    const stored = readSession({ id: "s", name: "s.jsonl", importedAt: 0, bytes: 0, profiles: imported.raw });
+    expect(imported.profiles.map((p) => p.query_id)).toEqual(stored.profiles.map((p) => p.query_id));
+  });
+});
