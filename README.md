@@ -74,6 +74,21 @@ Drop the file on the
 both plans, per-node counters, and a diff between two runs of the same shape.
 It runs entirely in your browser; nothing is uploaded.
 
+## Profile a block of code
+
+```python
+from polars_telemetry import profile
+
+with profile() as session:
+    report = build_report()
+
+session.slowest.call_site  # where the slow one was run
+session.write("report.jsonl")  # open in the viewer
+```
+
+Installs instrumentation only if nothing was installed. With an application
+already instrumented it collects alongside the existing exporter.
+
 ## Configure
 
 ```python

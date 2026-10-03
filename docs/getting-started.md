@@ -52,6 +52,38 @@ polars_telemetry.install(Config(node_metrics=False))
 | `redact_literals` | `False` | Mask literal values in plan expressions |
 | `resource_attributes` | `{}` | Extra resource attributes |
 
+## Profile a block of code
+
+Where a global exporter is the wrong shape — a test, a notebook cell, one
+function you are suspicious of — collect the queries directly:
+
+```python
+from polars_telemetry import profile
+
+with profile() as session:
+    report = build_report()
+
+print(len(session), "queries")
+print(session.slowest.call_site)
+session.write("profiles/report.jsonl")  # open this in the viewer
+```
+
+| Member | Gives you |
+| --- | --- |
+| `session.queries` | every query, in order |
+| `session.slowest` | the longest by wall time, or `None` |
+| `session.wall_ms` | summed wall time (queries may overlap) |
+| `session.profiles()` | the full profile document for each |
+| `session.write(path)` | a session file the viewer opens |
+
+The block installs instrumentation only if nothing was installed, and takes it
+back out afterwards. With an application already installed it collects
+*alongside* that exporter rather than replacing it, and blocks may nest.
+
+!!! note "The scope is the process, not the thread"
+    A block collects every query that finishes while it is open, including
+    queries other threads ran.
+
 ## Send it somewhere
 
 The package depends on the OpenTelemetry **API** only; your application owns

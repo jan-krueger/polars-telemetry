@@ -7,6 +7,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- `profile()`: a context manager collecting the queries run inside a block,
+  with `slowest`, `wall_ms`, `profiles()` and `write()` for a viewer-ready
+  session file. It registers a sink rather than replacing the exporter, so it
+  composes with an existing installation and nests; it installs instrumentation
+  only when nothing was installed, and removes it afterwards.
 - Call-site attribution: every query carries the file, line and function that
   ran it, as OpenTelemetry's `code.file.path`, `code.line.number` and
   `code.function.name`, and in the profile and the viewer. Walking out to the

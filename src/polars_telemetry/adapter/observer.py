@@ -22,6 +22,7 @@ import time
 from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
+from polars_telemetry import _sinks
 from polars_telemetry._callsite import CallSite, caller
 from polars_telemetry._safety import FailureTracker
 from polars_telemetry.adapter.decode import decode_optional_plan, decode_plan
@@ -163,18 +164,19 @@ class QueryObserver:
         handle, self._handle = self._handle, None
         metrics = build_metrics(handle.settled_snapshot()) if handle is not None else {}
 
-        self._exporter.export(
-            Query(
-                query_id=self._query_id,
-                wall_ms=wall_ms,
-                plan=self._plan,
-                logical=self._logical,
-                metrics=metrics,
-                call_site=self._call_site,
-                failed=failure,
-                started_unix_ns=self._started_unix_ns,
-            )
+        query = Query(
+            query_id=self._query_id,
+            wall_ms=wall_ms,
+            plan=self._plan,
+            logical=self._logical,
+            metrics=metrics,
+            call_site=self._call_site,
+            failed=failure,
+            started_unix_ns=self._started_unix_ns,
         )
+        self._exporter.export(query)
+        if _sinks.active():
+            _sinks.dispatch(query)
 
     def _forward(self, method: str, *args: Any) -> Any:
         """Pass the callback on to polars-cloud, when it is also installed."""
