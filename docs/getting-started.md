@@ -51,7 +51,7 @@ polars_telemetry.install(Config(node_metrics=False))
 | `include_plan` | `False` | Attach the full plan to the span as JSON |
 | `call_site` | `True` | Record the file, line and function that ran the query |
 | `redact_literals` | `False` | Mask literal values in plan expressions |
-| `resource_attributes` | `{}` | Extra resource attributes |
+| `resource_attributes` | `{}` | Deprecated: never applied; set them on your OpenTelemetry provider |
 
 ## Profile a block of code
 
@@ -104,6 +104,21 @@ import polars_telemetry
 
 polars_telemetry.install()
 ```
+
+## More than one destination
+
+`exporter` takes several. Each receives every query, and one that keeps
+failing disables itself without affecting the others:
+
+```python
+from polars_telemetry.export.file import FileExporter
+from polars_telemetry.export.otel import OTelExporter
+
+polars_telemetry.install(config, exporter=[OTelExporter(config), FileExporter("profiles/s.jsonl")])
+```
+
+`install()` is idempotent. Calling it again with different arguments logs a
+warning and changes nothing; call `uninstall()` first.
 
 ## Debug without a collector
 

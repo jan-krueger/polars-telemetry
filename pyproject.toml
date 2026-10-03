@@ -114,7 +114,7 @@ ignore = [
 "tests/*" = ["S101", "ANN", "PLR2004"]
 # These modules exist to absorb failures from a foreign interface.
 "src/polars_telemetry/_safety.py" = ["BLE001"]
-"src/polars_telemetry/_sinks.py" = ["BLE001"]
+"src/polars_telemetry/_dispatch.py" = ["BLE001"]
 "src/polars_telemetry/compat.py" = ["BLE001"]
 "src/polars_telemetry/export/profile.py" = ["BLE001"]
 "src/polars_telemetry/export/file.py" = ["BLE001"]

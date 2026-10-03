@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass, field
 
 
@@ -35,3 +36,12 @@ class Config:
     attributes, which never carry literals (see export.semconv)."""
 
     resource_attributes: dict[str, str] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if self.resource_attributes:
+            warnings.warn(
+                "Config.resource_attributes has never been applied and will be "
+                "removed; set resource attributes on your OpenTelemetry provider.",
+                DeprecationWarning,
+                stacklevel=3,
+            )

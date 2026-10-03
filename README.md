@@ -103,7 +103,7 @@ polars_telemetry.install(Config(node_metrics=False))
 | `include_plan` | `False` | Attach the full plan to the span as JSON |
 | `call_site` | `True` | Record the file, line and function that ran the query |
 | `redact_literals` | `False` | Mask literal values in plan expressions |
-| `resource_attributes` | `{}` | Extra resource attributes |
+| `resource_attributes` | `{}` | Deprecated: never applied; set them on your OpenTelemetry provider |
 
 ## Your data
 

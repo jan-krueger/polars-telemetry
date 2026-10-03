@@ -11,8 +11,8 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from polars_telemetry import _sinks
-from polars_telemetry.activation import install, installed, uninstall
+from polars_telemetry import _dispatch
+from polars_telemetry.activation import acquire_scoped, installed, release_scoped
 from polars_telemetry.export.profile import build_profile, redact_profile
 
 if TYPE_CHECKING:
@@ -82,32 +82,16 @@ def profile(config: Config | None = None) -> Iterator[Session]:
     The scope is the process, not the thread: a block collects every query that
     completes while it is open, including ones other threads ran.
     """
+    held = acquire_scoped(config)
     current = installed()
-    ours = current is None
     # The block's own config wins; otherwise inherit whatever is installed, so
     # a session never hands out literals an installed config would mask.
     effective = config or (current.config if current is not None else None)
     session = Session(redact_literals=effective.redact_literals if effective else False)
-    if ours:
-        install(config, exporter=_Discard())
-
-    # Bind once: `session.queries.append` is a fresh object on every access,
-    # so re-deriving it in the finally would fail to remove this sink.
-    sink = session.queries.append
-    _sinks.add(sink)
+    receiver = _dispatch.add(session.queries.append, "profile session")
     try:
         yield session
     finally:
-        _sinks.discard(sink)
-        if ours:
-            uninstall()
-
-
-class _Discard:
-    """Scoped profiling collects through a sink, so nothing needs exporting."""
-
-    def export(self, query: Query) -> None:
-        return
-
-    def shutdown(self) -> None:
-        return
+        _dispatch.remove(receiver)
+        if held:
+            release_scoped()

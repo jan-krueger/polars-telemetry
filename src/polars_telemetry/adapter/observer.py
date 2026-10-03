@@ -24,7 +24,6 @@ from uuid import UUID, uuid4
 
 import polars
 
-from polars_telemetry import _sinks
 from polars_telemetry._callsite import caller
 from polars_telemetry._safety import FailureTracker
 from polars_telemetry.adapter.build import build_metrics, build_plan
@@ -36,7 +35,6 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from polars_telemetry.config import Config
-    from polars_telemetry.export.base import Exporter
 
 _log = logging.getLogger("polars_telemetry")
 
@@ -77,17 +75,18 @@ def _message(args: tuple[Any, ...]) -> str:
 class ObserverFactory:
     """Called by polars once per query."""
 
-    __slots__ = ("_config", "_delegate", "_exporter", "_tracker")
+    __slots__ = ("_config", "_delegate", "_emit", "_tracker")
 
     def __init__(
         self,
         config: Config,
-        exporter: Exporter,
+        emit: Callable[[Query], None],
         delegate: Any | None = None,
     ) -> None:
-        """delegate: the real polars-cloud factory, if one was installed."""
+        """emit: where finished queries go. delegate: the real polars-cloud
+        factory, if one was installed."""
         self._config = config
-        self._exporter = exporter
+        self._emit = emit
         self._delegate = delegate
         self._tracker = FailureTracker("observer")
 
@@ -104,7 +103,7 @@ class ObserverFactory:
                 delegate = self._delegate(workspace, organization)
             except Exception as exc:
                 self._tracker.record(exc)
-        return QueryObserver(self._config, self._exporter, self._tracker, delegate)
+        return QueryObserver(self._config, self._emit, self._tracker, delegate)
 
 
 class QueryObserver:
@@ -114,7 +113,7 @@ class QueryObserver:
         "_call_site",
         "_config",
         "_delegate",
-        "_exporter",
+        "_emit",
         "_handle",
         "_logical",
         "_plan",
@@ -127,12 +126,12 @@ class QueryObserver:
     def __init__(
         self,
         config: Config,
-        exporter: Exporter,
+        emit: Callable[[Query], None],
         tracker: FailureTracker,
         delegate: Any | None = None,
     ) -> None:
         self._config = config
-        self._exporter = exporter
+        self._emit = emit
         self._tracker = tracker
         self._delegate = delegate
         self._query_id: UUID = uuid4()
@@ -230,9 +229,7 @@ class QueryObserver:
             failed=failure,
             started_unix_ns=self._started_unix_ns,
         )
-        self._exporter.export(query)
-        if _sinks.active():
-            _sinks.dispatch(query)
+        self._emit(query)
 
     def _forward(self, method: str, *args: Any) -> Any:
         """Pass the callback on to polars-cloud, when it is also installed."""

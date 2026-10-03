@@ -3,23 +3,31 @@
 polars resolves ``polars_cloud.QueryCloudObserver`` by name and duck-types the
 result. If the real polars-cloud is installed its factory is wrapped and
 forwarded to rather than replaced.
+
+The installation is process-wide state, changed by `install()`, `uninstall()`
+and `profile()` blocks from any thread, so every change happens under one lock.
 """
 
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, replace
+import threading
+from collections.abc import Sequence
+from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING
 
+from polars_telemetry import _dispatch
 from polars_telemetry.adapter import module as mod
 from polars_telemetry.adapter.observer import ObserverFactory
-from polars_telemetry.compat import Capabilities, probe
+from polars_telemetry.compat import SUPPORTED, Capabilities, probe
 from polars_telemetry.config import Config
 
 if TYPE_CHECKING:
     from polars_telemetry.export.base import Exporter
 
 _log = logging.getLogger("polars_telemetry")
+
+SUPPORTED_MESSAGE = f"polars {SUPPORTED}"
 
 
 @dataclass(frozen=True, slots=True)
@@ -29,31 +37,95 @@ class Installation:
     binding: mod.Binding
     config: Config
     capabilities: Capabilities
+    exporters: tuple[Exporter, ...] = ()
+    scoped: bool = False
+    """Made by a profile() block, not by the application; the last block to
+    close takes it back out."""
+    receivers: tuple[_dispatch.Receiver, ...] = field(default=(), repr=False)
 
 
+_lock = threading.RLock()
 _state: Installation | None = None
+_scoped_holders = 0
 
 
 def installed() -> Installation | None:
     return _state
 
 
-def install(config: Config | None = None, exporter: Exporter | None = None) -> Installation | None:
+def install(
+    config: Config | None = None,
+    exporter: Exporter | Sequence[Exporter] | None = None,
+) -> Installation | None:
     """Activate instrumentation for this process. Idempotent.
 
-    Activation is explicit because enabling monitoring sets polars' engine
-    affinity to "streaming". Raises on invalid config only; an unsupported
-    polars degrades with a warning.
+    `exporter` may be one exporter or several; with none, queries go to
+    OpenTelemetry. Activation is explicit because enabling monitoring sets
+    polars' engine affinity to "streaming". An unsupported polars degrades with
+    a warning.
 
     Returns None when the installed polars cannot be instrumented at all.
     """
+    with _lock:
+        return _install(config, _as_tuple(exporter), scoped=False)
+
+
+def uninstall() -> None:
+    """Deactivate and restore any wrapped factory.
+
+    Engine affinity is not restored; polars exposes no way to read the
+    previous value.
+    """
+    global _state, _scoped_holders
+    with _lock:
+        if _state is None:
+            return
+        import polars as pl
+
+        for receiver in _state.receivers:
+            _dispatch.remove(receiver)
+        try:
+            pl.Config.enable_monitoring(False)
+        finally:
+            mod.unbind(_state.binding)
+            _state = None
+            _scoped_holders = 0
+
+
+def acquire_scoped(config: Config | None) -> bool:
+    """For a profile() block: make sure something is installed.
+
+    Returns True when the block holds a scoped installation and must call
+    `release_scoped()` when it closes.
+    """
+    global _scoped_holders
+    with _lock:
+        state = _install(config, (), scoped=True)
+        if state is None or not state.scoped:
+            return False
+        _scoped_holders += 1
+        return True
+
+
+def release_scoped() -> None:
+    global _scoped_holders
+    with _lock:
+        _scoped_holders = max(_scoped_holders - 1, 0)
+        # An application may have adopted the installation meanwhile.
+        if _scoped_holders == 0 and _state is not None and _state.scoped:
+            uninstall()
+
+
+def _install(
+    config: Config | None, exporters: tuple[Exporter, ...], *, scoped: bool
+) -> Installation | None:
+    """Called with the lock held."""
     global _state
     if _state is not None:
-        return _state
+        return _join(config, exporters, scoped=scoped)
 
     import polars as pl
 
-    config = config or Config()
     binding = mod.bind()
 
     if not hasattr(pl.Config, "enable_monitoring"):
@@ -80,13 +152,69 @@ def install(config: Config | None = None, exporter: Exporter | None = None) -> I
         mod.unbind(binding)
         return None
 
-    if capabilities.usable and not capabilities.ir_payload_ok:
+    if not capabilities.ir_payload_ok:
         _log.warning(
             "polars-telemetry: polars %s delivered an unexpected IR plan; span "
             "attributes will use the physical plan's internal column names.",
             capabilities.polars_version,
         )
 
+    effective = _effective(config or Config(), capabilities)
+    mod.set_factory(
+        binding, ObserverFactory(effective, _dispatch.dispatch, delegate=binding.previous_factory)
+    )
+    if not scoped and not exporters:
+        exporters = (_default_exporter(effective),)
+    _state = Installation(
+        binding=binding,
+        config=effective,
+        capabilities=capabilities,
+        exporters=exporters,
+        scoped=scoped,
+        receivers=_register(exporters),
+    )
+    return _state
+
+
+def _join(config: Config | None, exporters: tuple[Exporter, ...], *, scoped: bool) -> Installation:
+    """install() or a profile() block meeting an existing installation."""
+    global _state
+    assert _state is not None  # noqa: S101 - called only when installed
+    if scoped:
+        return _state
+
+    if _state.scoped:
+        # The application is installing while a profile() block is open. It
+        # takes ownership: its config and exporters apply, and the block's
+        # close no longer uninstalls.
+        effective = _effective(config or _state.config, _state.capabilities)
+        if effective != _state.config:
+            mod.set_factory(
+                _state.binding,
+                ObserverFactory(
+                    effective, _dispatch.dispatch, delegate=_state.binding.previous_factory
+                ),
+            )
+        exporters = exporters or (_default_exporter(effective),)
+        _state = replace(
+            _state,
+            config=effective,
+            exporters=exporters,
+            scoped=False,
+            receivers=(*_state.receivers, *_register(exporters)),
+        )
+        return _state
+
+    if (config is not None and config != _state.config) or exporters:
+        _log.warning(
+            "polars-telemetry: install() was called again with different arguments; "
+            "it is already installed, so they are ignored. Call uninstall() first "
+            "to change the configuration or exporters."
+        )
+    return _state
+
+
+def _effective(config: Config, capabilities: Capabilities) -> Config:
     if not capabilities.node_metrics_usable and config.node_metrics:
         _log.warning(
             "polars-telemetry: polars %s delivered unexpected plan or metrics "
@@ -94,41 +222,26 @@ def install(config: Config | None = None, exporter: Exporter | None = None) -> I
             capabilities.polars_version,
             "; ".join(capabilities.problems) or "no detail",
         )
-        config = replace(config, node_metrics=False)
+        return replace(config, node_metrics=False)
+    return config
 
+
+def _register(exporters: tuple[Exporter, ...]) -> tuple[_dispatch.Receiver, ...]:
+    return tuple(
+        _dispatch.add(exporter.export, f"exporter {type(exporter).__name__}")
+        for exporter in exporters
+    )
+
+
+def _as_tuple(exporter: Exporter | Sequence[Exporter] | None) -> tuple[Exporter, ...]:
     if exporter is None:
-        exporter = _default_exporter(config)
-
-    factory = ObserverFactory(config, exporter, delegate=binding.previous_factory)
-    mod.set_factory(binding, factory)
-
-    _state = Installation(binding=binding, config=config, capabilities=capabilities)
-    return _state
-
-
-def uninstall() -> None:
-    """Deactivate and restore any wrapped factory.
-
-    Engine affinity is not restored; polars exposes no way to read the
-    previous value.
-    """
-    global _state
-    if _state is None:
-        return
-
-    import polars as pl
-
-    try:
-        pl.Config.enable_monitoring(False)
-    finally:
-        mod.unbind(_state.binding)
-        _state = None
+        return ()
+    if hasattr(exporter, "export"):
+        return (exporter,)
+    return tuple(exporter)
 
 
 def _default_exporter(config: Config) -> Exporter:
     from polars_telemetry.export.otel import OTelExporter
 
     return OTelExporter(config)
-
-
-SUPPORTED_MESSAGE = "polars >=1.44.1"

@@ -7,11 +7,23 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- `install(exporter=[...])` takes several exporters. Each receives every
+  query, and one that keeps raising disables itself without costing the others.
 - Each node in a profile carries its `role`, so a reader can render the plan
   without learning polars' kind names. Additive: `profile@1` readers that
   predate it are unaffected.
 
 ### Changed
+- Exporters and `profile()` sessions are receivers in one registry, and the
+  installation is changed under one lock. `install()` called again with
+  different arguments now warns instead of silently ignoring them; called
+  inside a `profile()` block it takes the installation over, where before the
+  application's exporter received nothing for the rest of the process.
+- `profile()` blocks that overlap on different threads keep instrumentation
+  until the last one closes. Previously the block that happened to install it
+  uninstalled it on closing, even with another block still open.
+- `Config.resource_attributes` warns that it is deprecated. Nothing ever read
+  it.
 - The viewer draws plan nodes in relational-algebra notation — σ selection,
   π projection, χ map, ⋈ join, ⋉ semi/anti join, γ aggregation, τ sort, δ
   distinct, ⊎ union — and names scans by the relation they read. Engine
