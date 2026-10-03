@@ -27,6 +27,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   kept as a share of CPU time, so it carries over between queries.
 
 ### Changed
+- Viewer: tooltips appear on hover after a short pause and at once on keyboard
+  focus, where the browser's own showed late and never for the keyboard.
 - Masking happens once, before a query is delivered, and nowhere else.
   `OTelExporter` and `FileExporter` no longer mask on their own. An
   `OTelExporter` made with a masking config still masks when `install()` was

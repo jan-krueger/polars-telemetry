@@ -1,13 +1,13 @@
 import { GLOSSARY } from "../lib/glossary";
+import Tip, { TipText } from "./Tip";
 
-/** A `?` that explains a counter. Native title keeps it dependency-free and
- *  keyboard-reachable without a floating-UI layer. */
+/** A `?` that explains a counter or diagnostic, on hover or keyboard focus. */
 export default function Help({ term, extra }) {
   const g = GLOSSARY[term];
   if (!g) return null;
   return (
-    <span className="help" tabIndex={0} title={`${g[0]} — ${g[1]}${extra ? ` Here: ${extra}.` : ""}`}>
-      ?
-    </span>
+    <Tip content={<TipText term={g[0]} note={extra ? `Here: ${extra}.` : null}>{g[1]}</TipText>}>
+      <span className="help" tabIndex={0} aria-label={`What is ${g[0]}?`}>?</span>
+    </Tip>
   );
 }

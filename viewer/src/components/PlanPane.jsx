@@ -3,6 +3,7 @@ import { ReactFlow, Background, MiniMap, Controls } from "@xyflow/react";
 import PlanNode from "./PlanNode";
 import { focusSteps, layout, planGraph, stepFor, toFlow } from "../lib/graph";
 import { ms } from "../lib/format";
+import Tip from "./Tip";
 
 const nodeTypes = { plan: PlanNode };
 
@@ -53,7 +54,7 @@ function Focus({ steps, step, onFocus }) {
     : `${shown} of ${total} · ${Math.round(coverage)}% of CPU · ≥ ${ms(thresholdMs)}`;
   return (
     <label className="focus">
-      <span className="focus-val" title={text}>{text}</span>
+      <Tip content={text}><span className="focus-val">{text}</span></Tip>
       <input id="plan-focus" type="range" min={0} max={steps.length - 1} step={1} value={step}
              aria-label="Focus on the most expensive nodes" aria-valuetext={text}
              onChange={(e) => {

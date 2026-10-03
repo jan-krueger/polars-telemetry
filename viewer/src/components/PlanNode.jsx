@@ -1,6 +1,7 @@
 import { Handle, Position } from "@xyflow/react";
 import { ROLES, relationName, roleOf } from "../lib/polars";
 import { ms, num } from "../lib/format";
+import Tip, { TipText } from "./Tip";
 
 const bin = (p) => (p >= 50 ? 4 : p >= 10 ? 3 : p >= 1 ? 2 : 1);
 
@@ -22,10 +23,12 @@ export default function PlanNode({ data, selected }) {
     <div className={`pnode${logical ? " logical" : ""}${selected ? " pnode--sel" : ""}`}
          style={{ ...style, position: "relative" }}>
       <Handle type="target" position={Position.Bottom} />
-      <div className="t1" title={`${info.name} — polars ${node.kind}`}>
-        {info.symbol ? <span className={`ra${info.muted ? " ra--muted" : ""}`}>{info.symbol}</span> : null}
-        {title}
-      </div>
+      <Tip content={<TipText term={info.name} note={`polars: ${node.kind}`} />}>
+        <div className="t1">
+          {info.symbol ? <span className={`ra${info.muted ? " ra--muted" : ""}`}>{info.symbol}</span> : null}
+          {title}
+        </div>
+      </Tip>
       {label ? <div className="t2">{label}</div> : null}
       {node.metrics ? (
         <div className="t3">
@@ -33,9 +36,10 @@ export default function PlanNode({ data, selected }) {
         </div>
       ) : null}
       {!logical && node.metrics ? (
-        <span className="status"
-              title={node.metrics.done ? "Completed" : "Unfinished at snapshot"}
-              style={{ background: node.metrics.done ? "var(--good)" : "var(--warn)" }} />
+        <Tip content={node.metrics.done ? "Completed" : "Unfinished when the counters were read"}>
+          <span className="status"
+                style={{ background: node.metrics.done ? "var(--good)" : "var(--warn)" }} />
+        </Tip>
       ) : null}
       <Handle type="source" position={Position.Top} />
     </div>
