@@ -47,6 +47,10 @@ jobs:
         include:
           - python: "3.12"
             polars: "1.44.2"
+          # The coming major version, newest pre-release, so a breaking
+          # release candidate shows up here before users meet it.
+          - python: "3.12"
+            polars: "2 pre-release"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
@@ -56,10 +60,18 @@ jobs:
       - run: uv sync --locked
       - name: Install the polars under test
         run: |
-          uv pip install "polars==${{ matrix.polars }}"
+          if [ "${{ matrix.polars }}" = "2 pre-release" ]; then
+            # Exempt from the release quarantine, for polars only, as the canary is.
+            uv pip install --prerelease=allow --exclude-newer-package polars=2099-01-01 "polars>=2.0.0rc1,<3"
+          else
+            uv pip install "polars==${{ matrix.polars }}"
+          fi
           installed=$(uv run --no-sync python -c "import importlib.metadata as m; print(m.version('polars'))")
           echo "testing against polars $installed"
-          [ "$installed" = "${{ matrix.polars }}" ]
+          case "${{ matrix.polars }}" in
+            "2 pre-release") case "$installed" in 2.*) ;; *) exit 1 ;; esac ;;
+            *) [ "$installed" = "${{ matrix.polars }}" ] ;;
+          esac
       # --no-sync: a plain uv run would put the locked polars back first.
       - run: uv run --no-sync nox -s test -- --cov --cov-report=xml
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
