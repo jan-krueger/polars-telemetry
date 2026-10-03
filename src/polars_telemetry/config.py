@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-import warnings
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from polars_telemetry.model.redaction import Redaction
 
@@ -39,28 +38,3 @@ class Config:
     `Redaction()` masks literal values. One exporter can be given its own with
     `redacted()`. Metrics never carry literals, whatever this says.
     """
-
-    redact_literals: bool = False
-    """Deprecated: use `redaction=Redaction()`, which this sets."""
-
-    resource_attributes: dict[str, str] = field(default_factory=dict)
-    """Deprecated and never applied: set resource attributes on your
-    OpenTelemetry provider instead."""
-
-    def __post_init__(self) -> None:
-        if self.redact_literals:
-            warnings.warn(
-                "Config.redact_literals is deprecated and will be removed in 0.4.0; "
-                "use Config(redaction=Redaction()).",
-                DeprecationWarning,
-                stacklevel=3,
-            )
-            if self.redaction is None:
-                object.__setattr__(self, "redaction", Redaction())
-        if self.resource_attributes:
-            warnings.warn(
-                "Config.resource_attributes has never been applied and will be "
-                "removed in 0.4.0; set resource attributes on your OpenTelemetry provider.",
-                DeprecationWarning,
-                stacklevel=3,
-            )

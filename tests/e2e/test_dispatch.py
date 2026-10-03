@@ -111,11 +111,6 @@ def test_overlapping_blocks_keep_instrumentation_until_the_last_closes():
     assert installed() is None, "the last block to close takes it back out"
 
 
-def test_resource_attributes_warns_that_it_does_nothing():
-    with pytest.warns(DeprecationWarning, match="resource_attributes"):
-        Config(resource_attributes={"service.name": "x"})
-
-
 def test_an_application_exporter_receives_redacted_queries():
     """Redaction used to cover only the bundled exporters."""
     mine = Collect()
@@ -158,12 +153,6 @@ def test_each_exporter_can_have_its_own_redaction():
     assert default.queries[-1].label == "nightly"
     assert strict.queries[-1].label is None
     assert strict.queries[-1].call_site is None
-
-
-def test_the_deprecated_config_flag_still_masks():
-    with pytest.warns(DeprecationWarning, match="redact_literals"):
-        config = Config(redact_literals=True)
-    assert config.redaction == Redaction()
 
 
 def test_an_otel_exporter_keeps_masking_by_its_own_config():

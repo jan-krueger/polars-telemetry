@@ -13,12 +13,10 @@ from __future__ import annotations
 import logging
 import os
 import threading
-import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from polars_telemetry.export.profile import build_profile, profile_line
-from polars_telemetry.model.redaction import LITERALS, redact_query
 
 if TYPE_CHECKING:
     from polars_telemetry.model.types import Query
@@ -39,32 +37,21 @@ class FileExporter:
             it moves to `<name>.1`, replacing the previous one, and a new file
             starts. At most about twice this is on disk. A profile is never
             split, so a file can run over by one record.
-        redact_literals: Deprecated: give the exporter a redaction with
-            `redacted(FileExporter(...), Redaction())` instead.
     """
 
-    __slots__ = ("_errors", "_lock", "_max_bytes", "_path", "_redact")
+    __slots__ = ("_errors", "_lock", "_max_bytes", "_path")
 
     def __init__(
         self,
         path: str | Path,
         *,
         max_bytes: int = DEFAULT_MAX_BYTES,
-        redact_literals: bool = False,
     ) -> None:
-        if redact_literals:
-            warnings.warn(
-                "FileExporter(redact_literals=True) is deprecated and will be removed "
-                "in 0.4.0; use redacted(FileExporter(...), Redaction()).",
-                DeprecationWarning,
-                stacklevel=2,
-            )
         if max_bytes <= 0:
             msg = f"max_bytes must be positive, got {max_bytes}"
             raise ValueError(msg)
         self._path = Path(path)
         self._max_bytes = max_bytes
-        self._redact = redact_literals
         self._lock = threading.Lock()
         self._errors = 0
         self._path.parent.mkdir(parents=True, exist_ok=True)
@@ -76,8 +63,6 @@ class FileExporter:
 
     def export(self, query: Query) -> None:
         try:
-            if self._redact:
-                query = redact_query(query, LITERALS)
             document = build_profile(query)
             line = profile_line(document)
         except Exception as exc:

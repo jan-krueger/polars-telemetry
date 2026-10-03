@@ -79,18 +79,6 @@ def test_rejects_a_nonsense_bound(tmp_path):
         FileExporter(tmp_path / "s.jsonl", max_bytes=0)
 
 
-def test_the_deprecated_redaction_flag_still_masks(tmp_path):
-    plain = FileExporter(tmp_path / "plain.jsonl")
-    with pytest.warns(DeprecationWarning, match="redact_literals"):
-        masked = FileExporter(tmp_path / "masked.jsonl", redact_literals=True)
-    query = _query()
-    plain.export(query)
-    masked.export(query)
-
-    assert "10.0" in plain.path.read_text()
-    assert "<num>" in masked.path.read_text()
-
-
 def test_a_write_failure_does_not_raise(tmp_path, monkeypatch):
     exporter = FileExporter(tmp_path / "s.jsonl")
     query = _query()  # built before patching: the fixture load also uses Path.open

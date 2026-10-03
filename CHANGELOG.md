@@ -20,6 +20,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   starting a metric series each. **Fingerprints of plans with such literals or
   paths change once on upgrade**, and so do the metric series keyed on them.
 
+### Removed
+As announced in 0.3.0:
+- `Config(redact_literals=True)`: use `Config(redaction=Redaction())`.
+- `FileExporter(redact_literals=True)`: use
+  `redacted(FileExporter(...), Redaction())`.
+- `Config.resource_attributes`, which was never applied: set resource
+  attributes on your OpenTelemetry provider.
+
 ### Fixed
 - `Redaction(paths=True)` left the paths of written files readable: a sink's
   target in both plans. They are masked like scanned paths now.
