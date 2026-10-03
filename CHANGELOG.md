@@ -4,7 +4,7 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.2.0] - 2026-10-03
 
 ### Added
 - `label()`: a context manager naming the queries run inside it, so they can
@@ -27,6 +27,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Each node in a profile carries its `role`, so a reader can render the plan
   without learning polars' kind names. Additive: `profile@1` readers that
   predate it are unaffected.
+- `profile()`: a context manager collecting the queries run inside a block,
+  with `slowest`, `wall_ms`, `profiles()` and `write()` for a viewer-ready
+  session file. It registers a sink rather than replacing the exporter, so it
+  composes with an existing installation and nests; it installs instrumentation
+  only when nothing was installed, and removes it afterwards.
+- Call-site attribution: every query carries the file, line and function that
+  ran it, as OpenTelemetry's `code.file.path`, `code.line.number` and
+  `code.function.name`, and in the profile and the viewer. Walking out to the
+  first frame beyond polars costs well under a microsecond. Code with no file
+  on disk — `exec`, the REPL, a notebook cell — reports nothing rather than a
+  temporary name. Disable with `Config(call_site=False)`.
 
 ### Changed
 - polars' callback protocol is isolated in `adapter/hook.py`, which translates
@@ -189,19 +200,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   installed library was misattributed. Only the two package directories are
   skipped now, matched as directories rather than string prefixes.
 
-### Added
-- `profile()`: a context manager collecting the queries run inside a block,
-  with `slowest`, `wall_ms`, `profiles()` and `write()` for a viewer-ready
-  session file. It registers a sink rather than replacing the exporter, so it
-  composes with an existing installation and nests; it installs instrumentation
-  only when nothing was installed, and removes it afterwards.
-- Call-site attribution: every query carries the file, line and function that
-  ran it, as OpenTelemetry's `code.file.path`, `code.line.number` and
-  `code.function.name`, and in the profile and the viewer. Walking out to the
-  first frame beyond polars costs well under a microsecond. Code with no file
-  on disk — `exec`, the REPL, a notebook cell — reports nothing rather than a
-  temporary name. Disable with `Config(call_site=False)`.
-
 ## [0.1.1] - 2026-10-03
 
 ### Fixed
@@ -270,5 +268,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and collapsed most nodes onto identical windows. The same counters read once
   at query end are exact and cost nothing measurable.
 
+[0.2.0]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.2.0
 [0.1.1]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.1.1
 [0.1.0]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.1.0
