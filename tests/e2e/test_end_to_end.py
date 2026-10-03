@@ -282,3 +282,32 @@ def test_the_failure_is_the_message_not_a_callback_repr():
     assert "conversion" in failed
     assert not failed.startswith("("), "a tuple repr leaks the callback signature"
     assert "UUID(" not in failed
+
+
+def test_an_unreadable_ir_costs_only_the_ir(monkeypatch):
+    """polars reshaping one payload must not take the counters or the span with it.
+
+    Previously one shared guard dropped the node counters with the IR, and each
+    query counted toward the disarm threshold, so five queries in, telemetry
+    switched off entirely.
+    """
+    from polars_telemetry.adapter import observer
+
+    def reshaped(payload: bytes) -> list[dict[str, object]]:
+        raise ValueError("IR payload reshaped by a newer polars")
+
+    monkeypatch.setattr(observer, "decode_plan", reshaped)
+
+    collected, exporter = _collecting()
+    state = polars_telemetry.install(exporter=exporter)
+    assert state is not None
+    try:
+        for _ in range(8):
+            _query(polars).collect()
+    finally:
+        polars_telemetry.uninstall()
+
+    assert len(collected) == 8, "queries were dropped"
+    assert all(q.logical == {} for q in collected), "the IR could not be read"
+    assert all(q.plan for q in collected), "the physical plan was lost with the IR"
+    assert all(q.metrics for q in collected), "the counters were lost with the IR"

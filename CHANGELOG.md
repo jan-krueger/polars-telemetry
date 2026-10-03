@@ -7,6 +7,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Fixed
+- An IR plan polars has reshaped now costs only the IR. One shared guard
+  dropped the node counters with it, and each query counted toward the
+  failure threshold, so after five queries telemetry switched off entirely —
+  of eight queries, four were exported, none with counters. Each payload is now
+  decoded on its own, a payload that is not in the expected shape is logged
+  once rather than counted, and the capability probe checks the IR as well as
+  the physical plan.
 - `profile()` honours `redact_literals`. `session.profiles()` and
   `session.write()` handed out plan literals even inside
   `profile(Config(redact_literals=True))`, or under an installed config that

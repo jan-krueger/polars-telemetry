@@ -80,6 +80,13 @@ def install(config: Config | None = None, exporter: Exporter | None = None) -> I
         mod.unbind(binding)
         return None
 
+    if capabilities.usable and not capabilities.ir_payload_ok:
+        _log.warning(
+            "polars-telemetry: polars %s delivered an unexpected IR plan; span "
+            "attributes will use the physical plan's internal column names.",
+            capabilities.polars_version,
+        )
+
     if not capabilities.node_metrics_usable and config.node_metrics:
         _log.warning(
             "polars-telemetry: polars %s delivered unexpected plan or metrics "

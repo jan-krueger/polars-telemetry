@@ -30,6 +30,9 @@ class Capabilities:
     has_monitoring_api: bool
     observer_callbacks_ok: bool = False
     plan_payload_ok: bool = False
+    ir_payload_ok: bool = False
+    """The IR carries the user's own column names; without it, span
+    attributes fall back to the physical plan's _POLARS_TMP_N names."""
     metrics_snapshot_ok: bool = False
     problems: tuple[str, ...] = ()
 
@@ -48,6 +51,7 @@ class _ProbeResult:
     planned: bool = False
     closed: bool = False
     plan_problems: list[str] = field(default_factory=list)
+    ir_problems: list[str] = field(default_factory=list)
     metric_problems: list[str] = field(default_factory=list)
     metric_breaks: list[str] = field(default_factory=list)
 
@@ -84,6 +88,10 @@ class _ProbeObserver:
             self._result.plan_problems = plan_problems(decode_plan(physical_plan))
         except Exception as exc:
             self._result.plan_problems = [f"plan decode failed: {type(exc).__name__}: {exc}"]
+        try:
+            self._result.ir_problems = [f"IR: {p}" for p in plan_problems(decode_plan(ir_plan))]
+        except Exception as exc:
+            self._result.ir_problems = [f"IR decode failed: {type(exc).__name__}: {exc}"]
         return _ProbeGuard(handle, self._result)
 
     def on_query_failed(self, *args: Any) -> None:
@@ -119,7 +127,7 @@ def probe(binding: mod.Binding) -> Capabilities:
         else:
             mod.set_factory(binding, previous)
 
-    problems = [*result.plan_problems, *result.metric_problems]
+    problems = [*result.plan_problems, *result.ir_problems, *result.metric_problems]
     if not result.started or not result.planned:
         problems.append("polars did not invoke the observer callbacks")
     if not result.closed:
@@ -130,6 +138,7 @@ def probe(binding: mod.Binding) -> Capabilities:
         has_monitoring_api=True,
         observer_callbacks_ok=result.started and result.planned and result.closed,
         plan_payload_ok=not result.plan_problems,
+        ir_payload_ok=not result.ir_problems,
         metrics_snapshot_ok=not result.metric_breaks,
         problems=tuple(problems),
     )

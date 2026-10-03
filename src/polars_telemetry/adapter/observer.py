@@ -31,6 +31,8 @@ from polars_telemetry.model.build import build_metrics, build_plan
 from polars_telemetry.model.types import Query
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from polars_telemetry.config import Config
     from polars_telemetry.export.base import Exporter
 
@@ -133,9 +135,12 @@ class QueryObserver:
         if not self._tracker.disarmed:
             try:
                 self._query_id = query_id
-                physical = decode_optional_plan(physical_plan)
-                self._plan = {} if physical is None else build_plan(physical)
-                self._logical = build_plan(decode_plan(ir_plan))
+                # Each payload on its own: an IR polars has reshaped must cost
+                # the IR, not the physical plan, the counters or the span.
+                physical = self._plan_from("physical plan", physical_plan, decode_optional_plan)
+                logical = self._plan_from("IR plan", ir_plan, decode_plan)
+                self._plan = physical or {}
+                self._logical = logical or {}
                 # Counters are keyed by phys_node_key, so without a physical
                 # plan there is nothing to attribute them to.
                 collect_metrics = self._config.node_metrics and physical is not None
@@ -145,6 +150,20 @@ class QueryObserver:
                 self._handle = None
 
         return ExecutionGuard(self, delegate_guard)
+
+    def _plan_from(
+        self,
+        what: str,
+        payload: bytes,
+        decode: Callable[[bytes], list[dict[str, Any]] | None],
+    ) -> dict[int, Any] | None:
+        """A built plan, or None when polars sent none or one we cannot read."""
+        try:
+            records = decode(payload)
+            return None if records is None else build_plan(records)
+        except Exception as exc:
+            self._tracker.note(exc, what)
+            return None
 
     def on_query_failed(self, *args: Any) -> None:
         if not self._tracker.disarmed:

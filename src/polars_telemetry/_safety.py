@@ -47,6 +47,25 @@ class FailureTracker:
         if not self.disarmed and self.errors >= self.max_errors:
             self.disarm()
 
+    def note(self, exc: Exception, what: str) -> None:
+        """Log, once, that a polars payload was not in the expected shape.
+
+        Not counted toward disarming: a payload polars has changed fails the
+        same way on every query, and counting it would switch off query spans
+        that never needed that payload.
+        """
+        key = f"{what}: {type(exc).__name__}: {exc}"
+        if key in self._reported:
+            return
+        self._reported.add(key)
+        _log.warning(
+            "polars-telemetry: the %s from polars is not in the expected shape (%s: %s); "
+            "continuing without it.",
+            what,
+            type(exc).__name__,
+            exc,
+        )
+
     def disarm(self) -> None:
         if self.disarmed:
             return

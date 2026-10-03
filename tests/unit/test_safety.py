@@ -87,3 +87,15 @@ def test_wrapper_preserves_metadata():
 
     assert documented.__name__ == "documented"
     assert documented.__doc__ == "Docstring."
+
+
+def test_a_noted_payload_departure_never_disarms(caplog):
+    """polars reshaping a payload fails identically on every query; counting
+    that would switch off spans that never needed the payload."""
+    tracker = FailureTracker("observer")
+    for _ in range(20):
+        tracker.note(ValueError("reshaped"), "IR plan")
+
+    assert not tracker.disarmed
+    assert tracker.errors == 0
+    assert sum("IR plan" in r.getMessage() for r in caplog.records) == 1, "logged once"
