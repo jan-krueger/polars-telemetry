@@ -12,6 +12,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Python 3.14 is supported, and tested in CI in place of 3.13 as the newest
   version.
 
+### Fixed
+- `uninstall()` left polars' engine affinity on `"streaming"`. It now puts back
+  the affinity from before `install()`, engine objects such as `GPUEngine`
+  included, unless the application chose another engine in the meantime.
+
 ## [0.3.1] - 2026-10-03
 
 ### Changed

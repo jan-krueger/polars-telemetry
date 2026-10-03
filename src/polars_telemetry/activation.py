@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import atexit
 import logging
+import os
 import threading
 from collections.abc import Sequence
 from dataclasses import dataclass, field, replace
@@ -46,6 +47,8 @@ class Installation:
     """Made by a profile() block, not by the application; the last block to
     close takes it back out."""
     receivers: tuple[_dispatch.Receiver, ...] = field(default=(), repr=False)
+    previous_affinity: object = field(default=None, repr=False)
+    """The engine affinity before monitoring set it to streaming, to restore."""
 
 
 _lock = threading.RLock()
@@ -83,8 +86,8 @@ def install(
 def uninstall() -> None:
     """Stop instrumenting, and hand queries back to Polars Cloud if it was there.
 
-    The engine affinity stays `"streaming"`; polars exposes no way to read the
-    previous value back.
+    The engine affinity goes back to what it was before `install()`, unless
+    the application chose another engine in the meantime.
     """
     with _lock:
         detached = _detach()
@@ -102,18 +105,42 @@ def _detach() -> tuple[Exporter, ...]:
     global _state, _scoped_holders
     if _state is None:
         return ()
-    import polars as pl
 
     exporters = _state.exporters
     for receiver in _state.receivers:
         _dispatch.remove(receiver)
     try:
-        pl.Config.enable_monitoring(False)
+        _monitoring_off(_state.previous_affinity)
     finally:
         mod.unbind(_state.binding)
         _state = None
         _scoped_holders = 0
     return exporters
+
+
+def _engine_affinity() -> object:
+    """The engine `collect()` defaults to: an engine object, a name, or None."""
+    try:
+        # Where polars keeps engine objects, such as a configured GPUEngine.
+        from polars.lazyframe.engine_config import get_engine_affinity_override
+    except ImportError:
+        override = None
+    else:
+        override = get_engine_affinity_override()
+    return override if override is not None else os.environ.get("POLARS_ENGINE_AFFINITY")
+
+
+def _monitoring_off(previous_affinity: object) -> None:
+    """Turn monitoring off, and put back the engine affinity it replaced.
+
+    Only while the affinity is still the streaming one monitoring set: an
+    engine chosen since is the application's choice, and stays.
+    """
+    import polars as pl
+
+    pl.Config.enable_monitoring(False)
+    if _engine_affinity() == "streaming":
+        pl.Config.set_engine_affinity(previous_affinity)  # type: ignore[arg-type]
 
 
 def _close(exporters: tuple[Exporter, ...]) -> None:
@@ -191,6 +218,7 @@ def _install(
         mod.unbind(binding)
         return None
 
+    previous_affinity = _engine_affinity()
     pl.Config.enable_monitoring()
     capabilities = probe(binding)
 
@@ -201,7 +229,7 @@ def _install(
             capabilities.polars_version,
             "; ".join(capabilities.problems) or "no detail",
         )
-        pl.Config.enable_monitoring(False)
+        _monitoring_off(previous_affinity)
         mod.unbind(binding)
         return None
 
@@ -223,6 +251,7 @@ def _install(
         exporters=exporters,
         scoped=scoped,
         receivers=_register(exporters, effective),
+        previous_affinity=previous_affinity,
     )
     return _state
 
