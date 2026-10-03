@@ -71,8 +71,7 @@ first, so a docs build never ships a stale one.
 
 `uv run nox -s viewer-test` runs its unit tests and a check that no bare CSS
 selector is shared between components — the shape of a bug that silently
-restyled an element once. CI runs it on Node 20.15, the oldest supported, since
-Vite 7+ and vitest 4+ both need 20.19 and the pins exist for that reason.
+restyled an element once. CI runs it on Node 22.12, the oldest supported.
 
 `uv run nox -s viewer-fixture` regenerates `viewer/tests/fixtures/profile.json`
 from the captured polars payloads, so the viewer's contract test cannot drift
