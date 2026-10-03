@@ -81,7 +81,7 @@ def canary(session: nox.Session) -> None:
 
     Lifts the release quarantine for polars and its runtime packages only.
     """
-    session.install("-e", ".", "pytest")
+    session.install("-e", ".", "--group", "dev")
     exempt = [
         arg
         for package in POLARS_PACKAGES
@@ -90,7 +90,26 @@ def canary(session: nox.Session) -> None:
     session.run(
         "uv", "pip", "install", "--prerelease=allow", *exempt, "--upgrade", "polars", external=True
     )
+    installed = session.run(
+        "python", "-c", "import importlib.metadata as m; print(m.version('polars'))", silent=True
+    )
+    newest = _newest_polars()
+    session.log(f"testing against polars {str(installed).strip()} (newest on PyPI: {newest})")
+    if str(installed).strip() != newest:
+        session.error(f"polars {newest} is on PyPI, but {str(installed).strip()} was installed")
     session.run("pytest", "-m", "contract and live", "-v", *session.posargs)
+
+
+def _newest_polars() -> str:
+    import json
+    from urllib.request import urlopen
+
+    from packaging.version import Version
+
+    with urlopen("https://pypi.org/pypi/polars/json", timeout=30) as response:
+        releases = json.load(response)["releases"]
+    live = [v for v, files in releases.items() if files and not all(f.get("yanked") for f in files)]
+    return max(live, key=Version)
 
 
 @nox.session

@@ -25,29 +25,10 @@ jobs:
 
       - run: uv sync --locked
 
-      - name: Install newest polars
-        run: |
-          now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-          uv pip install --prerelease=allow --upgrade \
-            --exclude-newer-package "polars=$now" \
-            --exclude-newer-package "polars-runtime-32=$now" \
-            --exclude-newer-package "polars-runtime-64=$now" \
-            --exclude-newer-package "polars-runtime-compat=$now" \
-            polars
-          installed=$(uv run --no-sync python -c "import importlib.metadata as m; print(m.version('polars'))")
-          newest=$(curl -sf https://pypi.org/pypi/polars/json | uv run --no-sync python -c "
-          import json, sys
-          from packaging.version import Version
-          releases = json.load(sys.stdin)['releases']
-          live = [v for v, files in releases.items() if files and not all(f.get('yanked') for f in files)]
-          print(max(live, key=Version))")
-          echo "testing against polars $installed (newest on PyPI: $newest)"
-          [ "$installed" = "$newest" ]
-
       - id: contract
-        run: uv run --no-sync pytest -m "contract and live" -v
+        run: uv run nox -s canary
 
-      - run: uv run --no-sync pytest -m bench
+      - run: uv run nox -s bench
 
       - name: Report a broken contract
         if: failure()
