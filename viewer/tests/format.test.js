@@ -28,3 +28,19 @@ describe("diagnostics", () => {
     expect(chip.s).toBe("good");
   });
 });
+
+describe("shapeName, joins", () => {
+  it("does not count joins", () => {
+    const p = {
+      plan: {
+        physical: [],
+        logical: [
+          { id: 0, kind: "Join", role: "join", inputs: [1, 2], properties: {} },
+          { id: 1, kind: "Scan", role: "scan", inputs: [], properties: { paths: ["/d/part.parquet"] } },
+          { id: 2, kind: "Scan", role: "scan", inputs: [], properties: { paths: ["/d/lineitem.parquet"] } },
+        ],
+      },
+    };
+    expect(shapeName(p)).not.toMatch(/join/);
+  });
+});
