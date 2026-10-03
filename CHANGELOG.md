@@ -23,6 +23,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The model and exporters no longer import polars or the package root: the
   polars version travels on `Query`, `CallSite` is a model type, and the
   version lives in `_version.py`. A test enforces the dependency direction.
+- The dialect knows the node kinds ordinary operations produce: `Cache` and
+  `Zip` (engine), `AsOfJoin` and `RangeJoin` (theta joins), `OrderedUnion`, and
+  `HConcat`, `Shift`, `ColumnarFunction`, `GatherEvery` and `Interpolate`
+  (functions). A live contract test runs some thirty common operations and
+  fails on any kind without a role, so the nightly canary sees a renamed or new
+  operator across that whole surface rather than one fixture query.
 - A plan node kind the dialect does not recognise is logged once at runtime and
   fails the golden and live contract tests, instead of silently emptying every
   attribute and diagnostic that depended on it.

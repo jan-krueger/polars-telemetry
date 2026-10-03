@@ -35,9 +35,16 @@ _BY_KIND: dict[str, NodeRole] = {
     "MapFunction": NodeRole.FUNCTION,
     "Map": NodeRole.FUNCTION,
     "InMemoryMap": NodeRole.FUNCTION,
+    "HConcat": NodeRole.FUNCTION,
+    "Shift": NodeRole.FUNCTION,
+    "ColumnarFunction": NodeRole.FUNCTION,
+    "GatherEvery": NodeRole.FUNCTION,
+    "Interpolate": NodeRole.FUNCTION,
     # joins
     "EquiJoin": NodeRole.JOIN,
     "IEJoin": NodeRole.THETA_JOIN,
+    "RangeJoin": NodeRole.THETA_JOIN,
+    "AsOfJoin": NodeRole.THETA_JOIN,
     "CrossJoin": NodeRole.CROSS_JOIN,
     "SemiAntiJoin": NodeRole.SEMI_ANTI_JOIN,
     # aggregation, ordering, sets
@@ -48,6 +55,7 @@ _BY_KIND: dict[str, NodeRole] = {
     "Distinct": NodeRole.DISTINCT,
     "Union": NodeRole.UNION,
     "UnorderedUnion": NodeRole.UNION,
+    "OrderedUnion": NodeRole.UNION,
     # outputs and plumbing
     "Sink": NodeRole.SINK,
     "InMemorySink": NodeRole.SINK,
@@ -55,6 +63,8 @@ _BY_KIND: dict[str, NodeRole] = {
     "PartitionSink": NodeRole.SINK,
     "FileSink": NodeRole.SINK,
     "Multiplexer": NodeRole.ENGINE,
+    "Cache": NodeRole.ENGINE,
+    "Zip": NodeRole.ENGINE,
 }
 
 # Kinds whose role depends on a property, not the kind alone; see `role_of`.

@@ -9,9 +9,10 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
-from uuid import uuid4
+from uuid import UUID
 
 from polars_telemetry.adapter.build import build_metrics, build_plan
+from polars_telemetry.adapter.dialect import _BY_KIND
 from polars_telemetry.export.profile import build_profile
 from polars_telemetry.model.types import CallSite, Query
 
@@ -21,7 +22,8 @@ ROOT = Path(__file__).parents[2]
 def main() -> None:
     fixture = sorted(p for p in (ROOT / "tests" / "fixtures").iterdir() if p.is_dir())[-1]
     query = Query(
-        query_id=uuid4(),
+        # Fixed, so regenerating an unchanged fixture leaves no diff.
+        query_id=UUID("01a10000-0000-7000-8000-000000000000"),
         wall_ms=48.1,
         plan=build_plan(json.loads((fixture / "physical.json").read_text())),
         logical=build_plan(json.loads((fixture / "ir.json").read_text())),
@@ -32,6 +34,11 @@ def main() -> None:
     out = ROOT / "viewer" / "tests" / "fixtures" / "profile.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(build_profile(query), indent=1) + "\n")
+
+    # The viewer derives roles itself for profiles written before `role` existed;
+    # its table must match this one, kind for kind.
+    table = {kind: role.value for kind, role in sorted(_BY_KIND.items())}
+    (out.parent / "dialect.json").write_text(json.dumps(table, indent=1) + "\n")
     print(f"wrote {out.relative_to(ROOT)} from {fixture.name}", file=sys.stderr)
 
 
