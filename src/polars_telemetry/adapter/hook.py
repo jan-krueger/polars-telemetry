@@ -53,7 +53,7 @@ def _message(args: tuple[Any, ...]) -> str:
 class ObserverFactory:
     """Called by polars once per query; makes that query's observer."""
 
-    __slots__ = ("_delegate", "_make_recorder", "_tracker")
+    __slots__ = ("_delegate", "_delegate_errors", "_make_recorder", "_tracker")
 
     def __init__(
         self,
@@ -65,6 +65,7 @@ class ObserverFactory:
         """delegate: the real polars-cloud factory, if one was installed."""
         self._make_recorder = make_recorder
         self._delegate = delegate
+        self._delegate_errors: set[str] = set()
         self._tracker = FailureTracker(label)
 
     @property
@@ -79,8 +80,14 @@ class ObserverFactory:
             try:
                 delegate = self._delegate(workspace, organization)
             except Exception as exc:
-                self._tracker.record(exc)
+                self._report_delegate(exc)
         return QueryObserver(self._make_recorder(self._tracker), self._tracker, delegate)
+
+    def _report_delegate(self, exc: Exception) -> None:
+        key = f"{type(exc).__name__}: {exc}"
+        if key not in self._delegate_errors:
+            self._delegate_errors.add(key)
+            _log.warning("polars-telemetry: the polars-cloud observer failed (%s).", key)
 
 
 class QueryObserver:

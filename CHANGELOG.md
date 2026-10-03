@@ -33,6 +33,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   config adds.
 - `polars.sort.columns` can carry literals, but was missing from
   `CARRIES_USER_DATA` and the documented list of attributes that do.
+- When polars-cloud is installed and its observer fails, for instance on an
+  expired session, polars-telemetry counted that against itself and stopped
+  recording after five queries. It now logs the failure once and carries on.
 - `uninstall()` left polars' engine affinity on `"streaming"`. It now puts back
   the affinity from before `install()`, engine objects such as `GPUEngine`
   included, unless the application chose another engine in the meantime.
