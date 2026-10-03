@@ -14,7 +14,7 @@ at all.
 > internal and carries no deprecation guarantee, so it can change or disappear
 > in any polars release.
 >
-> Supported polars: **1.44.1 – 1.44.x**. On anything else the package emits
+> Supported polars: **1.44.1 – 1.44.x and 2.x**. On anything else the package emits
 > less — or declines to install — with a warning; it will not break your queries.
 
 ## Install
@@ -36,9 +36,9 @@ polars_telemetry.install()
 ```
 
 `install()` enables polars' query monitoring, which sets the engine affinity to
-`"streaming"` and therefore changes how your queries execute — so it never
-happens on import. `uninstall()` turns monitoring off and puts the previous
-affinity back.
+`"streaming"`. On polars 1.44 that changes how your queries execute, so it never
+happens on import. polars 2 runs lazy queries on the streaming engine anyway.
+`uninstall()` turns monitoring off and puts the previous affinity back.
 
 ## What you get
 
@@ -122,7 +122,9 @@ session.write("report.jsonl")  # open in the viewer
 ```
 
 Installs instrumentation only if nothing was installed. With an application
-already instrumented it collects alongside the existing exporter.
+already instrumented it collects alongside the existing exporter. polars 2
+removed `LazyFrame.profile()`; this covers the same ground, for every query a
+block runs.
 
 ## Configure
 

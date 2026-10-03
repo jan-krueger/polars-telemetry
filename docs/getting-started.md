@@ -7,7 +7,7 @@ pip install polars-telemetry          # the OpenTelemetry API only
 pip install 'polars-telemetry[otlp]'  # with the SDK and OTLP exporter
 ```
 
-Requires Python 3.10+ and polars 1.44.1 or a newer 1.44.x; see
+Requires Python 3.10+ and polars 1.44.1 or newer, polars 2 included; see
 [Compatibility](internals/compatibility.md).
 
 ## See your first query
@@ -39,8 +39,10 @@ polars query 01a1013c ok wall=2.63ms cpu=2.33ms parallelism=0.89x nodes=5 rows_o
 
 !!! note "Activation is always explicit"
     `install()` enables polars' query monitoring, which sets the engine
-    affinity to `"streaming"` and so changes how your queries execute. It never
-    happens on import, and `uninstall()` puts the previous affinity back.
+    affinity to `"streaming"`. On polars 1.44 that changes how your queries
+    execute, so it never happens on import, and `uninstall()` puts the previous
+    affinity back. polars 2 runs lazy queries on the streaming engine already,
+    so there it changes nothing.
 
 `install()` returns what was installed, or `None` when this polars cannot be
 instrumented:
