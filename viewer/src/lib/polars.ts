@@ -152,10 +152,13 @@ export function groupKeys(properties: Record<string, unknown>): string[] {
   return (flat.length ? flat : nested).map(exprColumn);
 }
 
+/** A path's last part, whichever separator the writing machine used. */
+export const basename = (path: string): string => path.split(/[\\/]/).pop() ?? path;
+
 /** The relation a scan reads: the file name, without its directory. */
 export function relationName(properties: Record<string, unknown>): string {
   const source = properties.first_source;
-  return typeof source === "string" ? source.split("/").pop() ?? source : "";
+  return typeof source === "string" ? basename(source) : "";
 }
 
 /** The short parameter shown under a node: its keys, columns or source. */

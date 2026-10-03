@@ -8,6 +8,7 @@ import Code from "./components/Code";
 import Tip, { TipText } from "./components/Tip";
 import { allSessions, dropAll, dropSession, saveSession, storageUnavailable } from "./lib/storage";
 import { bytes, diagnostics, ms, num, shapeName } from "./lib/format";
+import { basename } from "./lib/polars";
 import { clock, instant, iso, ranBetween, spansDays } from "./lib/time";
 import { readJsonl, readSession, toJsonl } from "./model/read";
 import { fromHash, isNewPage, routeOf, toHash } from "./state/route";
@@ -325,7 +326,7 @@ polars_telemetry.install(exporter=FileExporter("profiles/session.jsonl"))`} />
                   {profile.call_site && (
                     <Tip content={profile.call_site.filepath}>
                     <span className="qsite" tabIndex={0}>
-                      {profile.call_site.filepath.split("/").pop()}:{profile.call_site.lineno}
+                      {basename(profile.call_site.filepath)}:{profile.call_site.lineno}
                       {" in "}{profile.call_site.function}()
                     </span>
                     </Tip>

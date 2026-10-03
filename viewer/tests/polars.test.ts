@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { chainLines, exprLines, derivedRole, exprColumn, nodeLabel, relationName, roleOf, type RawNode } from "../src/lib/polars";
+import { basename, chainLines, exprLines, derivedRole, exprColumn, nodeLabel, relationName, roleOf, type RawNode } from "../src/lib/polars";
 
 const profile = JSON.parse(
   readFileSync(new URL("./fixtures/profile.json", import.meta.url), "utf8"),
@@ -164,5 +164,13 @@ describe("exprLines on large or unusual predicates", () => {
       '  col("path") == "C:\\\\Users\\\\"',
       '| col("email") == "alice@example.com"',
     ]);
+  });
+});
+
+describe("basename", () => {
+  it("takes a file name from paths written on any system", () => {
+    expect(basename("/srv/data/orders.parquet")).toBe("orders.parquet");
+    expect(basename("C:\\data\\orders.parquet")).toBe("orders.parquet");
+    expect(relationName({ first_source: "C:\\data\\orders.parquet" })).toBe("orders.parquet");
   });
 });

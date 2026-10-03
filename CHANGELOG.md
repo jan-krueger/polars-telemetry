@@ -69,6 +69,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   redone on every render, so a node with thousands of conditions froze the tab
   for seconds at each keystroke. Layout is now linear and cached, and strings
   ending in a backslash no longer throw it off.
+- Viewer: a profile written on Windows showed full paths where a file name
+  belonged, in query titles, the call site and search.
 - A `profile()` block opened before an `uninstall()` took down the installation
   of a block opened after it, which then collected nothing. Each block now
   releases only the installation it held.

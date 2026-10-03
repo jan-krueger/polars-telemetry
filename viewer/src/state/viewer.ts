@@ -9,6 +9,7 @@
 
 import type { PlanNode, Profile, Session } from "../model/profile";
 import { shapeName } from "../lib/format";
+import { basename } from "../lib/polars";
 import type { Route } from "./route";
 
 export interface NodeRef {
@@ -181,7 +182,7 @@ export function matches(profile: Profile, search: string): boolean {
   const site = profile.call_site;
   const haystack = [
     profile.label,
-    site && `${site.filepath.split("/").pop()}:${site.lineno} ${site.function}`,
+    site && `${basename(site.filepath)}:${site.lineno} ${site.function}`,
     shapeName(profile),
     profile.fingerprint,
   ];
