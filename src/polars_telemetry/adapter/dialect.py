@@ -13,6 +13,7 @@ shows up instead of silently emptying every attribute that depended on it.
 
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING, TypedDict
 
 from polars_telemetry.model.types import (
@@ -33,6 +34,7 @@ _BY_KIND: dict[str, NodeRole] = {
     "MultiScan": NodeRole.SCAN,
     "DataFrameScan": NodeRole.DATAFRAME,
     "InMemorySource": NodeRole.DATAFRAME,
+    "PythonScan": NodeRole.SCAN,
     # row and column operators
     "Filter": NodeRole.SELECTION,
     "SimpleProjection": NodeRole.PROJECTION,
@@ -47,6 +49,24 @@ _BY_KIND: dict[str, NodeRole] = {
     "ColumnarFunction": NodeRole.FUNCTION,
     "GatherEvery": NodeRole.FUNCTION,
     "Interpolate": NodeRole.FUNCTION,
+    "Slice": NodeRole.FUNCTION,
+    "DynamicSlice": NodeRole.FUNCTION,
+    "NegativeSlice": NodeRole.FUNCTION,
+    "Gather": NodeRole.FUNCTION,
+    "CumAgg": NodeRole.FUNCTION,
+    "Ewm": NodeRole.FUNCTION,
+    "ForwardFill": NodeRole.FUNCTION,
+    "BackwardFill": NodeRole.FUNCTION,
+    "PeakMax": NodeRole.FUNCTION,
+    "PeakMin": NodeRole.FUNCTION,
+    "Repeat": NodeRole.FUNCTION,
+    "Rle": NodeRole.FUNCTION,
+    "RleId": NodeRole.FUNCTION,
+    "IsSorted": NodeRole.FUNCTION,
+    "IsFirstDistinct": NodeRole.FUNCTION,
+    "StrptimeInfer": NodeRole.FUNCTION,
+    "Window": NodeRole.FUNCTION,
+    "RollingFixedWindowFunction": NodeRole.FUNCTION,
     # joins
     "EquiJoin": NodeRole.JOIN,
     "IEJoin": NodeRole.THETA_JOIN,
@@ -54,21 +74,32 @@ _BY_KIND: dict[str, NodeRole] = {
     "AsOfJoin": NodeRole.THETA_JOIN,
     "CrossJoin": NodeRole.CROSS_JOIN,
     "SemiAntiJoin": NodeRole.SEMI_ANTI_JOIN,
+    "InMemoryJoin": NodeRole.JOIN,
+    "MergeJoin": NodeRole.JOIN,
+    "InMemoryIEJoin": NodeRole.THETA_JOIN,
+    "InMemoryAsOfJoin": NodeRole.THETA_JOIN,
     # aggregation, ordering, sets
     "GroupBy": NodeRole.AGGREGATION,
     "Reduce": NodeRole.AGGREGATION,
+    "SortedGroupBy": NodeRole.AGGREGATION,
+    "RollingGroupBy": NodeRole.AGGREGATION,
+    "DynamicGroupBy": NodeRole.AGGREGATION,
     "Sort": NodeRole.SORT,
     "TopK": NodeRole.TOP_K,
     "Distinct": NodeRole.DISTINCT,
+    "SortedUnique": NodeRole.DISTINCT,
     "Union": NodeRole.UNION,
     "UnorderedUnion": NodeRole.UNION,
     "OrderedUnion": NodeRole.UNION,
+    "MergeSorted": NodeRole.UNION,
     # outputs and plumbing
     "Sink": NodeRole.SINK,
     "InMemorySink": NodeRole.SINK,
     "IoSink": NodeRole.SINK,
     "PartitionSink": NodeRole.SINK,
     "FileSink": NodeRole.SINK,
+    "CallbackSink": NodeRole.SINK,
+    "SinkMultiple": NodeRole.SINK,
     "Multiplexer": NodeRole.ENGINE,
     "Cache": NodeRole.ENGINE,
     "Zip": NodeRole.ENGINE,
@@ -131,19 +162,31 @@ def _flag(value: object) -> bool | None:
     return value if isinstance(value, bool) else None
 
 
+# A threshold polars pushes into a scan for TopK or a join at runtime, not a filter of the user's.
+_DYNAMIC = r'\(?col\("(?:[^"\\]|\\.)*"\)\.dynamic_predicate\(\)\)?'
+_DYNAMIC_TERM = re.compile(rf"\s*&\s*{_DYNAMIC}|^{_DYNAMIC}\s*&\s*")
+_DYNAMIC_ONLY = re.compile(rf"\s*{_DYNAMIC}\s*")
+
+
+def _user_predicate(text: str) -> str | None:
+    rest = _DYNAMIC_TERM.sub("", text)
+    return None if _DYNAMIC_ONLY.fullmatch(rest) else rest
+
+
 def _scan(p: Mapping[str, object]) -> ScanFacet:
     predicate = p.get("predicate")
     if isinstance(predicate, list):
-        predicates = tuple(str(item) for item in predicate)
+        written = [str(item) for item in predicate]
     elif predicate is not None:
-        predicates = (str(predicate),)
+        written = [str(predicate)]
     else:
-        predicates = ()
+        written = []
+    predicates = tuple(kept for text in written if (kept := _user_predicate(text)) is not None)
     source = p.get("first_source")
     return ScanFacet(
         source=source if isinstance(source, str) else None,
         predicates=predicates,
-        predicate_pushed=predicate is not None,
+        predicate_pushed=bool(predicates),
         columns_read=_count(p.get("projected_file_columns") or p.get("projection")),
         file_columns=_count(p.get("file_columns")),
         row_groups_skipped=_flag(p.get("predicate_file_skip_applied")),

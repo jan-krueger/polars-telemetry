@@ -7,6 +7,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- `polars.join.growth` (`Diagnostics.join_growth`): the largest join's rows out
+  over its larger input. Up to 2 is any ordinary join; above 2 takes keys that
+  repeat on both sides. The viewer's chip shows it, computed from the plan for
+  profiles written before it existed.
 - Viewer: **Copy link** shares the query on screen, and the run it is compared
   with, as a link that carries the profiles itself, so nothing is uploaded. A
   link opens as a temporary session that **Keep** stores. Unmasked profiles ask
@@ -19,7 +23,33 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Viewer: a link button in the plans' headers pans and zooms both plans
   together, at the same zoom and at the same point along each plan.
 
+### Changed
+- Viewer: plans with hundreds of nodes lay out in the background, so the page
+  stays responsive while a large plan opens, and a plan opened before is shown
+  at once. Selecting a node no longer redraws the whole plan, and far zoomed
+  out, nodes draw as plain boxes without labels.
+
+### Deprecated
+Removed in 0.6.0.
+- `polars.join.amplification` (`Diagnostics.join_amplification`): use
+  `polars.join.growth`. It divides by a join's first input, so a small table
+  joined to a large one reads as fan-out (TPC-H q9 shows 7.5×). The viewer no
+  longer shows it.
+
 ### Fixed
+- `Redaction(paths=True)` now also masks the library path of an expression
+  plugin, which appears in plan expressions as `/…/lib.so:function()`.
+- The plan fingerprint counts an expression plugin by its library name, not by
+  where it is installed, so the same query fingerprints the same in every
+  environment. **Fingerprints of plans that call a plugin inside an aggregation
+  change once.**
+- `polars.scan.predicate_pushed` and `polars.scan.predicates` no longer count
+  the thresholds polars pushes into a scan for a top-k or, on polars 2, a join
+  (`dynamic_predicate()`) as the user's filter.
+- 30 node kinds polars' streaming engine can emit, among them `StrptimeInfer`,
+  `IsFirstDistinct`, `InMemoryJoin`, `SortedGroupBy`, `PythonScan` and the slice
+  nodes, were logged as unrecognised and carried no role. They now map onto
+  roles in both the exporter and the viewer.
 - Viewer: a logical plan's predicate shows its conditions joined by `&`, laid
   out like the physical plan's, instead of as separate unconnected lines.
 - Viewer: a join's inputs are drawn left to right in the order polars lists

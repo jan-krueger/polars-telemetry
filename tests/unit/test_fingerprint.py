@@ -64,3 +64,22 @@ def test_the_fingerprint_of_the_captured_plan_is_pinned():
     the hash: it is a metric dimension, and every series would restart."""
     ir = Path(__file__).parents[1] / "fixtures" / "1.44.2" / "ir.json"
     assert fingerprint(build_plan(json.loads(ir.read_text()))) == "94b7e38a9c1e"
+
+
+def test_a_plugin_counts_by_its_library_name_not_where_it_is_installed(plan):
+    """A different virtualenv, Python version or CPU must not start a new metric series."""
+    installed = {
+        "laptop": "/home/dev/.venv/lib/python3.12/site-packages/mypkg/"
+        "mypkg.cpython-312-x86_64-linux-gnu.so",
+        "server": "/app/plugin/mypkg/mypkg.cpython-311-aarch64-linux-gnu.so",
+    }
+    prints = []
+    for path in installed.values():
+        other = copy.deepcopy(plan)
+        node = next(iter(other.values()))
+        node.properties["aggs"] = [f'col("v").{path}:encrypt().alias("w")']
+        prints.append(fingerprint(other))
+    assert prints[0] == prints[1]
+    elsewhere = copy.deepcopy(plan)
+    next(iter(elsewhere.values())).properties["aggs"] = ['col("v").otherpkg:encrypt().alias("w")']
+    assert fingerprint(elsewhere) != prints[0]

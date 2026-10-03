@@ -42,7 +42,8 @@ class Redaction:
     `<time>` and `<duration>`."""
 
     paths: bool = False
-    """File paths that are scanned or written become `<path>`."""
+    """File paths that are scanned or written become `<path>`, and so does a
+    plugin's library path in an expression."""
 
     call_site: bool = False
     """Drop the file, line and function that ran the query."""
@@ -107,6 +108,18 @@ _TOKEN = re.compile(
 # Quoted text directly after these is a column or alias name, not user data.
 _NAME_CONTEXT = re.compile(r"(?:col|alias|name|nth|field|prefix|suffix)\($")
 
+# A plugin function in expression text: its shared library's path, then `:name(`.
+_PLUGIN = re.compile(
+    r'(?:[A-Za-z]:)?[\\/](?:[^\s"():]*[\\/])?(?P<library>[^\s"():\\/.]+)'
+    r'[^\s"():\\/]*\.(?:so|dylib|dll|pyd)(?=:)'
+)
+
+
+def plugin_libraries(text: str) -> str:
+    """Expression text with each plugin's library path reduced to the library's name."""
+    return _PLUGIN.sub(lambda match: match["library"], text)
+
+
 # Plan properties holding a file path rather than an expression.
 _PATH_KEYS = frozenset({"first_source", "dest", "target", "path", "paths", "sources"})
 
@@ -124,13 +137,18 @@ def redact(text: str, redaction: Redaction = LITERALS) -> str:
             return "<num>" if redaction.numbers else value
         return f"<{kind}>" if redaction.temporal else value
 
+    def unquoted(segment: str) -> str:
+        if redaction.paths:
+            segment = _PLUGIN.sub("<path>", segment)
+        return _TOKEN.sub(mask, segment)
+
     parts, last = [], 0
     for start, end in _quoted(text):
-        parts.append(_TOKEN.sub(mask, text[last:start]))
+        parts.append(unquoted(text[last:start]))
         named = _NAME_CONTEXT.search(text[max(0, start - 8) : start])
         parts.append('"<str>"' if redaction.strings and not named else text[start:end])
         last = end
-    parts.append(_TOKEN.sub(mask, text[last:]))
+    parts.append(unquoted(text[last:]))
     masked = "".join(parts)
     return redaction.custom(masked) if redaction.custom is not None else masked
 

@@ -21,7 +21,7 @@ export const GLOSSARY = {
   io_total_bytes_sent: ["IO bytes sent", "Bytes written out by this node. Non-zero only for sinks that write files."],
   done: ["Completed", "Whether the node had finished when the closing snapshot was taken. If not, its counters are a floor rather than a total."],
   parallel_efficiency: ["Parallel efficiency", "CPU time ÷ wall time ÷ cores. 1.0 would mean every core busy for the whole query. Low values mean the work is concentrated in one operator or blocked on IO."],
-  join_amplification: ["Join amplification", "Rows out ÷ rows into the probe side. Around 1 means keys are roughly unique; well above means each input row matches many, which is the classic cause of a query exploding in memory."],
+  join_growth: ["Join growth", "The largest join's rows out ÷ its larger input. Up to 2 is any ordinary join; above means keys repeat on both sides, so every match multiplies, which is the classic cause of a query exploding in memory."],
   filter_selectivity: ["Filter selectivity", "Share of rows that survived the filter. Low is good — provided the filter runs early, ideally pushed into the scan."],
   morsel_skew: ["Morsel skew", "Largest morsel ÷ average morsel. Above 1 means batches are uneven, so some workers get far more rows than others."],
   predicate_pushed: ["Predicate pushdown", "Whether a filter is applied inside the scan rather than after it. Pushed down, rows are never read at all."],

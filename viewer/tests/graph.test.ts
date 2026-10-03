@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { applyView, EDGE_MAX, EDGE_MIN, edgeWidth, extent, focusSteps, shareView, layout, NODE_H, NODE_W, planGraph, stepFor, toFlow } from "../src/lib/graph";
+import { applyView, EDGE_MAX, EDGE_MIN, edgeWidth, extent, focusSteps, shareView, layout, NODE_H, NODE_W, planGraph, stepFor, toFlow, withSelection } from "../src/lib/graph";
 import { readProfile } from "../src/model/read";
 import type { PlanNode } from "../src/model/profile";
 
@@ -58,6 +58,18 @@ describe("toFlow", () => {
     expect(followed.zoom).toBe(0.8);
     expect(shareView(followed, pane, tall)).toEqual(expect.objectContaining({ fx: expect.closeTo(seen.fx), fy: expect.closeTo(seen.fy) }));
     expect(applyView(seen, pane, short)).toEqual({ x: expect.closeTo(-120), y: expect.closeTo(-300), zoom: 0.8 });
+  });
+
+  it("selects by replacing only the selected node and its edges, so nothing else re-renders", () => {
+    const base = toFlow(physical, layout(planGraph(physical)), { logical: false, selectedId: null, thresholdMs: 1e9 });
+    const chosen = physical[Math.floor(physical.length / 2)]!;
+    const picked = withSelection(base, chosen.id);
+    const changed = picked.nodes.filter((n, i) => n !== base.nodes[i]);
+    expect(changed.map((n) => n.id)).toEqual([String(chosen.id)]);
+    expect(changed[0]).toMatchObject({ selected: true, className: undefined });
+    const touching = (e: { source: string; target: string }) => e.source === String(chosen.id) || e.target === String(chosen.id);
+    picked.edges.forEach((e, i) => expect(e === base.edges[i]).toBe(!touching(e)));
+    expect(picked).toEqual(toFlow(physical, layout(planGraph(physical)), { logical: false, selectedId: chosen.id, thresholdMs: 1e9 }));
   });
 
   it("marks only the selected node", () => {

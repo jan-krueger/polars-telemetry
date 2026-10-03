@@ -211,3 +211,15 @@ def test_the_strictest_redaction_masks_what_any_of_them_masks():
     assert combined.custom("a") == "A!"
     assert strictest(None, None) is None
     assert strictest(Redaction(), Redaction()) == Redaction()
+
+
+PLUGIN_CALL = (
+    'col("v")./opt/app/plugins/mypkg/mypkg.cpython-311-aarch64-linux-gnu.so:encrypt().alias("w")'
+)
+
+
+def test_a_plugin_library_path_in_an_expression_is_masked_with_paths():
+    assert redact(PLUGIN_CALL, Redaction(paths=True)) == 'col("v").<path>:encrypt().alias("w")'
+    assert "/opt/app/plugins" in redact(PLUGIN_CALL)
+    windows = 'col("v").C:\\envs\\lib\\mypkg\\mypkg.pyd:encrypt()'
+    assert redact(windows, Redaction(paths=True)) == 'col("v").<path>:encrypt()'
