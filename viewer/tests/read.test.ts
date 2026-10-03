@@ -21,7 +21,7 @@ describe("readProfile", () => {
   it("reads the exporter's own output", () => {
     const profile = read(fixture);
     expect(profile.plan.physical.length).toBeGreaterThan(0);
-    expect(profile.polars_version).toBe("1.44.2");
+    expect(profile.polars_version).toBe(fixture.polars_version);
   });
 
   it("refuses a schema version it does not know, saying why", () => {
