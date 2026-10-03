@@ -2,6 +2,7 @@
 
 import type { Profile, Session } from "../model/profile";
 import { readProfile } from "../model/read";
+import { title } from "../state/viewer";
 
 /** A session opened from a link: shown, not stored, until the reader keeps it. */
 export function sharedSession(fragment: string, documents: unknown[], now: number): Session {
@@ -12,7 +13,7 @@ export function sharedSession(fragment: string, documents: unknown[], now: numbe
   });
   return {
     id: `shared-${now}`,
-    name: profiles.length > 1 ? "Shared queries" : "Shared query",
+    name: profiles[0] ? title(profiles[0]) + (profiles.length > 1 ? `, ${profiles.length} runs` : "") : "Shared link",
     importedAt: now,
     bytes: JSON.stringify(documents).length,
     profiles,

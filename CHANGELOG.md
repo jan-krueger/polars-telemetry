@@ -11,6 +11,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   with, as a link that carries the profiles itself, so nothing is uploaded. A
   link opens as a temporary session that **Keep** stores. Unmasked profiles ask
   before copying.
+- Viewer: double-click a session's name, or press F2, to rename it.
 
 ## [0.4.0] - 2026-10-03
 

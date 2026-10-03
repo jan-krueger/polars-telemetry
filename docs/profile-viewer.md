@@ -25,6 +25,7 @@ for a viewer opened from disk.
 Each file you open becomes a session, kept in your browser so it is still there
 after a reload. The left sidebar lists sessions with when their queries ran;
 the download button saves one as a `.jsonl` again, and `×` removes it.
+Double-click a session's name, or press F2 on it, to rename it.
 
 Where the browser keeps nothing, such as in a private window or with the page
 opened from disk, the viewer works for the current page only and says so.
@@ -71,8 +72,9 @@ link. The profiles travel inside the link itself, after the `#`, which browsers
 never send to a server: whoever opens it sees the same plans, and still nothing
 is uploaded.
 
-A link opens as a session marked *opened from a link, not stored*. **Keep**
-stores it like a file you opened.
+A link opens as a session named after its query, marked *opened from a link,
+not stored*. **Keep** stores it like a file you opened, under whatever name you
+gave it.
 
 Anyone who has the link can read everything in those profiles, and chat tools
 and browser history keep it. For a profile that was not

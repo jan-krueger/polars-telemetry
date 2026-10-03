@@ -80,6 +80,12 @@ describe("viewer state", () => {
     expect(kept.sessions.find((s) => s.id === "s3")?.shared).toBeUndefined();
   });
 
+  it("renaming a session keeps it open and leaves the others alone", () => {
+    const renamed = reducer(loaded(session("s1"), session("s2")), { type: "renamed", sessionId: "s1", name: "nightly" });
+    expect(renamed.sessions.map((s) => s.name)).toEqual(["s2.jsonl", "nightly"]);
+    expect(renamed.sessionId).toBe(loaded(session("s1"), session("s2")).sessionId);
+  });
+
   it("importing selects the first new session", () => {
     const state = reducer(busy(), { type: "imported", sessions: [session("s3")] });
     expect(state.sessionId).toBe("s3");

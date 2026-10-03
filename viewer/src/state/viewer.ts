@@ -45,6 +45,7 @@ export type Action =
   | { type: "imported"; sessions: Session[] }
   | { type: "removed"; sessionId: string }
   | { type: "kept"; sessionId: string }
+  | { type: "renamed"; sessionId: string; name: string }
   | { type: "cleared" }
   | { type: "sessionPicked"; sessionId: string }
   | { type: "queryPicked"; queryId: string }
@@ -88,6 +89,11 @@ export function reducer(state: ViewerState, action: Action): ViewerState {
       if (state.sessionId !== action.sessionId) return { ...state, sessions };
       return { ...state, ...nothingSelected, sessions, sessionId: sessions[0]?.id ?? null };
     }
+    case "renamed":
+      return {
+        ...state,
+        sessions: state.sessions.map((s) => (s.id === action.sessionId ? { ...s, name: action.name } : s)),
+      };
     case "kept":
       return {
         ...state,

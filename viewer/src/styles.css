@@ -50,6 +50,9 @@ h2{font:600 10.5px/1 ui-monospace,monospace;letter-spacing:.1em;text-transform:u
 .sessrow[aria-current="true"]{border-left-color:var(--accent);background:var(--surface-2)}
 .sessrow .pick{flex:1;background:none;border:0;text-align:left;cursor:pointer;padding:0;min-width:0}
 .sessrow .nm{font-size:12.5px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sessrow .rename{width:100%;box-sizing:border-box;font-size:12.5px;font-weight:500;font-family:inherit;padding:1px 4px;
+  margin:-2px 0 0 -5px;border:1px solid var(--accent);border-radius:4px;background:var(--surface);color:var(--ink)}
+.sessrow .rename:focus{outline:none;box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 30%,transparent)}
 .sessrow .mt{font-size:10.5px;color:var(--muted);font-variant-numeric:tabular-nums}
 .x{background:none;border:0;color:var(--muted);cursor:pointer;font-size:15px;line-height:1;
   padding:2px 5px;border-radius:4px}

@@ -37,6 +37,7 @@ export default function App() {
   const [rejectedFiles, setRejectedFiles] = useState([]);
   const [confirmingClear, setConfirmingClear] = useState(false);
   const [sharing, setSharing] = useState(null);
+  const [renaming, setRenaming] = useState(null);
   const queryList = useRef(null);
 
   useEffect(() => {
@@ -158,10 +159,22 @@ export default function App() {
     else copyLink(fragment);
   };
 
+  const rename = async (session, typed) => {
+    setRenaming(null);
+    const name = typed.trim();
+    if (!name || name === session.name) return;
+    dispatch({ type: "renamed", sessionId: session.id, name });
+    if (session.shared || storageUnavailable()) return;
+    try {
+      await saveSession(stored({ ...session, name }));
+    } catch (e) {
+      setRejectedFiles([`${name}: renamed on this page only, not stored (${e?.message ?? e})`]);
+    }
+  };
+
   const keep = async (session) => {
     try {
-      await saveSession({ id: session.id, name: session.name, importedAt: session.importedAt,
-                          bytes: session.bytes, profiles: session.raw });
+      await saveSession(stored(session));
       dispatch({ type: "kept", sessionId: session.id });
     } catch (e) {
       setRejectedFiles([`${session.name}: could not be stored (${e?.message ?? e})`]);
@@ -230,12 +243,27 @@ export default function App() {
               <h2>Sessions</h2>
               {sessions.map((s) => (
                 <div className="sessrow" key={s.id} aria-current={s.id === state.sessionId}>
-                  <button className="pick" onClick={() => dispatch({ type: "sessionPicked", sessionId: s.id })}>
-                    <div className="nm">{s.name}</div>
-                    <div className="mt">{s.profiles.length} profiles · {bytes(s.bytes || 0)}</div>
-                    <div className="mt">{s.shared ? "opened from a link, not stored" : ranBetween(s.profiles)
-                      ?? `imported ${new Date(s.importedAt).toLocaleDateString()}`}</div>
-                  </button>
+                  {renaming === s.id ? (
+                    <div className="pick">
+                      <input className="rename" id={`rename-${s.id}`} aria-label={`New name for ${s.name}`}
+                             defaultValue={s.name} autoFocus onFocus={(e) => e.target.select()}
+                             onBlur={(e) => (e.target.dataset.cancel ? setRenaming(null) : rename(s, e.target.value))}
+                             onKeyDown={(e) => {
+                               if (e.key === "Escape") e.currentTarget.dataset.cancel = "1";
+                               if (e.key === "Enter" || e.key === "Escape") e.currentTarget.blur();
+                             }} />
+                      <SessionMeta session={s} />
+                    </div>
+                  ) : (
+                    <button className="pick" onClick={() => dispatch({ type: "sessionPicked", sessionId: s.id })}
+                            onDoubleClick={() => setRenaming(s.id)}
+                            onKeyDown={(e) => { if (e.key === "F2") setRenaming(s.id); }}>
+                      <Tip content="Double-click to rename">
+                      <div className="nm">{s.name}</div>
+                      </Tip>
+                      <SessionMeta session={s} />
+                    </button>
+                  )}
                   {s.shared && (
                     <Tip content="Store this session in this browser">
                     <button className="link keep" onClick={() => keep(s)}>Keep</button>
@@ -482,4 +510,19 @@ function download(session) {
   });
   link.click();
   URL.revokeObjectURL(url);
+}
+
+function stored(session) {
+  return { id: session.id, name: session.name, importedAt: session.importedAt,
+           bytes: session.bytes, profiles: session.raw };
+}
+
+function SessionMeta({ session }) {
+  return (
+    <>
+      <div className="mt">{session.profiles.length} profiles · {bytes(session.bytes || 0)}</div>
+      <div className="mt">{session.shared ? "opened from a link, not stored" : ranBetween(session.profiles)
+        ?? `imported ${new Date(session.importedAt).toLocaleDateString()}`}</div>
+    </>
+  );
 }
