@@ -342,6 +342,10 @@ function conditionLines(c: Condition): string[] {
  * parenthesises every pair of conditions; only the parentheses that change
  * the meaning are kept.
  */
+/** One predicate from the conditions polars lists separately, all of which must hold. */
+export const conjunction = (conditions: string[]): string =>
+  conditions.length === 1 ? conditions[0]! : conditions.map((c) => `(${c})`).join(" & ");
+
 export function exprLines(expr: string): string[] {
   let lines = laidOut.get(expr);
   if (!lines) {

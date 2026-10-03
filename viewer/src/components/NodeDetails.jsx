@@ -1,6 +1,6 @@
 import { PROP_LABELS, GLOSSARY } from "../lib/glossary";
 import { visibleCounters } from "../lib/counters";
-import { ROLES, exprLines, roleOf } from "../lib/polars";
+import { ROLES, conjunction, exprLines, roleOf } from "../lib/polars";
 import { bytes, ms, num } from "../lib/format";
 import Help from "./Help";
 import Tip, { TipText } from "./Tip";
@@ -22,7 +22,8 @@ function Expr({ lines }) {
   );
 }
 
-function Field({ name, value }) {
+function Field({ name, value: raw }) {
+  const value = name === "predicate" && Array.isArray(raw) && raw.length ? conjunction(raw.map(String)) : raw;
   const label = PROP_LABELS[name] ?? name.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
   if (typeof value === "boolean")
     return <div className="field inline"><span className="lbl">{label}</span>
