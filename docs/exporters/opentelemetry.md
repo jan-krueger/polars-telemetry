@@ -97,11 +97,12 @@ others keep full detail, wrap it in `redacted()`; see
 
 ## Cost
 
-About 0.1 ms per query for the span. Each node then adds about 9 µs per metric
-instrument it reports, which is most of the cost on a large plan: about 2.8 ms
-for a 22-node TPC-H query. `node_metrics=False` removes it, along with
-everything derived from the counters. This runs on the
-thread that ran the query, after it finished.
+About 0.1 ms per query for the span. The metrics cost about 9 µs per value
+recorded: one per node for each time and ratio, and one per node kind for each
+count, since counts are summed first. That is most of the cost on a large plan:
+about 2.4 ms for a 22-node TPC-H query. `node_metrics=False` removes it, along
+with everything derived from the counters. This runs on the thread that ran the
+query, after it finished.
 
 ## When it fails
 

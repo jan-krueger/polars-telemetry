@@ -61,14 +61,22 @@ class Measurement:
 
 def measurements(query: Query, diagnostics: Diagnostics) -> Iterator[Measurement]:
     """Every metric value a query yields. Dimensions come from bounded sets only;
-    plan literals would wreck cardinality."""
+    plan literals would wreck cardinality.
+
+    Counters are summed per metric and dimensions before they are yielded: a
+    counter only ever adds, so two GroupBy nodes reporting 10 and 5 rows are
+    the same 15 to any backend, in one call instead of two. Histograms keep one
+    value per node, since merging them would change their percentiles.
+    """
     engine = query.engine or "unknown"
+    totals: dict[tuple[str, tuple[tuple[str, str], ...]], float] = {}
 
     def histogram(name: str, value: float, dims: dict[str, str]) -> Measurement:
         return Measurement(name, "histogram", value, dims)
 
-    def counter(name: str, value: float, dims: dict[str, str]) -> Measurement:
-        return Measurement(name, "counter", value, dims)
+    def counter(name: str, value: float, dims: dict[str, str]) -> None:
+        key = (name, tuple(dims.items()))
+        totals[key] = totals.get(key, 0) + value
 
     shape = {semconv.ENGINE: engine, semconv.PLAN_FINGERPRINT: query.fingerprint}
     yield histogram(semconv.QUERY_DURATION, query.wall_ms, shape)
@@ -105,16 +113,19 @@ def measurements(query: Query, diagnostics: Diagnostics) -> Iterator[Measurement
         if metric.io_total_active_ns:
             yield histogram(semconv.NODE_IO_TIME, metric.io_total_active_ns / 1e6, dims)
 
-        yield counter(semconv.NODE_ROWS_IN, metric.rows_received, dims)
-        yield counter(semconv.NODE_ROWS_OUT, metric.rows_sent, dims)
-        yield counter(semconv.NODE_MORSELS_IN, metric.morsels_received, dims)
-        yield counter(semconv.NODE_MORSELS_OUT, metric.morsels_sent, dims)
-        yield counter(semconv.NODE_POLLS, metric.total_polls, dims)
-        yield counter(semconv.NODE_STATE_UPDATES, metric.total_state_updates, dims)
+        counter(semconv.NODE_ROWS_IN, metric.rows_received, dims)
+        counter(semconv.NODE_ROWS_OUT, metric.rows_sent, dims)
+        counter(semconv.NODE_MORSELS_IN, metric.morsels_received, dims)
+        counter(semconv.NODE_MORSELS_OUT, metric.morsels_sent, dims)
+        counter(semconv.NODE_POLLS, metric.total_polls, dims)
+        counter(semconv.NODE_STATE_UPDATES, metric.total_state_updates, dims)
         for direction, value in (
             ("requested", metric.io_total_bytes_requested),
             ("received", metric.io_total_bytes_received),
             ("sent", metric.io_total_bytes_sent),
         ):
             if value:
-                yield counter(semconv.NODE_IO_BYTES, value, {**dims, semconv.DIRECTION: direction})
+                counter(semconv.NODE_IO_BYTES, value, {**dims, semconv.DIRECTION: direction})
+
+    for (name, tags), total in totals.items():
+        yield Measurement(name, "counter", total, dict(tags))
