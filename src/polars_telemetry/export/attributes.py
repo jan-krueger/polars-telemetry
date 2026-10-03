@@ -75,6 +75,7 @@ def _add_diagnostics(attrs: dict[str, AttributeValue], diagnostics: Diagnostics)
         (semconv.FILTER_SELECTIVITY, diagnostics.filter_selectivity),
         (semconv.FILTER_ROWS_DROPPED, diagnostics.filter_rows_dropped),
         (semconv.JOIN_AMPLIFICATION, diagnostics.join_amplification),
+        (semconv.JOIN_GROWTH, diagnostics.join_growth),
         (semconv.PROJECTION_EFFICIENCY, diagnostics.projection_efficiency),
         (semconv.MORSEL_SKEW, diagnostics.morsel_skew),
         (semconv.SCAN_PREDICATE_PUSHED, diagnostics.predicate_pushed),

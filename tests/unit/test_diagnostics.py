@@ -127,3 +127,44 @@ def test_plan_signals_survive_without_node_metrics(query):
     assert d.predicate_pushed is True
     assert d.projection_efficiency == 1
     assert d.parallel_efficiency is None, "metric-derived signals are still absent"
+
+
+def _join_query(left: int, right: int, out: int, *, kind: str = "EquiJoin", fan_out: int = 1):
+    """Two scans into a join; the right scan optionally feeds `fan_out` consumers."""
+    nodes = [
+        {"id": 1, "input_ids": [], "properties": {"type": "MultiScan"}},
+        {"id": 2, "input_ids": [], "properties": {"type": "MultiScan"}},
+        {"id": 3, "input_ids": [1, 2], "properties": {"type": kind}},
+    ]
+    nodes += [
+        {"id": 10 + i, "input_ids": [2], "properties": {"type": "Select"}}
+        for i in range(fan_out - 1)
+    ]
+    metrics = [
+        {"phys_node_key": key, "rows_sent": rows, "rows_received": 0, "done": True}
+        for key, rows in ((1, left), (2, right * fan_out), (3, out))
+    ]
+    return Query(
+        query_id=uuid4(), wall_ms=1.0, plan=build_plan(nodes), metrics=build_metrics(metrics)
+    )
+
+
+def test_join_growth_compares_with_the_larger_input():
+    """A small table joined to a big one is not fan-out, whichever side comes first."""
+    diagnostics = derive(_join_query(left=100, right=1_000_000, out=1_000_000))
+    assert diagnostics.join_growth == 1.0
+    assert diagnostics.join_amplification == 10_000.0
+
+
+def test_join_growth_shows_many_to_many_keys():
+    assert derive(_join_query(left=2_000, right=1_000, out=10_000)).join_growth == 5.0
+    assert derive(_join_query(left=3, right=4, out=12, kind="CrossJoin")).join_growth == 3.0
+
+
+def test_join_growth_counts_a_shared_input_once_per_consumer():
+    """A Multiplexer's rows_sent adds up every copy it hands out."""
+    assert derive(_join_query(left=10, right=1_000, out=1_000, fan_out=4)).join_growth == 1.0
+
+
+def test_join_growth_is_absent_without_a_join():
+    assert derive(_join_query(left=1, right=1, out=1, kind="Select")).join_growth is None

@@ -15,6 +15,26 @@ export function shapeName(p) {
   return (scan && relationName(scan.properties ?? {})) || `${p.plan.physical.length} nodes`;
 }
 
+const JOINS = new Set(["join", "theta_join", "cross_join", "semi_anti_join"]);
+
+/** The largest join's rows out over its larger input, as the exporter computes it. */
+export function joinGrowth(plan) {
+  const byId = new Map(plan.map((n) => [n.id, n]));
+  const consumers = new Map();
+  for (const n of plan) for (const i of n.inputs) consumers.set(i, (consumers.get(i) ?? 0) + 1);
+  let growth;
+  for (const n of plan) {
+    const out = n.metrics?.rows_sent;
+    if (!JOINS.has(roleOf(n)) || typeof out !== "number") continue;
+    const larger = Math.max(0, ...n.inputs.map((i) => {
+      const sent = byId.get(i)?.metrics?.rows_sent;
+      return typeof sent === "number" ? sent / (consumers.get(i) ?? 1) : 0;
+    }));
+    if (larger) growth = Math.max(growth ?? 0, out / larger);
+  }
+  return growth;
+}
+
 /** Thresholds turn a measurement into a verdict. */
 export function diagnostics(p) {
   const d = p.diagnostics || {}, out = [];
@@ -23,10 +43,11 @@ export function diagnostics(p) {
     push("parallel_efficiency", "Parallel efficiency", num(d.parallel_efficiency * 100, 0), "%",
       d.parallel_efficiency >= 0.7 ? "good" : d.parallel_efficiency >= 0.4 ? "warn" : "crit",
       `${num(d.parallel_efficiency * (d.cpu_count || 1), 1)} of ${d.cpu_count} cores`);
-  if (d.join_amplification !== undefined)
-    push("join_amplification", "Join amplification", num(d.join_amplification, 2), "×",
-      d.join_amplification <= 1.5 ? "good" : d.join_amplification <= 4 ? "warn" : "crit",
-      d.join_amplification <= 1.5 ? "no row explosion" : "rows fanning out");
+  const growth = typeof d.join_growth === "number" ? d.join_growth : joinGrowth(p.plan?.physical ?? []);
+  if (growth !== undefined)
+    push("join_growth", "Join growth", num(growth, 2), "×",
+      growth <= 2 ? "good" : growth <= 10 ? "warn" : "crit",
+      growth <= 2 ? "no row explosion" : "more rows than either input");
   if (d.filter_selectivity !== undefined)
     push("filter_selectivity", "Filter selectivity", num(d.filter_selectivity * 100, 1), "%",
       "info", `${num(d.filter_rows_dropped)} rows dropped`);

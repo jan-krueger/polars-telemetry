@@ -1,5 +1,6 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { diagnostics, shapeName } from "../src/lib/format.js";
+import { diagnostics, joinGrowth, shapeName } from "../src/lib/format.js";
 
 const profile = (over = {}) => ({
   schema: "polars-telemetry/profile@1",
@@ -43,5 +44,42 @@ describe("shapeName, contents", () => {
       },
     };
     expect(shapeName(p)).toBe("part.parquet");
+  });
+});
+
+describe("join growth", () => {
+  const node = (id, kind, inputs, rows) => ({ id, kind, inputs, metrics: { rows_sent: rows } });
+
+  it("compares a join with its larger input, so a small table joined to a big one is no explosion", () => {
+    expect(joinGrowth([node(1, "MultiScan", [], 100), node(2, "MultiScan", [], 1_000_000), node(3, "EquiJoin", [1, 2], 1_000_000)])).toBe(1);
+    expect(joinGrowth([node(1, "MultiScan", [], 2_000), node(2, "MultiScan", [], 1_000), node(3, "EquiJoin", [1, 2], 10_000)])).toBe(5);
+  });
+
+  it("counts a shared input once per consumer", () => {
+    const plan = [node(1, "MultiScan", [], 10), node(2, "Multiplexer", [], 4_000), node(3, "EquiJoin", [1, 2], 1_000),
+      node(4, "Select", [2], 1_000), node(5, "Select", [2], 1_000), node(6, "Select", [2], 1_000)];
+    expect(joinGrowth(plan)).toBe(1);
+  });
+
+  it("is computed for profiles that predate it, and never shown from the deprecated amplification", () => {
+    const old = { diagnostics: { join_amplification: 54 }, plan: { physical: [node(1, "MultiScan", [], 110_001), node(2, "MultiScan", [], 54), node(3, "CrossJoin", [1, 2], 5_940_054)] } };
+    const chips = diagnostics(old);
+    expect(chips.map((c) => c.k)).toEqual(["join_growth"]);
+    expect(chips[0]).toMatchObject({ v: "54.00", s: "crit" });
+  });
+});
+
+describe("join growth parity", () => {
+  it("computes in the viewer what the exporter wrote", () => {
+    const document = JSON.parse(readFileSync(new URL("./fixtures/profile.json", import.meta.url), "utf8"));
+    expect(joinGrowth(document.plan.physical)).toBeCloseTo(document.diagnostics.join_growth, 9);
+  });
+});
+
+describe("join growth on healthy plans", () => {
+  it("stays at or below 2 for every TPC-H query, where the deprecated amplification flagged q9 as fan-out", () => {
+    const lines = readFileSync(new URL("../../examples/tpch-sf1.jsonl", import.meta.url), "utf8").split("\n").filter(Boolean);
+    const worst = Math.max(...lines.map((line) => joinGrowth(JSON.parse(line).plan.physical) ?? 0));
+    expect(worst).toBeLessThanOrEqual(2);
   });
 });

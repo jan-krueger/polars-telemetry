@@ -31,7 +31,12 @@ class Diagnostics:
     filter_rows_dropped: int | None = None
 
     join_amplification: float | None = None
-    """Rows out over rows in on the probe side. Above 1 means fan-out."""
+    """Deprecated: use `join_growth`. Rows out over the first input's rows,
+    which flags an ordinary join against a small table as fan-out."""
+
+    join_growth: float | None = None
+    """The largest join's rows out over its larger input. Above 2 needs
+    many-to-many keys: a one-to-many join stays within both inputs together."""
 
     projection_efficiency: float | None = None
     """Columns read over columns in the file."""
@@ -66,10 +71,15 @@ def derive(query: Query) -> Diagnostics:
         else None
     )
 
-    selectivity = dropped = amplification = projection = skew = None
+    selectivity = dropped = amplification = growth = projection = skew = None
     columns_read = 0
     pushed = skipped = stats = None
     incomplete = 0
+
+    consumers: dict[int, int] = {}
+    for node in query.plan.values():
+        for input_id in node.inputs:
+            consumers[input_id] = consumers.get(input_id, 0) + 1
 
     for node_id, node in query.plan.items():
         metric = query.metrics.get(node_id)
@@ -87,6 +97,17 @@ def derive(query: Query) -> Diagnostics:
             if probe and probe.rows_sent:
                 ratio = metric.rows_sent / probe.rows_sent
                 amplification = ratio if amplification is None else max(amplification, ratio)
+            larger = max(
+                (
+                    received.rows_sent / consumers.get(input_id, 1)
+                    for input_id in node.inputs
+                    if (received := query.metrics.get(input_id)) is not None
+                ),
+                default=0,
+            )
+            if larger:
+                ratio = metric.rows_sent / larger
+                growth = ratio if growth is None else max(growth, ratio)
 
         if metric.morsels_received and metric.rows_received:
             mean = metric.rows_received / metric.morsels_received
@@ -126,6 +147,7 @@ def derive(query: Query) -> Diagnostics:
         filter_selectivity=selectivity,
         filter_rows_dropped=dropped,
         join_amplification=amplification,
+        join_growth=growth,
         projection_efficiency=projection,
         morsel_skew=skew,
         predicate_pushed=pushed,

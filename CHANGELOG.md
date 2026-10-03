@@ -7,6 +7,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- `polars.join.growth` (`Diagnostics.join_growth`): the largest join's rows out
+  over its larger input. Up to 2 is any ordinary join; above 2 takes keys that
+  repeat on both sides. The viewer's chip shows it, computed from the plan for
+  profiles written before it existed.
 - Viewer: **Copy link** shares the query on screen, and the run it is compared
   with, as a link that carries the profiles itself, so nothing is uploaded. A
   link opens as a temporary session that **Keep** stores. Unmasked profiles ask
@@ -24,6 +28,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   stays responsive while a large plan opens, and a plan opened before is shown
   at once. Selecting a node no longer redraws the whole plan, and far zoomed
   out, nodes draw as plain boxes without labels.
+
+### Deprecated
+Removed in 0.6.0.
+- `polars.join.amplification` (`Diagnostics.join_amplification`): use
+  `polars.join.growth`. It divides by a join's first input, so a small table
+  joined to a large one reads as fan-out (TPC-H q9 shows 7.5×). The viewer no
+  longer shows it.
 
 ### Fixed
 - `Redaction(paths=True)` now also masks the library path of an expression
