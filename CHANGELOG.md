@@ -12,11 +12,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   relational-algebra terms — assigned by the adapter's dialect, and nothing
   downstream compares polars kind names. A renamed operator is a one-line
   dialect change; before, it touched three modules and failed no check.
+- The per-node counter list is defined once, by `NodeMetrics`; decoding, model
+  construction and the profile document derive from it instead of each keeping
+  a copy.
 - A plan node kind the dialect does not recognise is logged once at runtime and
   fails the golden and live contract tests, instead of silently emptying every
   attribute and diagnostic that depended on it.
 
 ### Fixed
+- `include_plan` JSON carries `largest_morsel_out`; the sent-side largest
+  morsel was the one counter it left out.
 - An IR plan polars has reshaped now costs only the IR. One shared guard
   dropped the node counters with it, and each query counted toward the
   failure threshold, so after five queries telemetry switched off entirely —

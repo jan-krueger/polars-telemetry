@@ -42,6 +42,30 @@ def _text(value: object, *, redact_literals: bool) -> str:
     return redact(rendered) if redact_literals else rendered
 
 
+# The include_plan JSON names counters for readers rather than for polars, and
+# gives time in milliseconds. Every counter must appear; a test holds that.
+PLAN_JSON_FIELDS: tuple[tuple[str, str], ...] = (
+    ("cpu_ms", "total_time_ns"),
+    ("rows_in", "rows_received"),
+    ("rows_out", "rows_sent"),
+    ("morsels_in", "morsels_received"),
+    ("morsels_out", "morsels_sent"),
+    ("largest_morsel", "largest_morsel_received"),
+    ("largest_morsel_out", "largest_morsel_sent"),
+    ("polls", "total_polls"),
+    ("stolen", "total_stolen_polls"),
+    ("poll_ms", "total_poll_time_ns"),
+    ("max_poll_ms", "max_poll_time_ns"),
+    ("state_updates", "total_state_updates"),
+    ("state_update_ms", "total_state_update_time_ns"),
+    ("max_state_update_ms", "max_state_update_time_ns"),
+    ("io_ms", "io_total_active_ns"),
+    ("io_bytes_received", "io_total_bytes_received"),
+    ("io_bytes_requested", "io_total_bytes_requested"),
+    ("io_bytes_sent", "io_total_bytes_sent"),
+)
+
+
 def plan_json(query: Query, *, redact_literals: bool = False) -> str:
     """The whole plan and its counters, as one JSON document.
 
@@ -57,26 +81,10 @@ def plan_json(query: Query, *, redact_literals: bool = False) -> str:
             "inputs": list(node.inputs),
         }
         if metric is not None:
-            entry.update(
-                cpu_ms=round(metric.cpu_ms, 4),
-                rows_in=metric.rows_received,
-                rows_out=metric.rows_sent,
-                morsels_in=metric.morsels_received,
-                morsels_out=metric.morsels_sent,
-                largest_morsel=metric.largest_morsel_received,
-                polls=metric.total_polls,
-                stolen=metric.total_stolen_polls,
-                poll_ms=round(metric.total_poll_time_ns / 1e6, 4),
-                max_poll_ms=round(metric.max_poll_time_ns / 1e6, 4),
-                state_updates=metric.total_state_updates,
-                state_update_ms=round(metric.total_state_update_time_ns / 1e6, 4),
-                max_state_update_ms=round(metric.max_state_update_time_ns / 1e6, 4),
-                io_ms=round(metric.io_total_active_ns / 1e6, 4),
-                io_bytes_received=metric.io_total_bytes_received,
-                io_bytes_requested=metric.io_total_bytes_requested,
-                io_bytes_sent=metric.io_total_bytes_sent,
-                done=metric.done,
-            )
+            for name, counter in PLAN_JSON_FIELDS:
+                value = getattr(metric, counter)
+                entry[name] = round(value / 1e6, 4) if counter.endswith("_ns") else value
+            entry["done"] = metric.done
         nodes.append(entry)
     logical = [
         {"id": nid, "kind": n.kind, "inputs": list(n.inputs)} for nid, n in query.logical.items()

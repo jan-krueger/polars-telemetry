@@ -9,28 +9,7 @@ from __future__ import annotations
 from typing import Any
 
 from polars_telemetry.adapter.dialect import role_of
-from polars_telemetry.model.types import NodeMetrics, PlanNode
-
-_COUNTERS: tuple[str, ...] = (
-    "total_time_ns",
-    "total_polls",
-    "total_stolen_polls",
-    "total_poll_time_ns",
-    "max_poll_time_ns",
-    "total_state_updates",
-    "total_state_update_time_ns",
-    "max_state_update_time_ns",
-    "rows_received",
-    "rows_sent",
-    "morsels_received",
-    "morsels_sent",
-    "largest_morsel_received",
-    "largest_morsel_sent",
-    "io_total_active_ns",
-    "io_total_bytes_received",
-    "io_total_bytes_requested",
-    "io_total_bytes_sent",
-)
+from polars_telemetry.model.types import COUNTER_NAMES, NodeMetrics, PlanNode
 
 
 def build_plan(records: list[dict[str, Any]]) -> dict[int, PlanNode]:
@@ -57,6 +36,6 @@ def build_metrics(records: list[dict[str, Any]]) -> dict[int, NodeMetrics]:
         metrics[node_id] = NodeMetrics(
             node_id=node_id,
             done=bool(record.get("done", False)),
-            **{name: int(record.get(name, 0)) for name in _COUNTERS},
+            **{name: int(record.get(name, 0)) for name in COUNTER_NAMES},
         )
     return metrics

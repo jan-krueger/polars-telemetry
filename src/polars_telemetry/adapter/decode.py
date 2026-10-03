@@ -13,33 +13,14 @@ from typing import Any
 
 import msgpack
 
+from polars_telemetry.model.types import COUNTER_NAMES
+
 PLAN_FIELDS: frozenset[str] = frozenset({"id", "input_ids", "properties"})
 
 # Asserted against fixtures by tests/contract. A diff here means polars changed.
-METRIC_FIELDS: frozenset[str] = frozenset(
-    {
-        "phys_node_key",
-        "total_polls",
-        "total_stolen_polls",
-        "total_poll_time_ns",
-        "max_poll_time_ns",
-        "total_state_updates",
-        "total_state_update_time_ns",
-        "max_state_update_time_ns",
-        "morsels_sent",
-        "rows_sent",
-        "largest_morsel_sent",
-        "morsels_received",
-        "rows_received",
-        "largest_morsel_received",
-        "io_total_active_ns",
-        "io_total_bytes_requested",
-        "io_total_bytes_received",
-        "io_total_bytes_sent",
-        "total_time_ns",
-        "done",
-    }
-)
+# polars' counter names are the model's field names; should they ever diverge,
+# the translation belongs in the dialect, not here.
+METRIC_FIELDS: frozenset[str] = frozenset({*COUNTER_NAMES, "phys_node_key", "done"})
 
 _COUNTER_FIELDS: frozenset[str] = METRIC_FIELDS - {"done"}
 

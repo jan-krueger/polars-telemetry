@@ -190,3 +190,21 @@ def test_every_diagnostic_reaches_the_span(field):
     _add_diagnostics(attrs, Diagnostics(**{field: 1}))  # type: ignore[arg-type]
 
     assert set(attrs) - set(empty), f"Diagnostics.{field} maps to no span attribute"
+
+
+def test_the_plan_json_carries_every_counter():
+    """include_plan had no coverage, and silently left largest_morsel_sent out."""
+    from polars_telemetry.export.attributes import PLAN_JSON_FIELDS
+    from polars_telemetry.model.types import COUNTER_NAMES
+
+    mapped = [counter for _, counter in PLAN_JSON_FIELDS]
+    assert sorted(mapped) == sorted(COUNTER_NAMES)
+
+
+def test_include_plan_round_trips_as_json(query):
+    from polars_telemetry.export.attributes import plan_json
+
+    document = json.loads(plan_json(query))
+    node = next(n for n in document["physical"] if "rows_in" in n)
+    assert {"cpu_ms", "largest_morsel_out", "done"} <= set(node)
+    assert document["logical"], "the IR topology is carried too"

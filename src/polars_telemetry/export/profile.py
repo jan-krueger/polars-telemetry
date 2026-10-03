@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Any
 from polars_telemetry import __version__
 from polars_telemetry.model.diagnostics import Diagnostics, derive
 from polars_telemetry.model.fingerprint import fingerprint
+from polars_telemetry.model.types import COUNTER_NAMES
 
 if TYPE_CHECKING:
     from polars_telemetry.model.types import NodeMetrics, PlanNode, Query
@@ -52,27 +53,7 @@ def _trace_context() -> dict[str, str]:
 def _metrics(metric: NodeMetrics | None) -> dict[str, Any] | None:
     if metric is None:
         return None
-    return {
-        "total_time_ns": metric.total_time_ns,
-        "total_polls": metric.total_polls,
-        "total_stolen_polls": metric.total_stolen_polls,
-        "total_poll_time_ns": metric.total_poll_time_ns,
-        "max_poll_time_ns": metric.max_poll_time_ns,
-        "total_state_updates": metric.total_state_updates,
-        "total_state_update_time_ns": metric.total_state_update_time_ns,
-        "max_state_update_time_ns": metric.max_state_update_time_ns,
-        "rows_received": metric.rows_received,
-        "rows_sent": metric.rows_sent,
-        "morsels_received": metric.morsels_received,
-        "morsels_sent": metric.morsels_sent,
-        "largest_morsel_received": metric.largest_morsel_received,
-        "largest_morsel_sent": metric.largest_morsel_sent,
-        "io_total_active_ns": metric.io_total_active_ns,
-        "io_total_bytes_requested": metric.io_total_bytes_requested,
-        "io_total_bytes_received": metric.io_total_bytes_received,
-        "io_total_bytes_sent": metric.io_total_bytes_sent,
-        "done": metric.done,
-    }
+    return {**{name: getattr(metric, name) for name in COUNTER_NAMES}, "done": metric.done}
 
 
 def _node(node: PlanNode, metric: NodeMetrics | None) -> dict[str, Any]:

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from enum import Enum
 from uuid import UUID
 
@@ -112,6 +112,13 @@ class NodeMetrics:
     @property
     def stolen_ratio(self) -> float | None:
         return self.total_stolen_polls / self.total_polls if self.total_polls else None
+
+
+COUNTER_NAMES: tuple[str, ...] = tuple(
+    f.name for f in fields(NodeMetrics) if f.name not in {"node_id", "done"}
+)
+"""Every per-node counter, in one place: decoding, model construction and the
+profile document all derive from this."""
 
 
 @dataclass(frozen=True, slots=True)
