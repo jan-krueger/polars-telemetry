@@ -1,7 +1,7 @@
 import { PROP_LABELS, GLOSSARY } from "../lib/glossary";
 import { visibleCounters } from "../lib/counters";
 import { ROLES, exprLines, roleOf } from "../lib/polars";
-import { ms, num } from "../lib/format";
+import { bytes, ms, num } from "../lib/format";
 import Help from "./Help";
 import Tip, { TipText } from "./Tip";
 import Code from "./Code";
@@ -85,7 +85,7 @@ export default function NodeDetails({ node, compareNode }) {
           {visibleCounters(m).map(({ label, key, unit }) => {
             const raw = m[key];
             const v = unit === "ns" ? ms(raw / 1e6)
-              : unit === "bytes" ? (raw >= 1048576 ? num(raw / 1048576, 1) + " MiB" : num(raw / 1024, 1) + " KiB")
+              : unit === "bytes" ? bytes(raw)
               : num(raw);
             let delta = null;
             if (other && other[key] != null && other[key] !== raw) {
