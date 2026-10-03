@@ -1,0 +1,79 @@
+"""polars' node vocabulary, mapped onto roles."""
+
+from __future__ import annotations
+
+import copy
+import json
+from dataclasses import replace
+from pathlib import Path
+from uuid import uuid4
+
+import pytest
+
+from polars_telemetry.adapter.build import build_metrics, build_plan
+from polars_telemetry.adapter.dialect import role_of, unknown_kinds
+from polars_telemetry.model.diagnostics import derive
+from polars_telemetry.model.types import NodeRole, Query
+
+FIXTURE = Path(__file__).parents[1] / "fixtures" / "1.44.2"
+
+
+@pytest.mark.parametrize(
+    ("kind", "properties", "role"),
+    [
+        ("Join", {"how": "INNER"}, NodeRole.JOIN),
+        ("Join", {"how": "SEMI"}, NodeRole.SEMI_ANTI_JOIN),
+        ("Join", {"how": "ANTI"}, NodeRole.SEMI_ANTI_JOIN),
+        ("EquiJoin", {}, NodeRole.JOIN),
+        ("SemiAntiJoin", {}, NodeRole.SEMI_ANTI_JOIN),
+        ("IEJoin", {}, NodeRole.THETA_JOIN),
+        ("CrossJoin", {}, NodeRole.CROSS_JOIN),
+        ("Select", {"extend_original": True}, NodeRole.MAP),
+        ("Select", {"extend_original": False}, NodeRole.PROJECTION),
+        ("HStack", {}, NodeRole.MAP),
+        ("MapFunction", {"function": "RENAME"}, NodeRole.RENAME),
+        ("MapFunction", {"function": "EXPLODE [channels]"}, NodeRole.FUNCTION),
+        ("Scan", {}, NodeRole.SCAN),
+        ("MultiScan", {}, NodeRole.SCAN),
+        ("InMemorySink", {}, NodeRole.SINK),
+        ("Multiplexer", {}, NodeRole.ENGINE),
+        ("NeverHeardOfIt", {}, NodeRole.UNKNOWN),
+    ],
+)
+def test_role_of(kind, properties, role):
+    assert role_of(kind, properties) is role
+
+
+def test_the_ir_and_physical_names_for_one_operator_share_a_role():
+    """`Join`/`EquiJoin` and `Scan`/`MultiScan` are the same thing to a reader."""
+    assert role_of("Join", {"how": "INNER"}) is role_of("EquiJoin", {})
+    assert role_of("Scan", {}) is role_of("MultiScan", {})
+
+
+def test_a_renamed_operator_is_reported_not_silently_dropped():
+    """The failure this module exists to make loud."""
+    physical = json.loads((FIXTURE / "physical.json").read_text())
+    renamed = copy.deepcopy(physical)
+    for record in renamed:
+        if record["properties"]["type"] == "EquiJoin":
+            record["properties"]["type"] = "HashJoin"
+
+    assert unknown_kinds(r["properties"]["type"] for r in physical) == []
+    assert unknown_kinds(r["properties"]["type"] for r in renamed) == ["HashJoin"]
+
+
+def test_downstream_reads_roles_not_kind_names():
+    """Once the dialect maps a renamed kind, nothing downstream needs touching:
+    the same plan under a new kind name derives the same diagnostics."""
+    plan = build_plan(json.loads((FIXTURE / "physical.json").read_text()))
+    metrics = build_metrics(json.loads((FIXTURE / "metrics.json").read_text()))
+    renamed = {
+        node_id: replace(node, kind="HashJoin") if node.kind == "EquiJoin" else node
+        for node_id, node in plan.items()
+    }
+    assert any(node.kind == "HashJoin" for node in renamed.values())
+
+    before = derive(Query(query_id=uuid4(), wall_ms=1.0, plan=plan, metrics=metrics))
+    after = derive(Query(query_id=uuid4(), wall_ms=1.0, plan=renamed, metrics=metrics))
+    assert before.join_amplification is not None
+    assert after.join_amplification == before.join_amplification

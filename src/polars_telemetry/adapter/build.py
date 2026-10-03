@@ -1,9 +1,14 @@
-"""Construct model objects from decoded payloads."""
+"""Construct model objects from decoded payloads.
+
+Translation, so it lives in the adapter: it knows the payload field names and
+assigns each node its role through the dialect.
+"""
 
 from __future__ import annotations
 
 from typing import Any
 
+from polars_telemetry.adapter.dialect import role_of
 from polars_telemetry.model.types import NodeMetrics, PlanNode
 
 _COUNTERS: tuple[str, ...] = (
@@ -30,15 +35,18 @@ _COUNTERS: tuple[str, ...] = (
 
 def build_plan(records: list[dict[str, Any]]) -> dict[int, PlanNode]:
     """Index plan nodes by id."""
-    return {
-        int(record["id"]): PlanNode(
+    nodes: dict[int, PlanNode] = {}
+    for record in records:
+        properties = dict(record["properties"])
+        kind = str(properties.get("type", "Unknown"))
+        nodes[int(record["id"])] = PlanNode(
             node_id=int(record["id"]),
-            kind=str(record["properties"].get("type", "Unknown")),
+            kind=kind,
             inputs=tuple(int(i) for i in record["input_ids"]),
-            properties=dict(record["properties"]),
+            properties=properties,
+            role=role_of(kind, properties),
         )
-        for record in records
-    }
+    return nodes
 
 
 def build_metrics(records: list[dict[str, Any]]) -> dict[int, NodeMetrics]:

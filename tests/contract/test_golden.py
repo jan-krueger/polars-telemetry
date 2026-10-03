@@ -17,6 +17,7 @@ from polars_telemetry.adapter.decode import (
     metrics_problems,
     plan_problems,
 )
+from polars_telemetry.adapter.dialect import unknown_kinds
 
 pytestmark = pytest.mark.contract
 
@@ -40,6 +41,14 @@ def test_at_least_one_fixture_version_exists() -> None:
 def test_plan_matches_contract(captured: Path, plan: str) -> None:
     records = decode_plan((captured / f"{plan}.msgpack").read_bytes())
     assert plan_problems(records) == []
+
+
+@pytest.mark.parametrize("plan", ["ir", "physical"])
+def test_every_node_kind_is_recognised(captured: Path, plan: str) -> None:
+    """A kind the dialect does not know becomes UNKNOWN, and every attribute
+    and diagnostic that depended on its role silently disappears."""
+    records = decode_plan((captured / f"{plan}.msgpack").read_bytes())
+    assert unknown_kinds(r["properties"]["type"] for r in records) == []
 
 
 def test_metrics_match_contract(captured: Path) -> None:

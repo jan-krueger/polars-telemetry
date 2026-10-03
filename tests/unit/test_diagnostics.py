@@ -8,7 +8,7 @@ from uuid import uuid4
 
 import pytest
 
-from polars_telemetry.model.build import build_metrics, build_plan
+from polars_telemetry.adapter.build import build_metrics, build_plan
 from polars_telemetry.model.diagnostics import derive
 from polars_telemetry.model.types import Query
 

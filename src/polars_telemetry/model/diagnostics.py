@@ -10,11 +10,10 @@ import os
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from polars_telemetry.model.types import JOIN_ROLES, NodeRole
+
 if TYPE_CHECKING:
     from polars_telemetry.model.types import Query
-
-SCAN_KINDS = frozenset({"MultiScan", "Scan"})
-JOIN_KINDS = frozenset({"EquiJoin", "Join", "CrossJoin", "SemiAntiJoin", "IEJoin"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -79,11 +78,11 @@ def derive(query: Query) -> Diagnostics:
         if not metric.done:
             incomplete += 1
 
-        if node.kind == "Filter" and metric.rows_received:
+        if node.role is NodeRole.SELECTION and metric.rows_received:
             selectivity = metric.rows_sent / metric.rows_received
             dropped = metric.rows_received - metric.rows_sent
 
-        if node.kind in JOIN_KINDS and node.inputs:
+        if node.role in JOIN_ROLES and node.inputs:
             probe = query.metrics.get(node.inputs[0])
             if probe and probe.rows_sent:
                 ratio = metric.rows_sent / probe.rows_sent
@@ -98,7 +97,7 @@ def derive(query: Query) -> Diagnostics:
     # Read from the plan alone, so these survive Config(node_metrics=False) and
     # any scan whose counters are missing.
     for node in query.plan.values():
-        if node.kind not in SCAN_KINDS:
+        if node.role is not NodeRole.SCAN:
             continue
         props = node.properties
         read = props.get("projected_file_columns") or props.get("projection")
@@ -118,7 +117,7 @@ def derive(query: Query) -> Diagnostics:
     # reports what was read, the IR scan what the file holds.
     columns_available = 0
     for node in query.logical.values():
-        if node.kind not in SCAN_KINDS:
+        if node.role is not NodeRole.SCAN:
             continue
         available = node.properties.get("file_columns")
         if isinstance(available, list):

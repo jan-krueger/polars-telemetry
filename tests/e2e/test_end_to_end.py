@@ -311,3 +311,26 @@ def test_an_unreadable_ir_costs_only_the_ir(monkeypatch):
     assert all(q.logical == {} for q in collected), "the IR could not be read"
     assert all(q.plan for q in collected), "the physical plan was lost with the IR"
     assert all(q.metrics for q in collected), "the counters were lost with the IR"
+
+
+def test_an_unrecognised_kind_is_warned_about_once(monkeypatch, caplog):
+    """A renamed operator must say so, not just make attributes vanish."""
+    from polars_telemetry.adapter import dialect, observer
+
+    monkeypatch.setattr(observer, "_reported_kinds", set())
+    table = dict(dialect._BY_KIND)
+    table.pop("GroupBy")
+    monkeypatch.setattr(dialect, "_BY_KIND", table)
+
+    collected, exporter = _collecting()
+    state = polars_telemetry.install(exporter=exporter)
+    assert state is not None
+    try:
+        _query(polars).collect()
+        _query(polars).collect()
+    finally:
+        polars_telemetry.uninstall()
+
+    warnings = [r for r in caplog.records if "'GroupBy'" in r.getMessage()]
+    assert len(warnings) == 1, "warned once, not per query"
+    assert len(collected) == 2, "an unknown kind costs nothing but the warning"

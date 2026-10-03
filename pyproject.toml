@@ -85,6 +85,8 @@ target-version = "py310"
 src = ["src", "tests"]
 
 [tool.ruff.lint]
+# Relational-algebra notation in NodeRole's docstrings, not look-alikes.
+allowed-confusables = ["σ", "γ", "ρ", "×"]
 select = [
     "E", "W",    # pycodestyle
     "F",         # pyflakes

@@ -25,10 +25,10 @@ from uuid import UUID, uuid4
 from polars_telemetry import _sinks
 from polars_telemetry._callsite import CallSite, caller
 from polars_telemetry._safety import FailureTracker
+from polars_telemetry.adapter.build import build_metrics, build_plan
 from polars_telemetry.adapter.decode import decode_optional_plan, decode_plan
 from polars_telemetry.adapter.handle import MetricsHandle
-from polars_telemetry.model.build import build_metrics, build_plan
-from polars_telemetry.model.types import Query
+from polars_telemetry.model.types import NodeRole, PlanNode, Query
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -37,6 +37,27 @@ if TYPE_CHECKING:
     from polars_telemetry.export.base import Exporter
 
 _log = logging.getLogger("polars_telemetry")
+
+
+_reported_kinds: set[str] = set()
+
+
+def _report_unknown_kinds(*plans: dict[int, PlanNode]) -> None:
+    """Warn once per kind the dialect does not recognise.
+
+    A renamed operator would otherwise just make attributes and diagnostics
+    that depended on its role disappear, with nothing said anywhere.
+    """
+    for plan in plans:
+        for node in plan.values():
+            if node.role is NodeRole.UNKNOWN and node.kind not in _reported_kinds:
+                _reported_kinds.add(node.kind)
+                _log.warning(
+                    "polars-telemetry: polars sent a plan node of kind %r, which this "
+                    "version does not recognise; attributes that depend on it will be "
+                    "missing.",
+                    node.kind,
+                )
 
 
 def _message(args: tuple[Any, ...]) -> str:
@@ -141,6 +162,7 @@ class QueryObserver:
                 logical = self._plan_from("IR plan", ir_plan, decode_plan)
                 self._plan = physical or {}
                 self._logical = logical or {}
+                _report_unknown_kinds(self._plan, self._logical)
                 # Counters are keyed by phys_node_key, so without a physical
                 # plan there is nothing to attribute them to.
                 collect_metrics = self._config.node_metrics and physical is not None

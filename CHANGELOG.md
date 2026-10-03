@@ -6,6 +6,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+- polars' node vocabulary is translated in one place. Every plan node now
+  carries a `role` — selection, projection, join, aggregation and so on, in
+  relational-algebra terms — assigned by the adapter's dialect, and nothing
+  downstream compares polars kind names. A renamed operator is a one-line
+  dialect change; before, it touched three modules and failed no check.
+- A plan node kind the dialect does not recognise is logged once at runtime and
+  fails the golden and live contract tests, instead of silently emptying every
+  attribute and diagnostic that depended on it.
+
 ### Fixed
 - An IR plan polars has reshaped now costs only the IR. One shared guard
   dropped the node counters with it, and each query counted toward the

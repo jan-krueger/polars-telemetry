@@ -7,6 +7,7 @@ import re
 from typing import TYPE_CHECKING
 
 from polars_telemetry.export import semconv
+from polars_telemetry.model.types import JOIN_ROLES, NodeRole
 
 if TYPE_CHECKING:
     from polars_telemetry.model.diagnostics import Diagnostics
@@ -18,9 +19,6 @@ AttributeValue = str | int | float | bool | tuple[str, ...]
 _NAME_CONTEXT = re.compile(r"(?:col|alias|name|nth)\($")
 _QUOTED = re.compile(r'"[^"]*"')
 _NUMERIC = re.compile(r"(?<![\w.])\d+(?:\.\d+)?(?![\w.])")
-
-_JOIN_KINDS = frozenset({"EquiJoin", "CrossJoin", "SemiAntiJoin", "IEJoin", "Join"})
-_SCAN_KINDS = frozenset({"MultiScan", "Scan"})
 
 
 def redact(expression: str) -> str:
@@ -166,14 +164,14 @@ def query_attributes(
     # Columns actually read are only on the physical plan: the IR carries
     # file_columns, which is the width of the file, not of the projection.
     for node in query.plan.values():
-        if node.kind in _SCAN_KINDS:
+        if node.role is NodeRole.SCAN:
             read = node.properties.get("projected_file_columns")
             if isinstance(read, list):
                 columns += len(read)
 
     for node in semantic.values():
         props = node.properties
-        if node.kind in _SCAN_KINDS:
+        if node.role is NodeRole.SCAN:
             scans += 1
             source = props.get("first_source")
             if isinstance(source, str):
@@ -187,7 +185,7 @@ def query_attributes(
             elif predicate is not None:
                 predicates.append(_text(predicate, redact_literals=redact_literals))
 
-        elif node.kind in _JOIN_KINDS:
+        elif node.role in JOIN_ROLES:
             joins += 1
             how = props.get("how")
             if isinstance(how, str):
@@ -195,20 +193,23 @@ def query_attributes(
             left_on = props.get("left_on")
             if isinstance(left_on, list):
                 join_keys.extend(_text(key, redact_literals=redact_literals) for key in left_on)
-        elif node.kind == "Sort":
+        elif node.role is NodeRole.SORT:
             specs = props.get("sort_columns")
             if isinstance(specs, list):
                 for spec in specs:
                     if isinstance(spec, dict) and "expr" in spec:
                         sort_columns.append(_text(spec["expr"], redact_literals=redact_literals))
-        elif node.kind == "GroupBy":
-            groupbys += 1
+        elif node.role is NodeRole.AGGREGATION:
             # The IR exposes a flat `keys`; the physical plan nests them under
-            # `key_per_input` and renames them to _POLARS_TMP_N.
+            # `key_per_input` and renames them to _POLARS_TMP_N. An aggregation
+            # with neither is a global reduction, not a group-by.
             keys = props.get("keys")
+            nested = props.get("key_per_input")
             if isinstance(keys, list):
+                groupbys += 1
                 groupby_keys.extend(_text(key, redact_literals=redact_literals) for key in keys)
-            elif isinstance(nested := props.get("key_per_input"), list):
+            elif isinstance(nested, list):
+                groupbys += 1
                 groupby_keys.extend(
                     _text(key, redact_literals=redact_literals) for group in nested for key in group
                 )

@@ -3,22 +3,81 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import Enum
 from uuid import UUID
 
 from polars_telemetry._callsite import CallSite
 
 
+class NodeRole(str, Enum):
+    """What a plan node does, in relational-algebra terms.
+
+    The stable vocabulary: polars' own node kinds differ between the IR and the
+    physical plan and can change in any release, so everything downstream of
+    the adapter asks for a role rather than a kind name.
+    """
+
+    SCAN = "scan"
+    """Reads a file or object-storage source."""
+    DATAFRAME = "dataframe"
+    """An in-memory frame as a relation."""
+    SELECTION = "selection"
+    """σ: drops rows."""
+    PROJECTION = "projection"
+    """π: keeps or replaces columns."""
+    MAP = "map"
+    """χ: adds computed columns, keeping the rest."""
+    RENAME = "rename"
+    """ρ."""
+    FUNCTION = "function"
+    """An opaque function over the frame: explode, unpivot, a UDF."""
+    JOIN = "join"
+    """⋈ on equal keys."""
+    THETA_JOIN = "theta_join"
+    """⋈θ on an inequality."""
+    CROSS_JOIN = "cross_join"
+    """×."""
+    SEMI_ANTI_JOIN = "semi_anti_join"
+    """⋉ or ▷; the physical plan does not say which."""
+    AGGREGATION = "aggregation"
+    """γ."""
+    SORT = "sort"
+    """τ."""
+    TOP_K = "top_k"
+    """τ with a limit."""
+    DISTINCT = "distinct"
+    """δ."""
+    UNION = "union"
+    """⊎: concatenation, duplicates kept."""
+    SINK = "sink"
+    """Where the result goes."""
+    ENGINE = "engine"
+    """Streaming-engine plumbing with no relational meaning."""
+    UNKNOWN = "unknown"
+    """A kind the adapter does not recognise."""
+
+
+JOIN_ROLES: frozenset[NodeRole] = frozenset(
+    {NodeRole.JOIN, NodeRole.THETA_JOIN, NodeRole.CROSS_JOIN, NodeRole.SEMI_ANTI_JOIN}
+)
+
+
 @dataclass(frozen=True, slots=True)
 class PlanNode:
-    """One physical plan node."""
+    """One plan node."""
 
     node_id: int
-    """polars' phys_node_key; metrics join on this."""
+    """polars' phys_node_key on the physical plan; metrics join on this."""
 
     kind: str
+    """polars' own name for the node, kept for display and full fidelity."""
+
     inputs: tuple[int, ...]
     properties: dict[str, object]
     """Raw plan properties: scan source, predicate, join keys, aggregations."""
+
+    role: NodeRole = NodeRole.UNKNOWN
+    """What the node does. Read this, not `kind`."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -53,9 +112,6 @@ class NodeMetrics:
     @property
     def stolen_ratio(self) -> float | None:
         return self.total_stolen_polls / self.total_polls if self.total_polls else None
-
-
-SINK_KINDS: frozenset[str] = frozenset({"InMemorySink", "IoSink", "PartitionSink"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,7 +149,7 @@ class Query:
         rows = [
             self.metrics[node_id].rows_received
             for node_id, node in self.plan.items()
-            if node.kind in SINK_KINDS and node_id in self.metrics
+            if node.role is NodeRole.SINK and node_id in self.metrics
         ]
         return sum(rows) if rows else None
 

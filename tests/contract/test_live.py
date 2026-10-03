@@ -19,6 +19,7 @@ from polars_telemetry.adapter.decode import (
     metrics_problems,
     plan_problems,
 )
+from polars_telemetry.adapter.dialect import unknown_kinds
 
 pytestmark = [pytest.mark.contract, pytest.mark.live]
 
@@ -64,6 +65,13 @@ def test_observer_hook_is_still_reachable(live: dict[str, Any]) -> None:
 @pytest.mark.parametrize("plan", ["ir", "physical"])
 def test_live_plan_matches_contract(live: dict[str, Any], plan: str) -> None:
     assert plan_problems(live[plan]) == []
+
+
+@pytest.mark.parametrize("plan", ["ir", "physical"])
+def test_live_node_kinds_are_all_recognised(live: dict[str, Any], plan: str) -> None:
+    """The canary's tripwire for a renamed operator: structure checks pass on a
+    rename, and attributes keyed on the old name quietly vanish."""
+    assert unknown_kinds(r["properties"]["type"] for r in live[plan]) == []
 
 
 def test_live_metrics_match_contract(live: dict[str, Any]) -> None:

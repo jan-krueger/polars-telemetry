@@ -9,9 +9,9 @@ from uuid import uuid4
 
 import pytest
 
+from polars_telemetry.adapter.build import build_metrics, build_plan
 from polars_telemetry.export import semconv
 from polars_telemetry.export.attributes import query_attributes, redact
-from polars_telemetry.model.build import build_metrics, build_plan
 from polars_telemetry.model.diagnostics import Diagnostics
 from polars_telemetry.model.types import Query
 
