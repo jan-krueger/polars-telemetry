@@ -201,6 +201,7 @@ def _install(
 ) -> Installation | None:
     """Called with the lock held."""
     global _state
+    _check(config, exporters)
     if _state is not None:
         return _join(config, exporters, scoped=scoped)
 
@@ -220,6 +221,24 @@ def _install(
 
     previous_affinity = _engine_affinity()
     pl.Config.enable_monitoring()
+    try:
+        return _activate(binding, config, exporters, previous_affinity, scoped=scoped)
+    except BaseException:
+        _monitoring_off(previous_affinity)
+        mod.unbind(binding)
+        raise
+
+
+def _activate(
+    binding: mod.Binding,
+    config: Config | None,
+    exporters: tuple[Exporter, ...],
+    previous_affinity: object,
+    *,
+    scoped: bool,
+) -> Installation | None:
+    """Called with the lock held and monitoring on; undone by the caller if it raises."""
+    global _state
     capabilities = probe(binding)
 
     if not capabilities.usable:
@@ -309,15 +328,31 @@ def _effective(config: Config, capabilities: Capabilities) -> Config:
 
 
 def _register(exporters: tuple[Exporter, ...], config: Config) -> tuple[_dispatch.Receiver, ...]:
-    # Masked before delivery, so an exporter the application wrote is covered
-    # as much as the bundled ones are.
-    receivers = []
-    for exporter in exporters:
-        target, redaction = _redaction_for(exporter, config)
-        receivers.append(
-            _dispatch.add(target.export, f"exporter {type(target).__name__}", redaction=redaction)
-        )
+    receivers: list[_dispatch.Receiver] = []
+    try:
+        for exporter in exporters:
+            target, redaction = _redaction_for(exporter, config)
+            receivers.append(
+                _dispatch.add(
+                    target.export, f"exporter {type(target).__name__}", redaction=redaction
+                )
+            )
+    except BaseException:
+        for receiver in receivers:
+            _dispatch.remove(receiver)
+        raise
     return tuple(receivers)
+
+
+def _check(config: object, exporters: tuple[object, ...]) -> None:
+    if config is not None and not isinstance(config, Config):
+        msg = f"config must be a polars_telemetry.Config, not {type(config).__name__}"
+        raise TypeError(msg)
+    for exporter in exporters:
+        target = exporter.exporter if isinstance(exporter, Redacted) else exporter
+        if not callable(getattr(target, "export", None)):
+            msg = f"an exporter needs an export(query) method; got {target!r}"
+            raise TypeError(msg)
 
 
 def _unwrapped(exporter: Exporter) -> Exporter:

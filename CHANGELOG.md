@@ -36,6 +36,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - When polars-cloud is installed and its observer fails, for instance on an
   expired session, polars-telemetry counted that against itself and stopped
   recording after five queries. It now logs the failure once and carries on.
+- An `install()` that failed part-way, such as on an object without an
+  `export` method in the exporter list, left monitoring on and its hook in
+  place, and a retry then delivered every query several times. Arguments are
+  now checked first, with a `TypeError`, and a failure undoes everything.
 - `uninstall()` left polars' engine affinity on `"streaming"`. It now puts back
   the affinity from before `install()`, engine objects such as `GPUEngine`
   included, unless the application chose another engine in the meantime.

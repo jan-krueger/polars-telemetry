@@ -222,3 +222,46 @@ def test_a_slow_close_does_not_hold_up_another_install():
     finally:
         release.set()
         leaving.join(timeout=10)
+
+
+def _nothing_left_behind() -> None:
+    import os
+    import sys
+
+    assert installed() is None
+    assert "POLARS_QUERY_MONITORING" not in os.environ
+    assert os.environ.get("POLARS_ENGINE_AFFINITY") is None
+    assert "polars_cloud" not in sys.modules
+
+
+@pytest.mark.parametrize("bad", ["not-an-exporter", object()])
+def test_an_invalid_exporter_is_rejected_before_anything_changes(bad):
+    with pytest.raises(TypeError, match="export"):
+        polars_telemetry.install(exporter=[Collect(), bad])
+    _nothing_left_behind()
+
+
+def test_a_failed_install_is_undone_and_a_retry_delivers_once(monkeypatch):
+    import polars_telemetry.activation as activation
+
+    def broken(config: object) -> object:
+        msg = "exporter construction failed"
+        raise RuntimeError(msg)
+
+    monkeypatch.setattr(activation, "_default_exporter", broken)
+    with pytest.raises(RuntimeError, match="construction failed"):
+        polars_telemetry.install()
+    _nothing_left_behind()
+
+    mine = Collect()
+    polars_telemetry.install(exporter=mine)
+    polars.LazyFrame({"a": [1]}).collect()
+    assert len(mine.queries) == 1
+    polars_telemetry.uninstall()
+    _nothing_left_behind()
+
+
+def test_a_config_of_the_wrong_type_is_rejected():
+    with pytest.raises(TypeError, match="Config"):
+        polars_telemetry.install({"node_metrics": False}, exporter=Collect())  # type: ignore[arg-type]
+    _nothing_left_behind()
