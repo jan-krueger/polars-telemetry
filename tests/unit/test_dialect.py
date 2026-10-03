@@ -10,7 +10,7 @@ from uuid import uuid4
 import pytest
 
 from polars_telemetry.adapter.build import build_metrics, build_plan
-from polars_telemetry.adapter.dialect import role_of, unknown_kinds
+from polars_telemetry.adapter.dialect import facets, role_of, unknown_kinds
 from polars_telemetry.model.diagnostics import derive
 from polars_telemetry.model.types import NodeRole, Query
 from tests.fixture_paths import latest_fixture
@@ -151,6 +151,22 @@ def test_downstream_reads_roles_not_kind_names():
 
 
 # --- facets -------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("predicate", "kept"),
+    [
+        (['col("k").dynamic_predicate()'], ()),
+        ('col("k").dynamic_predicate()', ()),
+        ('(col("a") > 1) & col("k").dynamic_predicate()', ('(col("a") > 1)',)),
+        ('col("k").dynamic_predicate() & (col("a") > 1)', ('(col("a") > 1)',)),
+        (['col("a") > 1', 'col("k").dynamic_predicate()'], ('col("a") > 1',)),
+    ],
+)
+def test_a_runtime_threshold_polars_pushes_into_a_scan_is_not_a_user_predicate(predicate, kept):
+    scan = facets(NodeRole.SCAN, {"predicate": predicate})["scan"]
+    assert scan.predicates == kept
+    assert scan.predicate_pushed is bool(kept)
 
 
 def test_a_predicate_reads_the_same_from_either_plan():

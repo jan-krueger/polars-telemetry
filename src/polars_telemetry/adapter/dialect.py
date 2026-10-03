@@ -13,6 +13,7 @@ shows up instead of silently emptying every attribute that depended on it.
 
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING, TypedDict
 
 from polars_telemetry.model.types import (
@@ -161,19 +162,31 @@ def _flag(value: object) -> bool | None:
     return value if isinstance(value, bool) else None
 
 
+# A threshold polars pushes into a scan for TopK or a join at runtime, not a filter of the user's.
+_DYNAMIC = r'\(?col\("(?:[^"\\]|\\.)*"\)\.dynamic_predicate\(\)\)?'
+_DYNAMIC_TERM = re.compile(rf"\s*&\s*{_DYNAMIC}|^{_DYNAMIC}\s*&\s*")
+_DYNAMIC_ONLY = re.compile(rf"\s*{_DYNAMIC}\s*")
+
+
+def _user_predicate(text: str) -> str | None:
+    rest = _DYNAMIC_TERM.sub("", text)
+    return None if _DYNAMIC_ONLY.fullmatch(rest) else rest
+
+
 def _scan(p: Mapping[str, object]) -> ScanFacet:
     predicate = p.get("predicate")
     if isinstance(predicate, list):
-        predicates = tuple(str(item) for item in predicate)
+        written = [str(item) for item in predicate]
     elif predicate is not None:
-        predicates = (str(predicate),)
+        written = [str(predicate)]
     else:
-        predicates = ()
+        written = []
+    predicates = tuple(kept for text in written if (kept := _user_predicate(text)) is not None)
     source = p.get("first_source")
     return ScanFacet(
         source=source if isinstance(source, str) else None,
         predicates=predicates,
-        predicate_pushed=predicate is not None,
+        predicate_pushed=bool(predicates),
         columns_read=_count(p.get("projected_file_columns") or p.get("projection")),
         file_columns=_count(p.get("file_columns")),
         row_groups_skipped=_flag(p.get("predicate_file_skip_applied")),

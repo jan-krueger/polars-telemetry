@@ -26,6 +26,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   out, nodes draw as plain boxes without labels.
 
 ### Fixed
+- `polars.scan.predicate_pushed` and `polars.scan.predicates` no longer count
+  the thresholds polars pushes into a scan for a top-k or, on polars 2, a join
+  (`dynamic_predicate()`) as the user's filter.
 - 30 node kinds polars' streaming engine can emit, among them `StrptimeInfer`,
   `IsFirstDistinct`, `InMemoryJoin`, `SortedGroupBy`, `PythonScan` and the slice
   nodes, were logged as unrecognised and carried no role. They now map onto
