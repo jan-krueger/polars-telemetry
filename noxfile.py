@@ -101,8 +101,20 @@ def bench(session: nox.Session) -> None:
 
 @nox.session(venv_backend="none")
 def audit(session: nox.Session) -> None:
-    """Known vulnerabilities in the locked dependencies."""
+    """Known vulnerabilities in the locked dependencies, Python and the viewer's.
+
+    Kept apart from the test sessions because it needs the network, and a
+    registry hiccup should not fail a test run.
+    """
     session.run("uv", "run", "--with", "pip-audit", "pip-audit", external=True)
+    root = Path.cwd()
+    session.chdir("viewer")
+    try:
+        session.run("npm", "ci", external=True)
+        # Only what ships in the page; build tooling has its own advisories.
+        session.run("npm", "audit", "--omit=dev", external=True)
+    finally:
+        session.chdir(root)
 
 
 # --- build ------------------------------------------------------------------
@@ -122,7 +134,7 @@ def viewer(session: nox.Session) -> None:
 
 @nox.session(venv_backend="none", name="viewer-test")
 def viewer_test(session: nox.Session) -> None:
-    """The viewer's type check, unit tests, CSS collision check and audit."""
+    """The viewer's type check, unit tests and CSS collision check. Offline."""
     root = Path.cwd()
     session.chdir("viewer")
     try:
@@ -130,8 +142,6 @@ def viewer_test(session: nox.Session) -> None:
         session.run("npx", "tsc", "--noEmit", external=True)
         session.run("npx", "vitest", "run", external=True)
         session.run("node", "scripts/check-css.mjs", external=True)
-        # Only what ships in the page; build tooling is audited by its own advisories.
-        session.run("npm", "audit", "--omit=dev", external=True)
     finally:
         session.chdir(root)
 
