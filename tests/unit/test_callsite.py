@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import os
 from uuid import uuid4
 
 import polars
 
-from polars_telemetry._callsite import CallSite, caller
+from polars_telemetry._callsite import _SKIP, CallSite, caller
 from polars_telemetry.export import semconv
 from polars_telemetry.export.attributes import query_attributes
 from polars_telemetry.export.profile import build_profile
@@ -44,6 +45,23 @@ def test_polars_frames_are_skipped():
     assert len(seen) == 1
     assert seen[0] is not None
     assert seen[0].filepath == __file__
+
+
+def test_only_the_two_package_directories_are_skipped():
+    """The parent would be site-packages once installed, skipping every library."""
+    import polars_telemetry
+    from polars_telemetry._callsite import _SKIP
+
+    package = os.path.dirname(polars_telemetry.__file__) + os.sep
+    assert package in _SKIP
+    assert os.path.dirname(os.path.dirname(polars_telemetry.__file__)) + os.sep not in _SKIP
+    assert os.path.dirname(polars.__file__) + os.sep in _SKIP
+
+
+def test_a_package_sharing_a_prefix_is_not_skipped():
+    """`polars_helpers` beside `polars` must not be mistaken for it."""
+    sibling = os.path.dirname(polars.__file__) + "_helpers" + os.sep + "run.py"
+    assert not sibling.startswith(_SKIP)
 
 
 def test_code_without_a_file_is_not_reported():

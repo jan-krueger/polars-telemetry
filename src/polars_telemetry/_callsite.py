@@ -18,8 +18,13 @@ import polars
 if TYPE_CHECKING:
     from types import FrameType
 
-_PACKAGE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-_SKIP: tuple[str, ...] = (os.path.dirname(os.path.abspath(polars.__file__)), _PACKAGE)
+# The two package directories, with a trailing separator so that `polars` does
+# not also skip a `polars_helpers` installed beside it. Taking the parent of
+# this package instead would skip all of site-packages once installed.
+_SKIP: tuple[str, ...] = (
+    os.path.dirname(os.path.abspath(polars.__file__)) + os.sep,
+    os.path.dirname(os.path.abspath(__file__)) + os.sep,
+)
 
 # Code with no file on disk: exec/eval and the REPL use <angle brackets>, and
 # ipykernel writes each cell to the system temp directory under a name that
