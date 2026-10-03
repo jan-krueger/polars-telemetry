@@ -301,6 +301,10 @@ polars_telemetry.install(exporter=FileExporter("profiles/session.jsonl"))`} />
                   <b>{num(profile.cpu_ms, 1)} ms</b> cpu{delta(profile.cpu_ms, compare?.cpu_ms)} ·{" "}
                   <b>{profile.plan.physical.length}</b> nodes ·{" "}
                   <b>{num(profile.result_rows ?? 0)}</b> rows out · polars {profile.polars_version}
+                  {profile.redacted?.length ? (
+                    <span className="masked" title="Masked before export: values here are placeholders">
+                      {" "}· masked: {profile.redacted.join(", ").replace("_", " ")}</span>
+                  ) : null}
                 </div>
                 {profile.failed && (
                   <div className="qfail" role="alert"><b>Failed</b> {profile.failed}</div>

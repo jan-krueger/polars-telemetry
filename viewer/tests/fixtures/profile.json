@@ -15,6 +15,7 @@
   "function": "build_report"
  },
  "failed": null,
+ "redacted": null,
  "diagnostics": {
   "parallel_efficiency": 0.006232550242550243,
   "cpu_count": 12,

@@ -33,6 +33,8 @@ export interface Profile {
   query_id: string;
   /** Set with polars_telemetry.label(); nested labels joined with "/". */
   label: string | null;
+  /** What was masked before export, e.g. ["strings", "numbers"]; null if nothing. */
+  redacted: string[] | null;
   schema: string;
   polars_version: string;
   fingerprint: string;
