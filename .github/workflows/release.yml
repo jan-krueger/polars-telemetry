@@ -17,6 +17,13 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      - name: Check the tag matches the version
+        run: |
+          version=$(python3 -c 'import runpy; print(runpy.run_path("src/polars_telemetry/_version.py")["__version__"])')
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "tag $GITHUB_REF_NAME does not match _version.py ($version)"
+            exit 1
+          fi
       - run: uv build
       - run: uv run --with twine twine check dist/*
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -44,12 +51,32 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-      - name: Install from TestPyPI and import
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: dist
+          path: dist/
+      - name: TestPyPI serves the files we built
         run: |
-          uv venv
-          uv pip install --index-url https://test.pypi.org/simple/ \
-            --extra-index-url https://pypi.org/simple/ polars-telemetry
-          uv run python -c "import polars_telemetry; print(polars_telemetry.__version__)"
+          version="${GITHUB_REF_NAME#v}"
+          for attempt in 1 2 3 4 5 6 7 8 9 10; do
+            curl -sf "https://test.pypi.org/pypi/polars-telemetry/$version/json" > published.json && break
+            sleep 15
+          done
+          python3 - "$version" <<'EOF'
+          import hashlib, json, pathlib, sys
+          published = {f["filename"]: f["digests"]["sha256"] for f in json.load(open("published.json"))["urls"]}
+          built = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in pathlib.Path("dist").iterdir()}
+          print("built:", sorted(built), "\npublished:", sorted(published))
+          sys.exit(0 if built == published else "TestPyPI does not serve the files built for this release")
+          EOF
+      - name: The built wheel installs and imports as this version
+        run: |
+          uv venv --python 3.12
+          uv pip install dist/*.whl
+          uv run --no-project python -c "
+          import sys, polars_telemetry
+          print(polars_telemetry.__version__)
+          sys.exit(polars_telemetry.__version__ != sys.argv[1])" "${GITHUB_REF_NAME#v}"
 
   pypi:
     needs: smoke
