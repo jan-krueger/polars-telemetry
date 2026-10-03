@@ -1,6 +1,6 @@
 import { PROP_LABELS, GLOSSARY } from "../lib/glossary";
 import { visibleCounters } from "../lib/counters";
-import { ROLES, roleOf } from "../lib/polars";
+import { ROLES, chainLines, roleOf } from "../lib/polars";
 import { ms, num } from "../lib/format";
 import Help from "./Help";
 import Code from "./Code";
@@ -8,9 +8,15 @@ import Code from "./Code";
 const looksExpr = (v) => typeof v === "string" && /[()"]/.test(v);
 
 function Expr({ lines }) {
+  // One block per expression, one line per method call; a line still too wide
+  // scrolls with its block rather than wrapping mid-token.
   return (
     <div className="expr code">
-      {lines.map((l, i) => <div key={i}><Code code={String(l)} /></div>)}
+      {lines.map((expr, i) => (
+        <div className="expr-item" key={i}>
+          {chainLines(String(expr)).map((line, j) => <div key={j}><Code code={line} /></div>)}
+        </div>
+      ))}
     </div>
   );
 }

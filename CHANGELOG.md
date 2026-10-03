@@ -88,6 +88,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   attribute and diagnostic that depended on it.
 
 ### Fixed
+- Long expressions in the viewer's details rail are set one method call per
+  line, as they would be written, and a line still too wide scrolls rather than
+  wrapping mid-token. An aggregation used to break inside its alias's string.
 - The viewer's drop zone opens the file picker when clicked; only the header
   button did. The setup snippet beside it is complete — it never imported
   `polars_telemetry` — and highlighted again, with the same highlighter as the

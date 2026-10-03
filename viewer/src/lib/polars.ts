@@ -177,3 +177,42 @@ export function nodeLabel(node: RawNode): string {
   if (role === "function" && typeof p.function === "string") return p.function;
   return "";
 }
+
+/** Expressions this short read better on one line than broken up. */
+const CHAIN_WIDTH = 36;
+
+/**
+ * A polars expression split into one line per method call, the way it would be
+ * written: `col("a").sum().alias("b")` becomes `col("a")`, `  .sum()`,
+ * `  .alias("b")`. Breaks only at a dot that follows a call's closing
+ * parenthesis outside any brackets or string, so namespaces (`.dt.year()`)
+ * and nested expressions stay whole. A line that is still too wide is left
+ * for the reader to scroll, never split mid-token.
+ */
+export function chainLines(expr: string): string[] {
+  if (expr.length <= CHAIN_WIDTH) return [expr];
+  const lines: string[] = [];
+  let line = "";
+  let depth = 0;
+  let quote: string | null = null;
+  for (let i = 0; i < expr.length; i++) {
+    const ch = expr[i]!;
+    if (quote) {
+      line += ch;
+      if (ch === "\\" && i + 1 < expr.length) line += expr[++i];
+      else if (ch === quote) quote = null;
+      continue;
+    }
+    if (ch === '"' || ch === "'") quote = ch;
+    else if (ch === "(" || ch === "[") depth++;
+    else if (ch === ")" || ch === "]") depth = Math.max(0, depth - 1);
+    else if (ch === "." && depth === 0 && line.trimEnd().endsWith(")")) {
+      lines.push(line);
+      line = "  .";
+      continue;
+    }
+    line += ch;
+  }
+  lines.push(line);
+  return lines;
+}

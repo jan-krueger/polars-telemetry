@@ -135,7 +135,8 @@ pre.snip b{color:var(--ink);font-weight:500}
 .field.inline{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .field.inline .lbl{margin:0}
 .expr{background:#15181d;color:#e6edf3;border-radius:5px;padding:7px 9px;
-  font:11px/1.6 ui-monospace,monospace;white-space:pre-wrap;word-break:break-word}
+  font:11px/1.6 ui-monospace,monospace;white-space:pre;overflow-x:auto}
+.expr-item + .expr-item{margin-top:6px;padding-top:6px;border-top:1px solid #2a2f37}
 .chip{font:11px ui-monospace,monospace;border:1px solid var(--border);border-radius:5px;
   padding:3px 8px;color:var(--ink-2);white-space:nowrap}
 .badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;border:1px solid currentColor;

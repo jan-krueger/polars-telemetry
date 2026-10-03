@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { derivedRole, exprColumn, nodeLabel, relationName, roleOf, type RawNode } from "../src/lib/polars";
+import { chainLines, derivedRole, exprColumn, nodeLabel, relationName, roleOf, type RawNode } from "../src/lib/polars";
 
 const profile = JSON.parse(
   readFileSync(new URL("./fixtures/profile.json", import.meta.url), "utf8"),
@@ -80,5 +80,34 @@ describe("the fallback table", () => {
       .filter(([kind, role]) => derivedRole({ kind }) !== role)
       .map(([kind, role]) => `${kind}: viewer ${derivedRole({ kind })}, dialect ${role}`);
     expect(mismatched).toEqual([]);
+  });
+});
+
+describe("chainLines", () => {
+  it("leaves a short expression on one line", () => {
+    expect(chainLines('col("a").sum()')).toEqual(['col("a").sum()']);
+  });
+
+  it("puts each method call of a long chain on its own line", () => {
+    expect(chainLines('col("_POLARS_TMP_2").sum().alias("_POLARS_TMP_3")')).toEqual([
+      'col("_POLARS_TMP_2")', "  .sum()", '  .alias("_POLARS_TMP_3")',
+    ]);
+  });
+
+  it("keeps a namespace with its method", () => {
+    expect(chainLines('col("placed_at").dt.year().alias("year_of_placement")')).toEqual([
+      'col("placed_at")', "  .dt.year()", '  .alias("year_of_placement")',
+    ]);
+  });
+
+  it("never breaks inside a nested expression or a string", () => {
+    const expr = 'col("amount").filter(col("a.b").gt(lit(1)).and(col("c"))).sum()';
+    const lines = chainLines(expr);
+    expect(lines).toEqual(['col("amount")', '  .filter(col("a.b").gt(lit(1)).and(col("c")))', "  .sum()"]);
+  });
+
+  it("loses no characters", () => {
+    const expr = 'col("x").cast(Int64).fill_null(0).alias("a long alias name")';
+    expect(chainLines(expr).map((l) => l.replace(/^  /, "")).join("")).toBe(expr);
   });
 });
