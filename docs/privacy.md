@@ -89,3 +89,5 @@ Exporters left unwrapped follow `config.redaction`.
 - **JSONL**: a file on the machine that ran the query. The viewer reads it in
   the browser and uploads nothing.
 - **Console**: your terminal or wherever standard error is collected.
+- **Viewer links**: a [shared link](profile-viewer.md#sharing-a-query) holds the
+  profiles themselves, readable by anyone it reaches.

@@ -63,3 +63,20 @@ setting carries over to the next query as that share, not as a node count.
 
 When a query ran more than once, pick another run under **compare with…** and
 every figure gains its change in percent.
+
+## Sharing a query
+
+**Copy link** puts the query on screen, and the run it is compared with, into a
+link. The profiles travel inside the link itself, after the `#`, which browsers
+never send to a server: whoever opens it sees the same plans, and still nothing
+is uploaded.
+
+A link opens as a session marked *opened from a link, not stored*. **Keep**
+stores it like a file you opened.
+
+Anyone who has the link can read everything in those profiles, and chat tools
+and browser history keep it. For a profile that was not
+[masked](privacy.md) before export, the viewer asks before copying. A plan too
+large for a link, at over 30,000 characters, is better sent as a file:
+download the session and share that.
+
