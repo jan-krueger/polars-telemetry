@@ -26,6 +26,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   out, nodes draw as plain boxes without labels.
 
 ### Fixed
+- `Redaction(paths=True)` now also masks the library path of an expression
+  plugin, which appears in plan expressions as `/…/lib.so:function()`.
+- The plan fingerprint counts an expression plugin by its library name, not by
+  where it is installed, so the same query fingerprints the same in every
+  environment. **Fingerprints of plans that call a plugin inside an aggregation
+  change once.**
 - `polars.scan.predicate_pushed` and `polars.scan.predicates` no longer count
   the thresholds polars pushes into a scan for a top-k or, on polars 2, a join
   (`dynamic_predicate()`) as the user's filter.
