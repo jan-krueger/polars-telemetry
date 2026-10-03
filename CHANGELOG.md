@@ -4,6 +4,19 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2026-10-03
+
+### Changed
+- Per-node counts are summed per node kind before they are recorded, so the
+  OpenTelemetry and DogStatsD exporters make fewer calls: 20% and 17% less time
+  on a 22-node TPC-H query. Backends see the same totals. Times and ratios
+  still record one value per node.
+
+### Fixed
+- `uninstall()` flushed exporters while holding its lock, so a slow flush, up
+  to 2 s for DogStatsD, held up `install()` and `profile()` in other threads.
+  Exporters are now closed after the lock is released.
+
 ## [0.3.0] - 2026-10-03
 
 ### Added
@@ -313,6 +326,7 @@ All three are removed in 0.4.0.
   and collapsed most nodes onto identical windows. The same counters read once
   at query end are exact and cost nothing measurable.
 
+[0.3.1]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.3.1
 [0.3.0]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.3.0
 [0.2.0]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.2.0
 [0.1.1]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.1.1

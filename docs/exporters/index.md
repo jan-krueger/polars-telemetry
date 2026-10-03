@@ -9,7 +9,7 @@ with the package; [writing your own](custom.md) takes one method.
 | Use it when | monitoring in production | monitoring with Datadog or InfluxDB | investigating a plan, the viewer | debugging locally |
 | Per query | a span, plus per-node metrics | per-node metrics with tags | both plans and every counter | a dozen lines of text |
 | Your data | in span attributes | none | in the file, which stays local | on your terminal |
-| Cost | ~0.1 ms, plus ~9 µs per node and instrument | ~0.1–1.2 ms, buffered | ~0.1–0.4 ms, 2–25 KB | negligible |
+| Cost | ~0.1–2.4 ms, ~9 µs per value | ~0.1–1 ms, buffered | ~0.1–0.4 ms, 2–25 KB | negligible |
 | When it fails | disabled after 5 errors | lost silently over UDP | first error logged, keeps trying | disabled after 5 errors |
 
 With no `exporter` argument, `install()` uses OpenTelemetry.

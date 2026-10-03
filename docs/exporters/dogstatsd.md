@@ -38,7 +38,7 @@ Everything about where the metrics go, such as the host, a Unix socket, a
 
 !!! warning "Turn buffering on"
     With the client's defaults every value is its own packet, which costs
-    about ten times as much: 12 ms instead of 1.2 ms for a 22-node query.
+    about eight times as much: 8 ms instead of 1 ms for a 22-node query.
 
 ### Into InfluxDB through Telegraf
 
@@ -118,7 +118,7 @@ with `tag_names={"fingerprint": None}` if that number is large. Only turn on
 
 ## Cost
 
-About 0.1 ms per query on a small plan and 1.2 ms on a 22-node one, with
+About 0.1 ms per query on a small plan and 1 ms on a 22-node one, with
 buffering and the background sender on. The values are queued on the query's
 thread and sent from the client's own.
 

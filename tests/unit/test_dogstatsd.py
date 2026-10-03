@@ -159,3 +159,36 @@ def test_the_real_client_sends_dogstatsd_lines():
     assert duration.startswith("polars.query.duration:12.0|d|#")
     assert "engine:streaming" in duration
     assert any(line.startswith("polars.node.rows_out:7|c|#") for line in lines)
+
+
+def test_counters_are_summed_per_node_kind_and_histograms_are_not():
+    """A counter only adds, so summing first is invisible to any backend."""
+    fields: dict[str, Any] = {f.name: 0 for f in dataclasses.fields(NodeMetrics)}
+    plan = build_plan(
+        [
+            {"id": 0, "input_ids": [], "properties": {"type": "GroupBy"}},
+            {"id": 1, "input_ids": [0], "properties": {"type": "GroupBy"}},
+            {"id": 2, "input_ids": [1], "properties": {"type": "Filter"}},
+        ]
+    )
+    metrics = {
+        i: NodeMetrics(**{**fields, "node_id": i, "rows_sent": rows, "total_time_ns": 1_000_000})
+        for i, rows in ((0, 10), (1, 5), (2, 7))
+    }
+    query = enrich(
+        Query(query_id=uuid4(), wall_ms=1.0, plan=plan, metrics=metrics, engine="streaming")
+    )
+    client = Recorder()
+    DogStatsdExporter(client).export(query)
+
+    rows = {
+        tuple(sorted(tags)): value
+        for _, name, value, tags in client.sent
+        if name == "polars.node.rows_out"
+    }
+    assert rows == {
+        ("engine:streaming", "node_kind:GroupBy"): 15,
+        ("engine:streaming", "node_kind:Filter"): 7,
+    }
+    cpu = [value for _, name, value, _ in client.sent if name == "polars.node.cpu_time"]
+    assert len(cpu) == 3, "one histogram value per node, never merged"
