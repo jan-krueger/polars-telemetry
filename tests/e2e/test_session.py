@@ -208,6 +208,24 @@ def test_queries_outside_a_label_have_none():
     assert session[0].label is None
 
 
+@pytest.mark.parametrize(
+    ("value", "secret"),
+    [
+        ("C:\\Users\\alice\\", "alice@example.com"),
+        ('O"Brien SSN 123-45-6789', "Brien"),
+        ('"ssn":"123-45-6789"', "ssn"),
+    ],
+)
+def test_literals_with_quotes_or_backslashes_are_masked(value, secret):
+    frame = polars.LazyFrame({"a": ["x"], "b": ["y"]})
+    with profile(Config(redaction=Redaction())) as session:
+        either = (polars.col("a") == value) | (polars.col("b") == "alice@example.com")
+        frame.filter(either).collect()
+    text = json.dumps(session.profiles())
+    assert secret not in text
+    assert "123-45-6789" not in text
+
+
 def test_written_paths_are_masked_with_paths_on(tmp_path):
     target = tmp_path / "alice_private" / "out.parquet"
     target.parent.mkdir()

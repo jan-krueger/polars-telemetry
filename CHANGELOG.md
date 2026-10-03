@@ -15,6 +15,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Fixed
 - `Redaction(paths=True)` left the paths of written files readable: a sink's
   target in both plans. They are masked like scanned paths now.
+- String literals containing a quote or ending in a backslash, such as a
+  Windows path, threw off the masking, and other literals in the same
+  expression stayed readable. polars prints such strings unescaped; they are
+  now delimited by what may follow them.
 - `uninstall()` left polars' engine affinity on `"streaming"`. It now puts back
   the affinity from before `install()`, engine objects such as `GPUEngine`
   included, unless the application chose another engine in the meantime.

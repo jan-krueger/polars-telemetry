@@ -69,11 +69,14 @@ LITERALS = Redaction()
 _END = r"(?!\w)(?!\.\d)"
 _START = r"(?<![\w.])"
 
-# One pass, longest form first, so a date is never read as three numbers and
-# nothing inside a quoted string is read as anything but the string.
+# polars prints string literals raw, without escaping quotes or backslashes,
+# so a literal ends only at a quote that something a literal can precede
+# follows. A literal with no such end runs to the end of the text.
+_STRING_END = re.compile(r'"(?=$|[)\],.]| [&|=!<>+\-*/%])')
+
+# Longest form first, so a date is never read as three numbers.
 _TOKEN = re.compile(
-    r'(?P<str>"(?:[^"\\]|\\.)*")'
-    rf"|(?P<datetime>{_START}\d{{4}}-\d{{2}}-\d{{2}}[ T]\d{{2}}:\d{{2}}(?::\d{{2}}(?:\.\d+)?)?"
+    rf"(?P<datetime>{_START}\d{{4}}-\d{{2}}-\d{{2}}[ T]\d{{2}}:\d{{2}}(?::\d{{2}}(?:\.\d+)?)?"
     rf"(?:Z|[+-]\d{{2}}:?\d{{2}})?{_END})"
     rf"|(?P<date>{_START}\d{{4}}-\d{{2}}-\d{{2}}{_END})"
     rf"|(?P<time>(?<![\w.:])\d{{2}}:\d{{2}}:\d{{2}}(?:\.\d+)?{_END})"
@@ -97,15 +100,29 @@ def redact(text: str, redaction: Redaction = LITERALS) -> str:
 
     def mask(match: re.Match[str]) -> str:
         kind, value = match.lastgroup, match.group(0)
-        if kind == "str":
-            named = _NAME_CONTEXT.search(text[max(0, match.start() - 8) : match.start()])
-            return '"<str>"' if redaction.strings and not named else value
         if kind == "num":
             return "<num>" if redaction.numbers else value
         return f"<{kind}>" if redaction.temporal else value
 
-    masked = _TOKEN.sub(mask, text)
+    parts, last = [], 0
+    for start, end in _quoted(text):
+        parts.append(_TOKEN.sub(mask, text[last:start]))
+        named = _NAME_CONTEXT.search(text[max(0, start - 8) : start])
+        parts.append('"<str>"' if redaction.strings and not named else text[start:end])
+        last = end
+    parts.append(_TOKEN.sub(mask, text[last:]))
+    masked = "".join(parts)
     return redaction.custom(masked) if redaction.custom is not None else masked
+
+
+def _quoted(text: str) -> list[tuple[int, int]]:
+    spans, position = [], 0
+    while (start := text.find('"', position)) != -1:
+        end = _STRING_END.search(text, start + 1)
+        stop = end.end() if end else len(text)
+        spans.append((start, stop))
+        position = stop
+    return spans
 
 
 def _path_text(value: str, redaction: Redaction) -> str:
