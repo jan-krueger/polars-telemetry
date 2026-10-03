@@ -9,6 +9,7 @@
 
 import type { PlanNode, Profile, Session } from "../model/profile";
 import { shapeName } from "../lib/format";
+import type { Route } from "./route";
 
 export interface NodeRef {
   plan: "logical" | "physical";
@@ -44,7 +45,8 @@ export type Action =
   | { type: "comparePicked"; queryId: string | null }
   | { type: "nodePicked"; node: NodeRef }
   | { type: "searched"; text: string }
-  | { type: "sorted"; key: SortKey };
+  | { type: "sorted"; key: SortKey }
+  | { type: "navigated"; route: Route };
 
 export const initialState: ViewerState = {
   booted: false,
@@ -92,6 +94,20 @@ export function reducer(state: ViewerState, action: Action): ViewerState {
       return { ...state, node: action.node };
     case "searched":
       return { ...state, search: action.text };
+    case "navigated": {
+      // A link to a session or query that is not here falls back to what is.
+      const { route } = action;
+      const session = state.sessions.find((s) => s.id === route.sessionId) ?? state.sessions[0] ?? null;
+      const profile = findProfile(session, route.queryId);
+      const node = profile && route.node && findNode(profile, route.node) ? route.node : profile && hottest(profile);
+      return {
+        ...state,
+        ...nothingSelected,
+        sessionId: session?.id ?? null,
+        queryId: profile?.query_id ?? null,
+        node: node || null,
+      };
+    }
     case "sorted": {
       // The same column again flips it; a new one starts where it reads best:
       // names A to Z, numbers largest first.

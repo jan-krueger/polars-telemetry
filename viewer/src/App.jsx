@@ -9,6 +9,7 @@ import { allSessions, dropAll, dropSession, saveSession, storageUnavailable } fr
 import { bytes, diagnostics, ms, num, shapeName } from "./lib/format";
 import { clock, instant, iso, ranBetween, spansDays } from "./lib/time";
 import { readJsonl, readSession, toJsonl } from "./model/read";
+import { fromHash, isNewPage, routeOf, toHash } from "./state/route";
 import {
   compareProfile, currentProfile, currentSession, findNode, initialState, reducer, title,
   visibleShapes,
@@ -31,8 +32,26 @@ export default function App() {
       // Stored raw and read on every load, so a newer reader improves old sessions.
       const stored = (await allSessions()) || [];
       dispatch({ type: "loaded", sessions: stored.map(readSession) });
+      dispatch({ type: "navigated", route: fromHash(location.hash) });
     })();
+    const back = () => dispatch({ type: "navigated", route: fromHash(location.hash) });
+    addEventListener("popstate", back);
+    return () => removeEventListener("popstate", back);
   }, []);
+
+  // The address bar follows what is on screen. A page the address did not
+  // name yet (a fresh load, a fallback) is filled in rather than added to
+  // history, so the back button never lands on a page that moves straight on.
+  useEffect(() => {
+    if (!booted) return;
+    const route = routeOf(state);
+    const shown = fromHash(location.hash);
+    const hash = toHash(route);
+    if (hash === toHash(shown)) return;
+    const url = hash || location.pathname + location.search;
+    if (shown.sessionId && isNewPage(shown, route)) history.pushState(null, "", url);
+    else history.replaceState(null, "", url);
+  }, [booted, state.sessionId, state.queryId, state.node]);
 
   const current = currentSession(state);
   const profiles = current?.profiles ?? [];

@@ -20,6 +20,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   when they were imported.
 - Viewer: the overview sorts by query, runs, total wall or mean CPU; names
   sort as numbers read, so `q2` comes before `q10`.
+- Viewer: the address bar names the session, query and node on screen, so a
+  reload keeps the view and the back button returns to the previous query.
 - `install(exporter=[...])` takes several exporters. Each receives every
   query, and one that keeps raising disables itself without costing the others.
 - Each node in a profile carries its `role`, so a reader can render the plan
