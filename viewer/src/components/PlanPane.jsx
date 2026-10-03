@@ -8,7 +8,7 @@ import Tip from "./Tip";
 const nodeTypes = { plan: PlanNode };
 
 export default function PlanPane({ title, plan, logical, selectedId, onSelect, focus = null, onFocus,
-                                   alone, onAlone, linked, onLink, channel }) {
+                                   alone, onAlone, linked, leads, onLink, channel }) {
   // Layout depends on the plan alone, so selecting a node does not re-run it.
   const positions = useMemo(() => layout(planGraph(plan)), [plan]);
   const steps = useMemo(() => focusSteps(plan), [plan]);
@@ -79,7 +79,7 @@ export default function PlanPane({ title, plan, logical, selectedId, onSelect, f
                    style={{ width: 112, height: 172, border: "1px solid var(--rule-2)", borderRadius: 5 }} />
           <Controls showInteractive={false} />
           <Refit when={alone} />
-          <Follow linked={linked} channel={channel} pane={pane} box={box} size={size} following={following} />
+          <Follow linked={linked} leads={leads} channel={channel} pane={pane} box={box} size={size} following={following} />
         </ReactFlow>
       </div>
     </div>
@@ -120,7 +120,7 @@ function Refit({ when }) {
   return null;
 }
 
-function Follow({ linked, channel, pane, box, size, following }) {
+function Follow({ linked, leads, channel, pane, box, size, following }) {
   const { getViewport, setViewport } = useReactFlow();
   const was = useRef(linked);
   useEffect(() => {
@@ -136,10 +136,11 @@ function Follow({ linked, channel, pane, box, size, following }) {
     });
   }, [linked, channel, pane, box]);
   useEffect(() => {
-    if (linked && !was.current && pane === "physical") {
-      channel.publish({ ...shareView(getViewport(), size(), box), from: pane });
-    }
+    const starting = linked && !was.current && leads;
     was.current = linked;
+    if (!starting) return;
+    const frame = requestAnimationFrame(() => channel.publish({ ...shareView(getViewport(), size(), box), from: pane }));
+    return () => cancelAnimationFrame(frame);
   }, [linked]);
   return null;
 }

@@ -40,7 +40,8 @@ export default function App() {
   const [renaming, setRenaming] = useState(null);
   const [alone, setAlone] = useState(null);
   const toggleAlone = (pane) => setAlone((shown) => (shown === pane ? null : pane));
-  const [linked, setLinked] = useState(false);
+  const [linked, setLinked] = useState(null);
+  const toggleLinked = (pane) => setLinked((leader) => (leader ? null : pane));
   const views = useMemo(() => {
     const listeners = new Set();
     return {
@@ -484,13 +485,13 @@ polars_telemetry.install(exporter=FileExporter("profiles/session.jsonl"))`} />
                 <PlanPane key={`logical-${profile.query_id}`} title="Logical plan"
                           plan={profile.plan.logical} logical
                           alone={alone === "logical"} onAlone={() => toggleAlone("logical")}
-                          linked={linked} onLink={() => setLinked((on) => !on)} channel={views}
+                          linked={!!linked} leads={linked === "logical"} onLink={() => toggleLinked("logical")} channel={views}
                           selectedId={state.node?.plan === "logical" ? state.node.id : null}
                           onSelect={(id) => dispatch({ type: "nodePicked", node: { plan: "logical", id } })} />
                 <PlanPane key={`physical-${profile.query_id}`} title="Physical plan"
                           plan={profile.plan.physical} logical={false}
                           alone={alone === "physical"} onAlone={() => toggleAlone("physical")}
-                          linked={linked} onLink={() => setLinked((on) => !on)} channel={views}
+                          linked={!!linked} leads={linked === "physical"} onLink={() => toggleLinked("physical")} channel={views}
                           focus={state.focus} onFocus={(focus) => dispatch({ type: "focused", focus })}
                           selectedId={state.node?.plan === "physical" ? state.node.id : null}
                           onSelect={(id) => dispatch({ type: "nodePicked", node: { plan: "physical", id } })} />
