@@ -12,6 +12,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   link opens as a temporary session that **Keep** stores. Unmasked profiles ask
   before copying.
 - Viewer: double-click a session's name, or press F2, to rename it.
+- Viewer: edges in the physical plan are drawn thicker the more rows they carry,
+  so where data shrinks or fans out shows at a glance.
+- Viewer: a button in each plan's header shows that plan alone, across the
+  full width.
+- Viewer: a link button in the plans' headers pans and zooms both plans
+  together, at the same zoom and at the same point along each plan.
 
 ### Fixed
 - Viewer: a join's inputs are drawn left to right in the order polars lists

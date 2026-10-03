@@ -15,6 +15,14 @@ import type { PlanNode } from "../model/profile";
 
 export const NODE_W = 196;
 export const NODE_H = 56;
+export const EDGE_MIN = 1;
+export const EDGE_MAX = 6;
+
+/** Stroke width for an edge carrying `rows`, on a log scale up to the plan's busiest edge. */
+export function edgeWidth(rows: number | undefined, busiest: number): number {
+  if (!rows || rows < 1 || busiest < 1) return EDGE_MIN;
+  return EDGE_MIN + ((EDGE_MAX - EDGE_MIN) * Math.log1p(rows)) / Math.log1p(busiest);
+}
 
 export interface Graph {
   nodes: { id: string; width: number; height: number }[];
@@ -52,6 +60,36 @@ export function layout(graph: Graph): Positions {
     positions[n.id] = { x: placed.x - n.width / 2, y: placed.y - n.height / 2 };
   }
   return positions;
+}
+
+export interface Box { x: number; y: number; width: number; height: number }
+export interface Viewport { x: number; y: number; zoom: number }
+/** Where a pane looks, independent of the plan's size: its centre as a fraction of the plan's extent. */
+export interface SharedView { fx: number; fy: number; zoom: number }
+
+/** The area every node of a laid-out plan covers. */
+export function extent(positions: Positions): Box {
+  const placed = Object.values(positions);
+  if (!placed.length) return { x: 0, y: 0, width: 1, height: 1 };
+  const x = Math.min(...placed.map((p) => p.x));
+  const y = Math.min(...placed.map((p) => p.y));
+  return {
+    x, y,
+    width: Math.max(...placed.map((p) => p.x)) + NODE_W - x,
+    height: Math.max(...placed.map((p) => p.y)) + NODE_H - y,
+  };
+}
+
+export function shareView(viewport: Viewport, pane: { width: number; height: number }, plan: Box): SharedView {
+  const cx = (pane.width / 2 - viewport.x) / viewport.zoom;
+  const cy = (pane.height / 2 - viewport.y) / viewport.zoom;
+  return { fx: (cx - plan.x) / plan.width, fy: (cy - plan.y) / plan.height, zoom: viewport.zoom };
+}
+
+export function applyView(view: SharedView, pane: { width: number; height: number }, plan: Box): Viewport {
+  const cx = plan.x + view.fx * plan.width;
+  const cy = plan.y + view.fy * plan.height;
+  return { x: pane.width / 2 - cx * view.zoom, y: pane.height / 2 - cy * view.zoom, zoom: view.zoom };
 }
 
 export interface FlowData extends Record<string, unknown> {
@@ -132,20 +170,28 @@ export function toFlow(
     data: { node: n, share: (cpuMs(n) / total) * 100, logical, label: n.label },
   }));
 
+  const sent = (n: PlanNode | undefined): number | undefined => {
+    const rows = n?.metrics?.rows_sent;
+    return typeof rows === "number" ? rows : undefined;
+  };
+  const busiest = logical ? 0 : Math.max(0, ...plan.map((n) => sent(n) ?? 0));
+
   const edges = plan.flatMap((n) =>
     n.inputs.flatMap((input): Edge[] => {
       const upstream = byId.get(input);
       if (!upstream) return [];
       // The logical plan has no counters, so no row counts to put on edges.
-      const rows = logical ? undefined : upstream.metrics?.rows_sent;
+      const rows = logical ? undefined : sent(upstream);
       return [{
         id: `${input}-${n.id}`,
         // An edge stays lit only between two lit nodes.
         className: faded(upstream) || faded(n) ? "faded" : undefined,
         source: String(input),
         target: String(n.id),
-        label: typeof rows === "number" ? `${formatRows(rows)} rows` : undefined,
-        style: logical ? { stroke: "var(--axis)", strokeDasharray: "4 3" } : { stroke: "var(--axis)" },
+        label: rows === undefined ? undefined : `${formatRows(rows)} rows`,
+        style: logical
+          ? { stroke: "var(--axis)", strokeDasharray: "4 3" }
+          : { stroke: "var(--axis)", strokeWidth: edgeWidth(rows, busiest) },
       }];
     }),
   );

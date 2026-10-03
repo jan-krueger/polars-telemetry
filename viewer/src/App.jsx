@@ -38,6 +38,19 @@ export default function App() {
   const [confirmingClear, setConfirmingClear] = useState(false);
   const [sharing, setSharing] = useState(null);
   const [renaming, setRenaming] = useState(null);
+  const [alone, setAlone] = useState(null);
+  const toggleAlone = (pane) => setAlone((shown) => (shown === pane ? null : pane));
+  const [linked, setLinked] = useState(false);
+  const views = useMemo(() => {
+    const listeners = new Set();
+    return {
+      publish: (view) => listeners.forEach((listener) => listener(view)),
+      subscribe: (listener) => {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+    };
+  }, []);
   const queryList = useRef(null);
 
   useEffect(() => {
@@ -467,13 +480,17 @@ polars_telemetry.install(exporter=FileExporter("profiles/session.jsonl"))`} />
                 </div>
               </div>
 
-              <div className="plans">
+              <div className={alone ? `plans alone-${alone}` : "plans"}>
                 <PlanPane key={`logical-${profile.query_id}`} title="Logical plan"
                           plan={profile.plan.logical} logical
+                          alone={alone === "logical"} onAlone={() => toggleAlone("logical")}
+                          linked={linked} onLink={() => setLinked((on) => !on)} channel={views}
                           selectedId={state.node?.plan === "logical" ? state.node.id : null}
                           onSelect={(id) => dispatch({ type: "nodePicked", node: { plan: "logical", id } })} />
                 <PlanPane key={`physical-${profile.query_id}`} title="Physical plan"
                           plan={profile.plan.physical} logical={false}
+                          alone={alone === "physical"} onAlone={() => toggleAlone("physical")}
+                          linked={linked} onLink={() => setLinked((on) => !on)} channel={views}
                           focus={state.focus} onFocus={(focus) => dispatch({ type: "focused", focus })}
                           selectedId={state.node?.plan === "physical" ? state.node.id : null}
                           onSelect={(id) => dispatch({ type: "nodePicked", node: { plan: "physical", id } })} />
