@@ -50,7 +50,8 @@ class Config:
     def __post_init__(self) -> None:
         if self.redact_literals:
             warnings.warn(
-                "Config.redact_literals is deprecated; use Config(redaction=Redaction()).",
+                "Config.redact_literals is deprecated and will be removed in 0.4.0; "
+                "use Config(redaction=Redaction()).",
                 DeprecationWarning,
                 stacklevel=3,
             )
@@ -59,7 +60,7 @@ class Config:
         if self.resource_attributes:
             warnings.warn(
                 "Config.resource_attributes has never been applied and will be "
-                "removed; set resource attributes on your OpenTelemetry provider.",
+                "removed in 0.4.0; set resource attributes on your OpenTelemetry provider.",
                 DeprecationWarning,
                 stacklevel=3,
             )

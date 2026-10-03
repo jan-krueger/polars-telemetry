@@ -35,10 +35,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   given none, as before.
 
 ### Deprecated
+All three are removed in 0.4.0.
 - `Config(redact_literals=True)`: use `Config(redaction=Redaction())`, which
   it now sets.
 - `FileExporter(redact_literals=True)`: use
   `redacted(FileExporter(...), Redaction())`.
+- `Config.resource_attributes`, deprecated since 0.2.0 and never applied: set
+  resource attributes on your OpenTelemetry provider.
 
 ### Fixed
 - Masking left some literals readable: durations such as `5h`, the mantissa of

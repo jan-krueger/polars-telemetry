@@ -55,8 +55,8 @@ class FileExporter:
     ) -> None:
         if redact_literals:
             warnings.warn(
-                "FileExporter(redact_literals=True) is deprecated; use "
-                "redacted(FileExporter(...), Redaction()).",
+                "FileExporter(redact_literals=True) is deprecated and will be removed "
+                "in 0.4.0; use redacted(FileExporter(...), Redaction()).",
                 DeprecationWarning,
                 stacklevel=2,
             )
