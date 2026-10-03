@@ -16,6 +16,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   detail. `redacted(exporter, None)` sends that exporter everything.
 - Profiles record what was masked in a `redacted` field, and the viewer shows
   it beside the query.
+- `DogStatsdExporter`: the same metrics as OpenTelemetry, with tags, through
+  Datadog's DogStatsD client, for the Datadog Agent or Telegraf. Metric names
+  and tag keys can be renamed or left out, labels sent as a tag, and times
+  sent as histograms for Telegraf. Install with `polars-telemetry[datadog]`.
+- Exporters may have a `close()` method, which `uninstall()` and the process's
+  exit call, so buffered data is sent.
 - Viewer: a focus slider on the physical plan fades all but the most
   expensive nodes, a step at a time, in the plan and the minimap alike. It is
   kept as a share of CPU time, so it carries over between queries.

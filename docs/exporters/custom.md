@@ -56,6 +56,9 @@ there is up to you.
 time is added to the caller's. Hand slow work, such as network calls, to a
 queue or a background thread.
 
+An exporter that holds data, such as a buffer, can add a `close()` method.
+`uninstall()` calls it, and so does the process on exit.
+
 ## When it fails
 
 An exception from `export()` never reaches the query. It is logged once, and

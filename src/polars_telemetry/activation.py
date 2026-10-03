@@ -10,6 +10,7 @@ and `profile()` blocks from any thread, so every change happens under one lock.
 
 from __future__ import annotations
 
+import atexit
 import logging
 import threading
 from collections.abc import Sequence
@@ -93,12 +94,40 @@ def uninstall() -> None:
 
         for receiver in _state.receivers:
             _dispatch.remove(receiver)
+        _close(_state.exporters)
         try:
             pl.Config.enable_monitoring(False)
         finally:
             mod.unbind(_state.binding)
             _state = None
             _scoped_holders = 0
+
+
+def _close(exporters: tuple[Exporter, ...]) -> None:
+    """Let exporters that hold data send it: those with a `close()` method."""
+    for exporter in exporters:
+        target = _unwrapped(exporter)
+        close = getattr(target, "close", None)
+        if close is None:
+            continue
+        try:
+            close()
+        except Exception as exc:
+            _log.warning(
+                "polars-telemetry: closing %s failed (%s: %s).",
+                type(target).__name__,
+                type(exc).__name__,
+                exc,
+            )
+
+
+@atexit.register
+def _close_at_exit() -> None:
+    # Most applications never call uninstall(); what an exporter still holds
+    # would otherwise go down with the process.
+    state = _state
+    if state is not None:
+        _close(state.exporters)
 
 
 def acquire_scoped(config: Config | None) -> bool:
@@ -247,9 +276,14 @@ def _register(exporters: tuple[Exporter, ...], config: Config) -> tuple[_dispatc
     return tuple(receivers)
 
 
+def _unwrapped(exporter: Exporter) -> Exporter:
+    """The exporter itself, without the redaction `redacted()` gave it."""
+    return exporter.exporter if isinstance(exporter, Redacted) else exporter
+
+
 def _redaction_for(exporter: Exporter, config: Config) -> tuple[Exporter, Redaction | None]:
     if isinstance(exporter, Redacted):
-        return exporter.exporter, exporter.redaction
+        return _unwrapped(exporter), exporter.redaction
     # Before 0.3, OTelExporter masked by the config it was given, whatever
     # install() was given; keep that rather than start sending literals.
     own = getattr(exporter, "config", None)

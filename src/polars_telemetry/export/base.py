@@ -13,7 +13,11 @@ if TYPE_CHECKING:
 
 
 class Exporter(Protocol):
-    """Anything with an `export(query)` method can receive queries."""
+    """Anything with an `export(query)` method can receive queries.
+
+    An exporter that holds data, such as a buffer, may also have a `close()`
+    method. `uninstall()` calls it, and so does the process on exit.
+    """
 
     def export(self, query: Query) -> None:
         """Handle one finished query.

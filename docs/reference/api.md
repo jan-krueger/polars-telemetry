@@ -29,6 +29,8 @@ Generated from the docstrings. Everything here is importable from
 
 ::: polars_telemetry.export.otel.OTelExporter
 
+::: polars_telemetry.export.dogstatsd.DogStatsdExporter
+
 ::: polars_telemetry.export.file.FileExporter
 
 ::: polars_telemetry.export.console.ConsoleExporter

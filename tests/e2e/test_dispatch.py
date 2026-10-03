@@ -174,3 +174,19 @@ def test_an_otel_exporter_keeps_masking_by_its_own_config():
     exporter = OTelExporter(Config(redaction=Redaction()))
     assert _redaction_for(exporter, Config()) == (exporter, Redaction())
     assert _redaction_for(redacted(exporter, None), Config()) == (exporter, None)
+
+
+def test_uninstall_closes_exporters_that_hold_data():
+    closed: list[str] = []
+
+    class Holding(Collect):
+        def close(self) -> None:
+            closed.append("plain")
+
+    class AlsoHolding(Collect):
+        def close(self) -> None:
+            closed.append("wrapped")
+
+    polars_telemetry.install(exporter=[Holding(), redacted(AlsoHolding(), None), Collect()])
+    polars_telemetry.uninstall()
+    assert closed == ["plain", "wrapped"]
