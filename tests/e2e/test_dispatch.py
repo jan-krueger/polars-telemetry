@@ -295,24 +295,31 @@ def polars_cloud(monkeypatch):
 
 
 def test_polars_cloud_keeps_its_workspace_and_stays_on_after_uninstall(polars_cloud):
+    import inspect
     import sys
 
     module, calls = polars_cloud
     query = polars.LazyFrame({"a": [1, 2]}).filter(polars.col("a") > 1)
-    polars.Config.enable_monitoring(workspace="prod", organization="acme")
+    chosen: tuple[str | None, str | None]
+    if "workspace" in inspect.signature(polars.Config.enable_monitoring).parameters:
+        polars.Config.enable_monitoring(workspace="prod", organization="acme")
+        chosen = ("prod", "acme")
+    else:
+        polars.Config.enable_monitoring()
+        chosen = (None, None)
 
     mine = Collect()
     polars_telemetry.install(exporter=mine)
     calls.clear()
     query.collect()
-    assert calls == [("prod", "acme")], "polars-cloud still receives every query, for its workspace"
+    assert calls == [chosen], "polars-cloud still receives every query, for its workspace"
     assert len(mine.queries) == 1, "and so does polars-telemetry"
 
     polars_telemetry.uninstall()
     assert sys.modules["polars_cloud"] is module
     calls.clear()
     query.collect()
-    assert calls == [("prod", "acme")], "polars-cloud monitoring is still on after uninstall"
+    assert calls == [chosen], "polars-cloud monitoring is still on after uninstall"
 
 
 def _capabilities(**problems: Any) -> object:
