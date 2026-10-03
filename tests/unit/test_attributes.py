@@ -5,7 +5,6 @@ from __future__ import annotations
 import dataclasses
 import json
 from dataclasses import replace
-from pathlib import Path
 from uuid import uuid4
 
 import pytest
@@ -16,8 +15,9 @@ from polars_telemetry.export.attributes import query_attributes
 from polars_telemetry.model.diagnostics import Diagnostics
 from polars_telemetry.model.redaction import redact, redact_query
 from polars_telemetry.model.types import Query
+from tests.fixture_paths import latest_fixture
 
-FIXTURE = sorted(p for p in (Path(__file__).parents[1] / "fixtures").iterdir() if p.is_dir())[-1]
+FIXTURE = latest_fixture()
 
 
 @pytest.fixture

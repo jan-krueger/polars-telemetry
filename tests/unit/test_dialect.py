@@ -5,7 +5,6 @@ from __future__ import annotations
 import copy
 import json
 from dataclasses import replace
-from pathlib import Path
 from uuid import uuid4
 
 import pytest
@@ -14,8 +13,9 @@ from polars_telemetry.adapter.build import build_metrics, build_plan
 from polars_telemetry.adapter.dialect import role_of, unknown_kinds
 from polars_telemetry.model.diagnostics import derive
 from polars_telemetry.model.types import NodeRole, Query
+from tests.fixture_paths import latest_fixture
 
-FIXTURE = Path(__file__).parents[1] / "fixtures" / "1.44.2"
+FIXTURE = latest_fixture()
 
 
 @pytest.mark.parametrize(

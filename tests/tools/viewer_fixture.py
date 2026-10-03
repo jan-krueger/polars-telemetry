@@ -11,6 +11,8 @@ import sys
 from pathlib import Path
 from uuid import UUID
 
+from packaging.version import Version
+
 from polars_telemetry.adapter.build import build_metrics, build_plan, enrich
 from polars_telemetry.adapter.dialect import _BY_KIND
 from polars_telemetry.export.profile import build_profile
@@ -20,7 +22,10 @@ ROOT = Path(__file__).parents[2]
 
 
 def main() -> None:
-    fixture = sorted(p for p in (ROOT / "tests" / "fixtures").iterdir() if p.is_dir())[-1]
+    fixture = max(
+        (p for p in (ROOT / "tests" / "fixtures").iterdir() if p.is_dir()),
+        key=lambda p: Version(p.name),
+    )
     query = Query(
         # Fixed, so regenerating an unchanged fixture leaves no diff.
         query_id=UUID("01a10000-0000-7000-8000-000000000000"),

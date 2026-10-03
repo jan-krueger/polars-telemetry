@@ -18,10 +18,11 @@ from polars_telemetry.adapter.decode import (
     plan_problems,
 )
 from polars_telemetry.adapter.dialect import unknown_kinds
+from tests.fixture_paths import captures
 
 pytestmark = pytest.mark.contract
 
-FIXTURES = sorted(p for p in (Path(__file__).parents[1] / "fixtures").iterdir() if p.is_dir())
+FIXTURES = captures()
 
 
 def _ids(paths: list[Path]) -> list[str]:

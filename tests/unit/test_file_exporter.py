@@ -11,8 +11,9 @@ import pytest
 from polars_telemetry.adapter.build import build_metrics, build_plan
 from polars_telemetry.export.file import FileExporter
 from polars_telemetry.model.types import Query
+from tests.fixture_paths import latest_fixture
 
-FIXTURE = sorted(p for p in (Path(__file__).parents[1] / "fixtures").iterdir() if p.is_dir())[-1]
+FIXTURE = latest_fixture()
 
 
 def _query() -> Query:

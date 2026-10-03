@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 from dataclasses import replace
-from pathlib import Path
 from uuid import uuid4
 
 import pytest
@@ -13,8 +12,9 @@ from polars_telemetry import _dispatch
 from polars_telemetry.adapter.build import build_plan, enrich
 from polars_telemetry.model.redaction import Redaction, redact, redact_query
 from polars_telemetry.model.types import Query
+from tests.fixture_paths import latest_fixture
 
-FIXTURE = Path(__file__).parents[1] / "fixtures" / "1.44.2"
+FIXTURE = latest_fixture()
 
 
 @pytest.fixture

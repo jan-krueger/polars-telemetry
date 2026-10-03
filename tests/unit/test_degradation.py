@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import copy
 import json
-from pathlib import Path
 from uuid import uuid4
 
 import msgpack
@@ -27,9 +26,10 @@ from polars_telemetry.adapter.hook import QueryObserver
 from polars_telemetry.adapter.recorder import QueryRecorder
 from polars_telemetry.config import Config
 from polars_telemetry.model.types import Query
+from tests.fixture_paths import latest_fixture
 from tests.unit.test_hook import Log
 
-FIXTURE = sorted(p for p in (Path(__file__).parents[1] / "fixtures").iterdir() if p.is_dir())[-1]
+FIXTURE = latest_fixture()
 
 
 @pytest.fixture
