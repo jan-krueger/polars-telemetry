@@ -37,6 +37,12 @@ else:
 Eager `DataFrame` operations are instrumented too, but polars runs them off the
 streaming engine, so they get a query span without per-node counters.
 
+The same goes for a query collected with an explicit engine:
+`collect(engine="in-memory")` overrides the affinity, and polars then gives the
+observer no physical plan and no per-node counters. The span, its wall time and
+the logical plan are still recorded. Leave `engine` unset, or pass
+`"streaming"`, for the per-node view.
+
 ## Configure
 
 ```python

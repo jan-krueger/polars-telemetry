@@ -36,7 +36,8 @@ polars_telemetry.install()
 
 `install()` enables polars' query monitoring, which sets the engine affinity to
 `"streaming"` and therefore changes how your queries execute — so it never
-happens on import. `uninstall()` reverses it.
+happens on import. `uninstall()` turns monitoring off but cannot restore the
+previous affinity; polars exposes no way to read it back.
 
 ## What you get
 
