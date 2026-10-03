@@ -132,7 +132,14 @@ class OTelExporter:
             dims = {semconv.NODE_KIND: node.kind, semconv.ENGINE: "streaming"}
 
             self._histograms[semconv.NODE_CPU_TIME].record(metric.cpu_ms, dims)
+            self._histograms[semconv.NODE_POLL_TIME].record(metric.total_poll_time_ns / 1e6, dims)
             self._histograms[semconv.NODE_MAX_POLL_TIME].record(metric.max_poll_time_ns / 1e6, dims)
+            self._histograms[semconv.NODE_STATE_UPDATE_TIME].record(
+                metric.total_state_update_time_ns / 1e6, dims
+            )
+            self._histograms[semconv.NODE_MAX_STATE_UPDATE_TIME].record(
+                metric.max_state_update_time_ns / 1e6, dims
+            )
             for direction, largest in (
                 ("received", metric.largest_morsel_received),
                 ("sent", metric.largest_morsel_sent),

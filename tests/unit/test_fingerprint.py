@@ -56,3 +56,10 @@ def test_topology_changes_the_shape(plan):
 
 def test_empty_plan_still_hashes():
     assert len(fingerprint({})) == FINGERPRINT_LENGTH
+
+
+def test_the_fingerprint_of_the_captured_plan_is_pinned():
+    """A refactor that moves where structural keys come from must not change
+    the hash: it is a metric dimension, and every series would restart."""
+    ir = Path(__file__).parents[1] / "fixtures" / "1.44.2" / "ir.json"
+    assert fingerprint(build_plan(json.loads(ir.read_text()))) == "94b7e38a9c1e"

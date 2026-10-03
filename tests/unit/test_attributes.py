@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import json
 from pathlib import Path
 from uuid import uuid4
@@ -11,6 +12,7 @@ import pytest
 from polars_telemetry.export import semconv
 from polars_telemetry.export.attributes import query_attributes, redact
 from polars_telemetry.model.build import build_metrics, build_plan
+from polars_telemetry.model.diagnostics import Diagnostics
 from polars_telemetry.model.types import Query
 
 FIXTURE = sorted(p for p in (Path(__file__).parents[1] / "fixtures").iterdir() if p.is_dir())[-1]
@@ -171,3 +173,20 @@ def test_scan_columns_counts_what_was_read_not_the_file_width(query):
         if isinstance(node.properties.get("projected_file_columns"), list)
     )
     assert attrs[semconv.SCAN_COLUMNS] == read
+
+
+@pytest.mark.parametrize(
+    "field",
+    [f.name for f in dataclasses.fields(Diagnostics)],
+)
+def test_every_diagnostic_reaches_the_span(field):
+    """A diagnostic computed but never attached is invisible to every backend."""
+    from polars_telemetry.export.attributes import _add_diagnostics
+
+    empty: dict[str, object] = {}
+    _add_diagnostics(empty, Diagnostics())  # type: ignore[arg-type]
+
+    attrs: dict[str, object] = {}
+    _add_diagnostics(attrs, Diagnostics(**{field: 1}))  # type: ignore[arg-type]
+
+    assert set(attrs) - set(empty), f"Diagnostics.{field} maps to no span attribute"
