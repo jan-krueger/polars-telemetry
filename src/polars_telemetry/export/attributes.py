@@ -163,6 +163,14 @@ def query_attributes(
     groupby_keys: list[str] = []
     scans = joins = groupbys = 0
 
+    # Columns actually read are only on the physical plan: the IR carries
+    # file_columns, which is the width of the file, not of the projection.
+    for node in query.plan.values():
+        if node.kind in _SCAN_KINDS:
+            read = node.properties.get("projected_file_columns")
+            if isinstance(read, list):
+                columns += len(read)
+
     for node in semantic.values():
         props = node.properties
         if node.kind in _SCAN_KINDS:
@@ -178,9 +186,7 @@ def query_attributes(
                 )
             elif predicate is not None:
                 predicates.append(_text(predicate, redact_literals=redact_literals))
-            projected = props.get("projected_file_columns") or props.get("file_columns")
-            if isinstance(projected, list):
-                columns += len(projected)
+
         elif node.kind in _JOIN_KINDS:
             joins += 1
             how = props.get("how")

@@ -81,7 +81,7 @@ the relevant kind.
 | `polars.scan.count` | int | Number of scan nodes |
 | `polars.scan.sources` | str[] | Paths or URIs scanned |
 | `polars.scan.predicates` | str[] | Predicates pushed into the scan |
-| `polars.scan.columns` | int | Columns projected from files |
+| `polars.scan.columns` | int | Columns actually read, summed across scans |
 | `polars.join.count` | int | Number of join nodes |
 | `polars.join.types` | str[] | e.g. `INNER`, `LEFT` |
 | `polars.join.keys` | str[] | Left-hand join keys |

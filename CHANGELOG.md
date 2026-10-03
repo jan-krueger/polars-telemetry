@@ -7,6 +7,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Fixed
+- `polars.projection_efficiency` always reported nothing. The two halves of the
+  ratio live on different plans — the physical scan says how many columns were
+  read, the IR scan how many the file holds — and only one was read, so the
+  diagnostic could never fire.
+- `polars.scan.columns` reported the width of the file rather than the number of
+  columns read, which is the inverse of the signal it names. On a two-column
+  projection of an eight-column parquet it said 8.
+- Plan-derived diagnostics — predicate pushdown, row-group skipping, table
+  statistics and projection — are no longer skipped for nodes without counters,
+  so they survive `Config(node_metrics=False)`.
 - A counter polars *adds* no longer disables node metrics. An unmodelled field
   was treated as a contract break, so the next polars release to add one would
   have degraded every user to query-spans-only on a single startup warning.

@@ -40,9 +40,50 @@ def test_predicate_pushdown_is_detected(query):
 
 
 def test_projection_efficiency_is_a_fraction(query):
-    d = derive(query)
-    if d.projection_efficiency is not None:
-        assert 0 < d.projection_efficiency <= 1
+    """The fixture reads every column, so the ratio is exactly 1."""
+    assert derive(query).projection_efficiency == 1
+
+
+def test_projection_efficiency_spans_both_plans():
+    """Columns read are on the physical scan; the file's width is on the IR.
+
+    Reading either plan alone leaves one half of the ratio missing, which is
+    why this was silently None.
+    """
+    physical = build_plan(
+        [
+            {
+                "id": 0,
+                "input_ids": [],
+                "properties": {"type": "MultiScan", "projected_file_columns": ["a", "b"]},
+            }
+        ]
+    )
+    logical = build_plan(
+        [
+            {
+                "id": 0,
+                "input_ids": [],
+                "properties": {"type": "Scan", "file_columns": ["a", "b", "c", "d"]},
+            }
+        ]
+    )
+    query = Query(query_id=uuid4(), wall_ms=1.0, plan=physical, logical=logical)
+    assert derive(query).projection_efficiency == 0.5
+
+
+def test_projection_efficiency_is_absent_without_an_ir_plan():
+    physical = build_plan(
+        [
+            {
+                "id": 0,
+                "input_ids": [],
+                "properties": {"type": "MultiScan", "projected_file_columns": ["a"]},
+            }
+        ]
+    )
+    query = Query(query_id=uuid4(), wall_ms=1.0, plan=physical)
+    assert derive(query).projection_efficiency is None
 
 
 def test_morsel_skew_is_at_least_one(query):
@@ -74,3 +115,15 @@ def test_query_without_metrics_yields_empty_diagnostics():
     d = derive(empty)
     assert d.parallel_efficiency is None
     assert d.complete is True
+
+
+def test_plan_signals_survive_without_node_metrics(query):
+    """Config(node_metrics=False) must not blank what the plan alone says."""
+    without = Query(
+        query_id=query.query_id, wall_ms=query.wall_ms, plan=query.plan, logical=query.logical
+    )
+    d = derive(without)
+
+    assert d.predicate_pushed is True
+    assert d.projection_efficiency == 1
+    assert d.parallel_efficiency is None, "metric-derived signals are still absent"

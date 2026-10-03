@@ -68,6 +68,7 @@ def derive(query: Query) -> Diagnostics:
     )
 
     selectivity = dropped = amplification = projection = skew = None
+    columns_read = 0
     pushed = skipped = stats = None
     incomplete = 0
 
@@ -88,27 +89,42 @@ def derive(query: Query) -> Diagnostics:
                 ratio = metric.rows_sent / probe.rows_sent
                 amplification = ratio if amplification is None else max(amplification, ratio)
 
-        if node.kind in SCAN_KINDS:
-            props = node.properties
-            read = props.get("projected_file_columns") or props.get("projection")
-            available = props.get("file_columns")
-            if isinstance(read, list) and isinstance(available, list) and available:
-                projection = len(read) / len(available)
-            # Collapsed across scans with "any" semantics: one pushed-down
-            # predicate is worth reporting even if another scan has none.
-            pushed = bool(pushed) or props.get("predicate") is not None
-            skip = props.get("predicate_file_skip_applied")
-            if isinstance(skip, bool):
-                skipped = bool(skipped) or skip
-            table_stats = props.get("has_table_statistics")
-            if isinstance(table_stats, bool):
-                stats = bool(stats) or table_stats
-
         if metric.morsels_received and metric.rows_received:
             mean = metric.rows_received / metric.morsels_received
             if mean:
                 ratio = metric.largest_morsel_received / mean
                 skew = ratio if skew is None else max(skew, ratio)
+
+    # Read from the plan alone, so these survive Config(node_metrics=False) and
+    # any scan whose counters are missing.
+    for node in query.plan.values():
+        if node.kind not in SCAN_KINDS:
+            continue
+        props = node.properties
+        read = props.get("projected_file_columns") or props.get("projection")
+        if isinstance(read, list):
+            columns_read += len(read)
+        # Collapsed across scans with "any" semantics: one pushed-down
+        # predicate is worth reporting even if another scan has none.
+        pushed = bool(pushed) or props.get("predicate") is not None
+        skip = props.get("predicate_file_skip_applied")
+        if isinstance(skip, bool):
+            skipped = bool(skipped) or skip
+        table_stats = props.get("has_table_statistics")
+        if isinstance(table_stats, bool):
+            stats = bool(stats) or table_stats
+
+    # The two halves of the ratio live on different plans: the physical scan
+    # reports what was read, the IR scan what the file holds.
+    columns_available = 0
+    for node in query.logical.values():
+        if node.kind not in SCAN_KINDS:
+            continue
+        available = node.properties.get("file_columns")
+        if isinstance(available, list):
+            columns_available += len(available)
+    if columns_available and columns_read:
+        projection = columns_read / columns_available
 
     return Diagnostics(
         parallel_efficiency=parallel,

@@ -156,3 +156,18 @@ def test_attribute_values_are_otlp_legal(query):
             assert types.pop() in scalars, f"{key}: non-scalar sequence"
         else:
             assert isinstance(value, scalars), f"{key}: {type(value).__name__}"
+
+
+def test_scan_columns_counts_what_was_read_not_the_file_width(query):
+    """projected_file_columns is on the physical plan; the IR has file_columns.
+
+    Reading the IR reports the width of the file, which is the inverse of the
+    signal this attribute is for.
+    """
+    attrs = query_attributes(query)
+    read = sum(
+        len(node.properties["projected_file_columns"])
+        for node in query.plan.values()
+        if isinstance(node.properties.get("projected_file_columns"), list)
+    )
+    assert attrs[semconv.SCAN_COLUMNS] == read
