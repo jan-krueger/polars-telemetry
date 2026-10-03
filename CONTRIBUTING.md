@@ -62,6 +62,15 @@ declared attribute is missing from `docs/attributes.md`.
 build output and is not committed — the `docs-build` session builds the viewer
 first, so a docs build never ships a stale one.
 
+`uv run nox -s viewer-test` runs its unit tests and a check that no bare CSS
+selector is shared between components — the shape of a bug that silently
+restyled an element once. CI runs it on Node 20.15, the oldest supported, since
+Vite 7+ and vitest 4+ both need 20.19 and the pins exist for that reason.
+
+`uv run nox -s viewer-fixture` regenerates `viewer/tests/fixtures/profile.json`
+from the captured polars payloads, so the viewer's contract test cannot drift
+from what the exporter writes.
+
 It is not versioned or published to an index. It deploys with the docs site
 whenever `docs/`, `viewer/` or `mkdocs.yml` change on `main`.
 

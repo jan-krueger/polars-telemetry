@@ -1,0 +1,638 @@
+{
+ "schema": "polars-telemetry/profile@1",
+ "polars_version": "1.44.2",
+ "polars_telemetry_version": "0.1.1",
+ "query_id": "17150fb1-2512-4664-ba66-6328cb392b6b",
+ "fingerprint": "94b7e38a9c1e",
+ "started_unix_ns": 1759478400000000000,
+ "wall_ms": 48.1,
+ "cpu_ms": 3.5974,
+ "result_rows": 2,
+ "call_site": {
+  "filepath": "/srv/app/pipeline.py",
+  "lineno": 142,
+  "function": "build_report"
+ },
+ "failed": null,
+ "diagnostics": {
+  "parallel_efficiency": 0.006232550242550243,
+  "cpu_count": 12,
+  "join_amplification": 1.0,
+  "projection_efficiency": 1.0,
+  "morsel_skew": 1.7899945024738866,
+  "predicate_pushed": true,
+  "has_table_statistics": false,
+  "incomplete_nodes": 0
+ },
+ "plan": {
+  "physical": [
+   {
+    "id": 4294967307,
+    "kind": "InMemorySink",
+    "inputs": [
+     4294967306
+    ],
+    "properties": {
+     "type": "InMemorySink"
+    },
+    "metrics": {
+     "total_time_ns": 13248,
+     "total_polls": 26,
+     "total_stolen_polls": 12,
+     "total_poll_time_ns": 12159,
+     "max_poll_time_ns": 2317,
+     "total_state_updates": 8,
+     "total_state_update_time_ns": 1089,
+     "max_state_update_time_ns": 324,
+     "rows_received": 2,
+     "rows_sent": 0,
+     "morsels_received": 2,
+     "morsels_sent": 0,
+     "largest_morsel_received": 1,
+     "largest_morsel_sent": 0,
+     "io_total_active_ns": 0,
+     "io_total_bytes_requested": 0,
+     "io_total_bytes_received": 0,
+     "io_total_bytes_sent": 0,
+     "done": true
+    }
+   },
+   {
+    "id": 4294967306,
+    "kind": "Sort",
+    "inputs": [
+     4294967305
+    ],
+    "properties": {
+     "limit": null,
+     "maintain_order": false,
+     "multithreaded": true,
+     "slice": null,
+     "sort_columns": [
+      {
+       "descending": false,
+       "expr": "col(\"segment\")",
+       "nulls_last": false
+      }
+     ],
+     "type": "Sort"
+    },
+    "metrics": {
+     "total_time_ns": 222329,
+     "total_polls": 65,
+     "total_stolen_polls": 36,
+     "total_poll_time_ns": 57575,
+     "max_poll_time_ns": 3459,
+     "total_state_updates": 9,
+     "total_state_update_time_ns": 164754,
+     "max_state_update_time_ns": 162461,
+     "rows_received": 2,
+     "rows_sent": 2,
+     "morsels_received": 3,
+     "morsels_sent": 2,
+     "largest_morsel_received": 1,
+     "largest_morsel_sent": 1,
+     "io_total_active_ns": 0,
+     "io_total_bytes_requested": 0,
+     "io_total_bytes_received": 0,
+     "io_total_bytes_sent": 0,
+     "done": true
+    }
+   },
+   {
+    "id": 4294967305,
+    "kind": "SimpleProjection",
+    "inputs": [
+     4294967304
+    ],
+    "properties": {
+     "columns": [
+      "_POLARS_TMP_1",
+      "_POLARS_TMP_3",
+      "_POLARS_TMP_5"
+     ],
+     "type": "SimpleProjection"
+    },
+    "metrics": {
+     "total_time_ns": 41051,
+     "total_polls": 51,
+     "total_stolen_polls": 24,
+     "total_poll_time_ns": 40356,
+     "max_poll_time_ns": 16984,
+     "total_state_updates": 9,
+     "total_state_update_time_ns": 695,
+     "max_state_update_time_ns": 135,
+     "rows_received": 2,
+     "rows_sent": 2,
+     "morsels_received": 3,
+     "morsels_sent": 3,
+     "largest_morsel_received": 1,
+     "largest_morsel_sent": 1,
+     "io_total_active_ns": 0,
+     "io_total_bytes_requested": 0,
+     "io_total_bytes_received": 0,
+     "io_total_bytes_sent": 0,
+     "done": true
+    }
+   },
+   {
+    "id": 4294967304,
+    "kind": "GroupBy",
+    "inputs": [
+     4294967303
+    ],
+    "properties": {
+     "aggs_per_input": [
+      [
+       "col(\"_POLARS_TMP_2\").sum().alias(\"_POLARS_TMP_3\")",
+       "col(\"_POLARS_TMP_4\").count().alias(\"_POLARS_TMP_5\")"
+      ]
+     ],
+     "key_per_input": [
+      [
+       "col(\"_POLARS_TMP_1\")"
+      ]
+     ],
+     "num_inputs": 1,
+     "type": "GroupBy"
+    },
+    "metrics": {
+     "total_time_ns": 1596399,
+     "total_polls": 84,
+     "total_stolen_polls": 48,
+     "total_poll_time_ns": 1248973,
+     "max_poll_time_ns": 139688,
+     "total_state_updates": 9,
+     "total_state_update_time_ns": 347426,
+     "max_state_update_time_ns": 344583,
+     "rows_received": 1769,
+     "rows_sent": 2,
+     "morsels_received": 12,
+     "morsels_sent": 3,
+     "largest_morsel_received": 148,
+     "largest_morsel_sent": 1,
+     "io_total_active_ns": 0,
+     "io_total_bytes_requested": 0,
+     "io_total_bytes_received": 0,
+     "io_total_bytes_sent": 0,
+     "done": true
+    }
+   },
+   {
+    "id": 4294967303,
+    "kind": "SimpleProjection",
+    "inputs": [
+     4294967302
+    ],
+    "properties": {
+     "columns": [
+      "segment",
+      "revenue",
+      "order_id"
+     ],
+     "type": "SimpleProjection"
+    },
+    "metrics": {
+     "total_time_ns": 41275,
+     "total_polls": 29,
+     "total_stolen_polls": 12,
+     "total_poll_time_ns": 40726,
+     "max_poll_time_ns": 7105,
+     "total_state_updates": 9,
+     "total_state_update_time_ns": 549,
+     "max_state_update_time_ns": 112,
+     "rows_received": 1769,
+     "rows_sent": 1769,
+     "morsels_received": 12,
+     "morsels_sent": 12,
+     "largest_morsel_received": 148,
+     "largest_morsel_sent": 148,
+     "io_total_active_ns": 0,
+     "io_total_bytes_requested": 0,
+     "io_total_bytes_received": 0,
+     "io_total_bytes_sent": 0,
+     "done": true
+    }
+   },
+   {
+    "id": 4294967302,
+    "kind": "SimpleProjection",
+    "inputs": [
+     4294967301
+    ],
+    "properties": {
+     "columns": [
+      "segment",
+      "revenue",
+      "order_id"
+     ],
+     "type": "SimpleProjection"
+    },
+    "metrics": {
+     "total_time_ns": 36381,
+     "total_polls": 29,
+     "total_stolen_polls": 12,
+     "total_poll_time_ns": 35886,
+     "max_poll_time_ns": 6580,
+     "total_state_updates": 9,
+     "total_state_update_time_ns": 495,
+     "max_state_update_time_ns": 118,
+     "rows_received": 1769,
+     "rows_sent": 1769,
+     "morsels_received": 12,
+     "morsels_sent": 12,
+     "largest_morsel_received": 148,
+     "largest_morsel_sent": 148,
+     "io_total_active_ns": 0,
+     "io_total_bytes_requested": 0,
+     "io_total_bytes_received": 0,
+     "io_total_bytes_sent": 0,
+     "done": true
+    }
+   },
+   {
+    "id": 4294967301,
+    "kind": "Select",
+    "inputs": [
+     4294967300
+    ],
+    "properties": {
+     "extend_original": true,
+     "selectors": [
+      "(col(\"amount\") * col(\"qty\").cast(Float64)).alias(\"revenue\")"
+     ],
+     "type": "Select"
+    },
+    "metrics": {
+     "total_time_ns": 195436,
+     "total_polls": 29,
+     "total_stolen_polls": 13,
+     "total_poll_time_ns": 194494,
+     "max_poll_time_ns": 51887,
+     "total_state_updates": 9,
+     "total_state_update_time_ns": 942,
+     "max_state_update_time_ns": 183,
+     "rows_received": 1769,
+     "rows_sent": 1769,
+     "morsels_received": 12,
+     "morsels_sent": 12,
+     "largest_morsel_received": 148,
+     "largest_morsel_sent": 148,
+     "io_total_active_ns": 0,
+     "io_total_bytes_requested": 0,
+     "io_total_bytes_received": 0,
+     "io_total_bytes_sent": 0,
+     "done": true
+    }
+   },
+   {
+    "id": 4294967300,
+    "kind": "SimpleProjection",
+    "inputs": [
+     4294967299
+    ],
+    "properties": {
+     "columns": [
+      "order_id",
+      "amount",
+      "qty",
+      "segment"
+     ],
+     "type": "SimpleProjection"
+    },
+    "metrics": {
+     "total_time_ns": 45905,
+     "total_polls": 34,
+     "total_stolen_polls": 24,
+     "total_poll_time_ns": 45074,
+     "max_poll_time_ns": 11387,
+     "total_state_updates": 9,
+     "total_state_update_time_ns": 831,
+     "max_state_update_time_ns": 319,
+     "rows_received": 1769,
+     "rows_sent": 1769,
+     "morsels_received": 12,
+     "morsels_sent": 12,
+     "largest_morsel_received": 148,
+     "largest_morsel_sent": 148,
+     "io_total_active_ns": 0,
+     "io_total_bytes_requested": 0,
+     "io_total_bytes_received": 0,
+     "io_total_bytes_sent": 0,
+     "done": true
+    }
+   },
+   {
+    "id": 4294967299,
+    "kind": "EquiJoin",
+    "inputs": [
+     4294967297,
+     4294967298
+    ],
+    "properties": {
+     "coalesce": "JoinSpecific",
+     "how": "INNER",
+     "left_on": [
+      "col(\"customer_id\")"
+     ],
+     "maintain_order": "none",
+     "nulls_equal": false,
+     "right_on": [
+      "col(\"customer_id\")"
+     ],
+     "suffix": "_right",
+     "type": "EquiJoin",
+     "validation": "ManyToMany"
+    },
+    "metrics": {
+     "total_time_ns": 1089477,
+     "total_polls": 60,
+     "total_stolen_polls": 17,
+     "total_poll_time_ns": 46219,
+     "max_poll_time_ns": 19722,
+     "total_state_updates": 11,
+     "total_state_update_time_ns": 1043258,
+     "max_state_update_time_ns": 954079,
+     "rows_received": 1819,
+     "rows_sent": 1769,
+     "morsels_received": 22,
+     "morsels_sent": 12,
+     "largest_morsel_received": 148,
+     "largest_morsel_sent": 148,
+     "io_total_active_ns": 0,
+     "io_total_bytes_requested": 0,
+     "io_total_bytes_received": 0,
+     "io_total_bytes_sent": 0,
+     "done": true
+    }
+   },
+   {
+    "id": 4294967297,
+    "kind": "MultiScan",
+    "inputs": [],
+    "properties": {
+     "deletion_files_type": null,
+     "first_source": "orders.parquet",
+     "has_table_statistics": false,
+     "hive_columns": null,
+     "include_file_paths": null,
+     "num_sources": 1,
+     "pre_slice": null,
+     "predicate": "col(\"amount\") > 10.0",
+     "predicate_file_skip_applied": null,
+     "projected_file_columns": [
+      "order_id",
+      "customer_id",
+      "amount",
+      "qty"
+     ],
+     "row_index_name": null,
+     "row_index_offset": null,
+     "scan_type": "parquet",
+     "type": "MultiScan"
+    },
+    "metrics": {
+     "total_time_ns": 146751,
+     "total_polls": 5,
+     "total_stolen_polls": 4,
+     "total_poll_time_ns": 7215,
+     "max_poll_time_ns": 3355,
+     "total_state_updates": 7,
+     "total_state_update_time_ns": 139536,
+     "max_state_update_time_ns": 81191,
+     "rows_received": 0,
+     "rows_sent": 1769,
+     "morsels_received": 0,
+     "morsels_sent": 12,
+     "largest_morsel_received": 0,
+     "largest_morsel_sent": 148,
+     "io_total_active_ns": 0,
+     "io_total_bytes_requested": 0,
+     "io_total_bytes_received": 0,
+     "io_total_bytes_sent": 0,
+     "done": true
+    }
+   },
+   {
+    "id": 4294967298,
+    "kind": "MultiScan",
+    "inputs": [],
+    "properties": {
+     "deletion_files_type": null,
+     "first_source": "customers.parquet",
+     "has_table_statistics": false,
+     "hive_columns": null,
+     "include_file_paths": null,
+     "num_sources": 1,
+     "pre_slice": null,
+     "predicate": null,
+     "predicate_file_skip_applied": null,
+     "projected_file_columns": [
+      "customer_id",
+      "segment"
+     ],
+     "row_index_name": null,
+     "row_index_offset": null,
+     "scan_type": "parquet",
+     "type": "MultiScan"
+    },
+    "metrics": {
+     "total_time_ns": 169176,
+     "total_polls": 3,
+     "total_stolen_polls": 2,
+     "total_poll_time_ns": 43269,
+     "max_poll_time_ns": 40207,
+     "total_state_updates": 7,
+     "total_state_update_time_ns": 125907,
+     "max_state_update_time_ns": 99001,
+     "rows_received": 0,
+     "rows_sent": 50,
+     "morsels_received": 0,
+     "morsels_sent": 10,
+     "largest_morsel_received": 0,
+     "largest_morsel_sent": 5,
+     "io_total_active_ns": 0,
+     "io_total_bytes_requested": 0,
+     "io_total_bytes_received": 0,
+     "io_total_bytes_sent": 0,
+     "done": true
+    }
+   }
+  ],
+  "logical": [
+   {
+    "id": 11,
+    "kind": "Sink",
+    "inputs": [
+     6
+    ],
+    "properties": {
+     "dest": "Memory",
+     "type": "Sink"
+    }
+   },
+   {
+    "id": 6,
+    "kind": "Sort",
+    "inputs": [
+     5
+    ],
+    "properties": {
+     "limit": null,
+     "maintain_order": false,
+     "slice": null,
+     "sort_columns": [
+      {
+       "descending": false,
+       "expr": "col(\"segment\")",
+       "nulls_last": false
+      }
+     ],
+     "type": "Sort"
+    }
+   },
+   {
+    "id": 5,
+    "kind": "GroupBy",
+    "inputs": [
+     8
+    ],
+    "properties": {
+     "aggs": [
+      "col(\"revenue\").sum()",
+      "col(\"order_id\").count()"
+     ],
+     "keys": [
+      "col(\"segment\")"
+     ],
+     "maintain_order": false,
+     "slice": null,
+     "type": "GroupBy"
+    }
+   },
+   {
+    "id": 8,
+    "kind": "SimpleProjection",
+    "inputs": [
+     4
+    ],
+    "properties": {
+     "columns": [
+      "segment",
+      "revenue",
+      "order_id"
+     ],
+     "type": "SimpleProjection"
+    }
+   },
+   {
+    "id": 4,
+    "kind": "HStack",
+    "inputs": [
+     9
+    ],
+    "properties": {
+     "exprs": [
+      "(col(\"amount\") * col(\"qty\").cast(Float64)).alias(\"revenue\")"
+     ],
+     "should_broadcast": true,
+     "type": "HStack"
+    }
+   },
+   {
+    "id": 9,
+    "kind": "SimpleProjection",
+    "inputs": [
+     3
+    ],
+    "properties": {
+     "columns": [
+      "order_id",
+      "amount",
+      "qty",
+      "segment"
+     ],
+     "type": "SimpleProjection"
+    }
+   },
+   {
+    "id": 3,
+    "kind": "Join",
+    "inputs": [
+     1,
+     2
+    ],
+    "properties": {
+     "coalesce": "JoinSpecific",
+     "how": "INNER",
+     "left_on": [
+      "col(\"customer_id\")"
+     ],
+     "maintain_order": "none",
+     "nulls_equal": false,
+     "right_on": [
+      "col(\"customer_id\")"
+     ],
+     "slice": null,
+     "suffix": "_right",
+     "type": "Join",
+     "validation": "ManyToMany"
+    }
+   },
+   {
+    "id": 1,
+    "kind": "Scan",
+    "inputs": [],
+    "properties": {
+     "column_mapping_type": null,
+     "file_columns": [
+      "order_id",
+      "customer_id",
+      "amount",
+      "qty"
+     ],
+     "first_source": "orders.parquet",
+     "has_table_statistics": false,
+     "hive_columns": null,
+     "include_file_paths": null,
+     "num_sources": 1,
+     "pre_slice": null,
+     "predicate": [
+      "col(\"amount\") > 10.0"
+     ],
+     "predicate_file_skip_applied": null,
+     "projection": null,
+     "row_index_name": null,
+     "row_index_offset": null,
+     "scan_type": "Parquet",
+     "type": "Scan"
+    }
+   },
+   {
+    "id": 2,
+    "kind": "Scan",
+    "inputs": [],
+    "properties": {
+     "column_mapping_type": null,
+     "file_columns": [
+      "customer_id",
+      "segment"
+     ],
+     "first_source": "customers.parquet",
+     "has_table_statistics": false,
+     "hive_columns": null,
+     "include_file_paths": null,
+     "num_sources": 1,
+     "pre_slice": null,
+     "predicate": null,
+     "predicate_file_skip_applied": null,
+     "projection": null,
+     "row_index_name": null,
+     "row_index_offset": null,
+     "scan_type": "Parquet",
+     "type": "Scan"
+    }
+   }
+  ]
+ }
+}

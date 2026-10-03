@@ -2,7 +2,7 @@ import { PROP_LABELS, GLOSSARY, icon } from "../lib/glossary";
 import { ms, num } from "../lib/format";
 import Help from "./Help";
 
-const COUNTERS = [
+export const COUNTERS = [
   ["Rows in", "rows_received", "rows"], ["Rows out", "rows_sent", "rows"],
   ["Morsels received", "morsels_received"], ["Morsels sent", "morsels_sent"],
   ["Largest morsel received", "largest_morsel_received", "rows"],
@@ -16,6 +16,7 @@ const COUNTERS = [
   ["IO active time", "io_total_active_ns", "ns"],
   ["IO bytes received", "io_total_bytes_received", "bytes"],
   ["IO bytes requested", "io_total_bytes_requested", "bytes"],
+  ["IO bytes sent", "io_total_bytes_sent", "bytes"],
 ];
 
 const looksExpr = (v) => typeof v === "string" && /[()"]/.test(v);

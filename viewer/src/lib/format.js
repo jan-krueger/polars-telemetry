@@ -40,10 +40,18 @@ export function diagnostics(p) {
     push("morsel_skew", "Morsel skew", num(d.morsel_skew, 2), "×",
       d.morsel_skew <= 2 ? "good" : d.morsel_skew <= 4 ? "warn" : "crit",
       d.morsel_skew <= 2 ? "partitions even" : "largest morsel above the mean");
+  if (d.projection_efficiency !== undefined)
+    push("projection_efficiency", "Projection", num(d.projection_efficiency * 100, 0), "%",
+      d.projection_efficiency <= 0.5 ? "good" : d.projection_efficiency < 1 ? "warn" : "info",
+      d.projection_efficiency >= 1 ? "every column read" : "unread columns never decoded");
   if (d.predicate_pushed !== undefined)
     push("predicate_pushed", "Predicate pushdown", d.predicate_pushed ? "yes" : "no", "",
       d.predicate_pushed ? "good" : "warn",
       d.predicate_pushed ? "filter inside the scan" : "every row read");
+  if (d.has_table_statistics !== undefined)
+    push("has_table_statistics", "Table statistics", d.has_table_statistics ? "yes" : "no", "",
+      d.has_table_statistics ? "good" : "info",
+      d.has_table_statistics ? "available for pruning" : "none to prune with");
   if (d.incomplete_nodes)
     push("done", "Counters incomplete", d.incomplete_nodes, " nodes", "warn",
       "figures are a floor, not a total");
@@ -51,15 +59,44 @@ export function diagnostics(p) {
 }
 
 /** A profile line per JSON object; a truncated last line is expected. */
+export const SCHEMA_PREFIX = "polars-telemetry/profile@";
+export const SUPPORTED_SCHEMAS = new Set([1]);
+
+/** A profile only renders if these hold; a bad one must be rejected at import
+ *  rather than persisted and then thrown from render. */
+export function profileProblem(d) {
+  if (typeof d !== "object" || d === null) return "not an object";
+  const schema = String(d.schema || "");
+  if (!schema.startsWith(SCHEMA_PREFIX)) return "not a polars-telemetry profile";
+  const version = Number(schema.slice(SCHEMA_PREFIX.length));
+  if (!SUPPORTED_SCHEMAS.has(version)) return `schema ${schema} needs a newer viewer`;
+  const plan = d.plan;
+  if (typeof plan !== "object" || plan === null) return "no plan";
+  for (const side of ["physical", "logical"]) {
+    const nodes = plan[side];
+    if (!Array.isArray(nodes)) return `plan.${side} is not an array`;
+    for (const n of nodes) {
+      if (typeof n !== "object" || n === null) return `plan.${side} has a non-node entry`;
+      if (!Number.isFinite(n.id)) return `plan.${side} has a node without an id`;
+      if (!Array.isArray(n.inputs)) return `plan.${side} node ${n.id} has no inputs`;
+    }
+  }
+  return null;
+}
+
+/** Profiles, plus a reason for every line that is not one. */
 export function parseJsonl(text) {
-  const out = [];
+  const profiles = [];
+  const rejected = [];
   for (const line of text.split("\n")) {
     const t = line.trim();
     if (!t) continue;
-    try {
-      const d = JSON.parse(t);
-      if (String(d.schema || "").startsWith("polars-telemetry/profile")) out.push(d);
-    } catch { /* skip */ }
+    let d;
+    try { d = JSON.parse(t); } catch { rejected.push("not valid JSON"); continue; }
+    const problem = profileProblem(d);
+    if (problem) rejected.push(problem);
+    else profiles.push(d);
   }
-  return out;
+  profiles.rejected = rejected;
+  return profiles;
 }

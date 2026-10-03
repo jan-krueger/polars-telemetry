@@ -14,7 +14,7 @@ export default function PlanNode({ data, selected }) {
     : { background: `var(--sq${b})`, color: `var(--sq${b}-ink)`, borderColor: "transparent" };
 
   return (
-    <div className={`pnode${logical ? " logical" : ""}${selected ? " sel" : ""}`}
+    <div className={`pnode${logical ? " logical" : ""}${selected ? " pnode--sel" : ""}`}
          style={{ ...style, position: "relative" }}>
       <Handle type="target" position={Position.Bottom} />
       <div className="t1"><span>{icon(node.kind)}</span>{node.kind}</div>

@@ -98,7 +98,7 @@ pre.snip b{color:var(--ink);font-weight:500}
 .chipd b{font-variant-numeric:tabular-nums;font-weight:600}
 .chipd .lb{color:var(--muted)}
 .dot{width:7px;height:7px;border-radius:50%;flex:none}
-.sel{background:var(--surface-2);border:1px solid var(--border);border-radius:6px;
+.picker{background:var(--surface-2);border:1px solid var(--border);border-radius:6px;
   padding:4px 8px;font-size:12px;max-width:100%}
 
 .plans{display:grid;grid-template-columns:1fr 1fr;gap:12px;flex:1;min-height:420px}
@@ -115,7 +115,7 @@ pre.snip b{color:var(--ink);font-weight:500}
 .pnode{width:196px;height:56px;border-radius:6px;padding:6px 9px;overflow:hidden;
   border:1px solid var(--border);cursor:pointer}
 .pnode.logical{background:var(--surface);border-color:var(--rule-2)}
-.pnode.sel{outline:2px solid var(--accent);outline-offset:1px}
+.pnode--sel{outline:2px solid var(--accent);outline-offset:1px}
 .pnode .t1{font:600 11px ui-monospace,monospace;display:flex;align-items:center;gap:5px}
 .pnode .t2{font:9.5px system-ui;opacity:.76;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pnode .t3{font:9.5px system-ui;opacity:.92;font-variant-numeric:tabular-nums}
@@ -172,3 +172,6 @@ pre.snip b{color:var(--ink);font-weight:500}
 .react-flow__handle{opacity:0}
 .react-flow__attribution{background:transparent;font-size:9px}
 .react-flow__attribution a{color:var(--muted)}
+.crash{max-width:640px;margin:48px auto;padding:0 16px}
+.crash pre{background:var(--surface-2);border:1px solid var(--border);border-radius:6px;
+  padding:10px;overflow-x:auto;font:11.5px ui-monospace,SFMono-Regular,Menlo,monospace}

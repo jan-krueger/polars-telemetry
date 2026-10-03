@@ -39,15 +39,27 @@ export default function App() {
 
   const importFiles = useCallback(async (files) => {
     const added = [];
+    const rejected = [];
     for (const f of files) {
-      const parsed = parseJsonl(await f.text());
-      if (!parsed.length) continue;
+      let parsed;
+      try {
+        parsed = parseJsonl(await f.text());
+      } catch (e) {
+        rejected.push(`${f.name}: ${e.message}`);
+        continue;
+      }
+      // Only ever store what renders: a bad profile written to IndexedDB and
+      // then thrown from render leaves no way back.
+      if (!parsed.length) {
+        rejected.push(`${f.name}: ${parsed.rejected?.[0] || "no profiles found"}`);
+        continue;
+      }
       const s = { id: crypto.randomUUID(), name: f.name, importedAt: Date.now(),
                   bytes: f.size, profiles: parsed };
       await saveSession(s);
       added.push(s);
     }
-    if (!added.length) { alert("No polars-telemetry profiles found."); return; }
+    if (!added.length) { alert(rejected.join("\n") || "No polars-telemetry profiles found."); return; }
     setSessions((prev) => [...added, ...prev]);
     setCurrentId(added[0].id); setSel(null); setSelNode(null); setCompareWith(null);
   }, []);
@@ -207,7 +219,7 @@ polars_telemetry.install(exporter=FileExporter("profiles/session.jsonl"))`}</pre
                     </span>
                   )}
                   {profiles.some((q, i) => q.fingerprint === profile.fingerprint && i !== sel) && (
-                    <select className="sel" style={{ marginLeft: "auto" }}
+                    <select className="picker" style={{ marginLeft: "auto" }}
                             value={compareWith ?? ""}
                             onChange={(e) => setCompareWith(e.target.value === "" ? null : Number(e.target.value))}>
                       <option value="">compare with…</option>

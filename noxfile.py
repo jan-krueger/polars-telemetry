@@ -120,6 +120,19 @@ def viewer(session: nox.Session) -> None:
         session.chdir(root)
 
 
+@nox.session(venv_backend="none", name="viewer-test")
+def viewer_test(session: nox.Session) -> None:
+    """The viewer's unit tests and its CSS collision check."""
+    root = Path.cwd()
+    session.chdir("viewer")
+    try:
+        session.run("npm", "ci", external=True)
+        session.run("npx", "vitest", "run", external=True)
+        session.run("node", "scripts/check-css.mjs", external=True)
+    finally:
+        session.chdir(root)
+
+
 @nox.session(venv_backend="none")
 def docs(session: nox.Session) -> None:
     """Serve the documentation locally."""
@@ -132,6 +145,12 @@ def docs_build(session: nox.Session) -> None:
     """Build the documentation the way CI does."""
     viewer(session)
     session.run("uv", "run", "--group", "docs", "mkdocs", "build", "--strict", external=True)
+
+
+@nox.session(venv_backend="none", name="viewer-fixture")
+def viewer_fixture(session: nox.Session) -> None:
+    """Regenerate the viewer's fixture from the captured polars payloads."""
+    session.run("python", "tests/tools/viewer_fixture.py")
 
 
 @nox.session(venv_backend="none")

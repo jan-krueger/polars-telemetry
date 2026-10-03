@@ -7,6 +7,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Fixed
+- The viewer rejects a malformed profile at import instead of storing it and
+  then throwing from render — which blanked the page permanently, since the bad
+  session was already in browser storage and the control to clear it was inside
+  the component that crashed. An error boundary offers a way back regardless.
+- The viewer honours the profile schema version instead of prefix-matching it,
+  so a file from a newer release says so rather than loading and blanking.
+- `io_total_bytes_sent` is shown, and `projection_efficiency` and
+  `has_table_statistics` render as chips. All three were written by the
+  exporter and silently never displayed.
 - Documentation corrected against the code: eight metric units were wrong
   (`rows` for `{row}`, `bytes` for `By`, and so on, which decides the series
   name an OTLP-to-Prometheus translator produces), `call_site` was missing from
