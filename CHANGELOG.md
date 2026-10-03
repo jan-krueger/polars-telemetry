@@ -7,6 +7,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- polars 2 is supported. It needed no changes: the observer hook, both plans
+  and the counters arrive as on 1.44, and every test passes against it.
 - Viewer: **Copy link** shares the query on screen, and the run it is compared
   with, as a link that carries the profiles itself, so nothing is uploaded. A
   link opens as a temporary session that **Keep** stores. Unmasked profiles ask

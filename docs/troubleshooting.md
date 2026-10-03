@@ -50,10 +50,12 @@ monitoring is enabled. See [Polars Cloud](polars-cloud.md).
 
 ## Queries run differently after `install()`
 
-Enabling monitoring sets polars' engine affinity to `"streaming"`, the only
-engine that reports per-node counters. `uninstall()` puts the previous affinity
-back, unless you chose another engine while it was installed. Pass `engine=`
-to `collect()` where a single query must run on a specific engine.
+On polars 1.44, enabling monitoring sets the engine affinity to `"streaming"`,
+the only engine that reports per-node counters. `uninstall()` puts the previous
+affinity back, unless you chose another engine while it was installed. Pass
+`engine=` to `collect()` where a single query must run on a specific engine.
+polars 2 runs lazy queries on the streaming engine by default, so there
+`install()` changes nothing.
 
 ## The viewer forgets my sessions
 

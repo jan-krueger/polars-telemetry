@@ -32,7 +32,8 @@ installed.
 ## Scope a block of code
 
 `profile()` collects the queries a block of code runs, without setting up an
-exporter for the whole process. Useful in a test, a notebook cell, or around
+exporter for the whole process. polars 2 removed `LazyFrame.profile()`; this
+covers the same ground, for every query a block runs, on either version. Useful in a test, a notebook cell, or around
 one function you suspect:
 
 ```python

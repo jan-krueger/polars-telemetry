@@ -17,7 +17,7 @@ from polars_telemetry.adapter.decode import (
 from polars_telemetry.adapter.hook import ObserverFactory
 
 # The tested window, quoted in messages. Versions outside it are probed, not refused.
-SUPPORTED = ">=1.44.1,<1.45"
+SUPPORTED = ">=1.44.1,<3"
 
 _log = logging.getLogger("polars_telemetry")
 

@@ -1,6 +1,6 @@
 """MessagePack payload decoding and contract checks.
 
-Payload shapes (polars 1.44.x):
+Payload shapes (polars 1.44.x and 2.x, which agree):
   IR plan, physical plan: [{id, input_ids, properties}]
   metrics snapshot:       [{phys_node_key, ...19 counters}]
 
