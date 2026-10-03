@@ -19,6 +19,8 @@ export const NODE_H = 56;
 export interface Graph {
   nodes: { id: string; width: number; height: number }[];
   edges: [source: string, target: string][];
+  /** Pairs to draw left of each other, as a node lists its inputs. */
+  order: [left: string, right: string][];
 }
 
 export type Positions = Record<string, { x: number; y: number }>;
@@ -26,11 +28,11 @@ export type Positions = Record<string, { x: number; y: number }>;
 /** The plan's nodes, and an edge for every input that exists in it. */
 export function planGraph(plan: PlanNode[]): Graph {
   const ids = new Set(plan.map((n) => String(n.id)));
+  const inputs = plan.map((n) => [...new Set(n.inputs.map(String).filter((i) => ids.has(i)))]);
   return {
     nodes: plan.map((n) => ({ id: String(n.id), width: NODE_W, height: NODE_H })),
-    edges: plan.flatMap((n) =>
-      n.inputs.filter((i) => ids.has(String(i))).map((i): [string, string] => [String(i), String(n.id)]),
-    ),
+    edges: plan.flatMap((n, k) => inputs[k]!.map((i): [string, string] => [i, String(n.id)])),
+    order: inputs.flatMap((ins) => ins.slice(1).map((right, k): [string, string] => [ins[k]!, right])),
   };
 }
 
@@ -42,7 +44,7 @@ export function layout(graph: Graph): Positions {
   g.setDefaultEdgeLabel(() => ({}));
   for (const n of graph.nodes) g.setNode(n.id, { width: n.width, height: n.height });
   for (const [source, target] of graph.edges) g.setEdge(source, target);
-  dagre.layout(g);
+  dagre.layout(g, { constraints: graph.order.map(([left, right]) => ({ left, right })) });
 
   const positions: Positions = {};
   for (const n of graph.nodes) {

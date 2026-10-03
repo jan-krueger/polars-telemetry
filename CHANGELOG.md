@@ -13,6 +13,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   before copying.
 - Viewer: double-click a session's name, or press F2, to rename it.
 
+### Fixed
+- Viewer: a join's inputs are drawn left to right in the order polars lists
+  them, so the logical and physical plans are laid out alike instead of as
+  mirror images.
+
 ## [0.4.0] - 2026-10-03
 
 ### Added

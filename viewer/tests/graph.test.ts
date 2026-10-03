@@ -52,6 +52,26 @@ describe("layout", () => {
     expect(Object.keys(layout(graph)).sort()).toEqual(graph.nodes.map((n) => n.id).sort());
   });
 
+  it("draws a node's inputs left to right in the order it lists them, in both plans", () => {
+    const examples = readFileSync(new URL("../../examples/tpch-sf1.jsonl", import.meta.url), "utf8")
+      .split("\n").filter(Boolean).map((line) => JSON.parse(line));
+    const reversed: string[] = [];
+    for (const document of examples) {
+      for (const side of ["logical", "physical"] as const) {
+        const plan: PlanNode[] = document.plan[side];
+        const parents = new Map<number, number>();
+        for (const n of plan) for (const i of new Set(n.inputs)) parents.set(i, (parents.get(i) ?? 0) + 1);
+        const positions = layout(planGraph(plan));
+        for (const n of plan) {
+          const [left, right] = n.inputs;
+          if (n.inputs.length !== 2 || left === right || [left, right].some((i) => parents.get(i!)! > 1)) continue;
+          if (positions[left!]!.x > positions[right!]!.x) reversed.push(`${document.label} ${side} ${n.kind}`);
+        }
+      }
+    }
+    expect(reversed).toEqual([]);
+  });
+
   it("puts sinks above the sources they read from", () => {
     const positions = layout(planGraph(physical));
     const sink = physical.find((n) => n.role === "sink")!;
