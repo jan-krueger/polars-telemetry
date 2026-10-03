@@ -11,17 +11,36 @@ a freshly compromised release cannot be pulled in by a routine sync.
 
 ## Tasks
 
+Every task is a nox session, and CI calls the same ones — so there is a single
+definition of what "lint" means. nox is in the dev group, so there is nothing
+extra to install.
+
 ```bash
-just test        # the suite
-just lint        # ruff check + format --check
-just typecheck   # mypy, strict
-just viewer      # build the profile viewer into docs/viewer
-just docs        # serve the documentation locally
-just docs-build  # build it the way CI does
-just matrix      # python x polars grid
-just canary      # live contract against the newest polars
-just dev         # collector, Jaeger, Prometheus, Grafana + a sample workload
-just urls        # where to look
+uv run nox -l              # list sessions
+uv run nox                 # lint, typecheck and the suite
+
+uv run nox -s test         # the suite
+uv run nox -s lint         # ruff check + format --check
+uv run nox -s typecheck    # mypy, strict
+uv run nox -s viewer       # build the profile viewer into docs/viewer
+uv run nox -s docs         # serve the documentation locally
+uv run nox -s docs-build   # build it the way CI does
+uv run nox -s matrix       # python x polars grid
+uv run nox -s canary       # live contract against the newest polars
+uv run nox -s dev          # the stack + a sample workload through it
+uv run nox -s up / down    # just the stack
+```
+
+Sessions declared `venv_backend="none"` run in the environment nox was started
+from, which is why they are invoked through `uv run`. Only `matrix`, `canary`
+and `bench` build their own environments, because they need a specific polars
+or a quiet machine.
+
+Arguments pass through after `--`:
+
+```bash
+uv run nox -s test -- -k fingerprint -x
+uv run nox -s capture -- 1.44.2
 ```
 
 ## Tests
@@ -40,8 +59,8 @@ declared attribute is missing from `docs/attributes.md`.
 ## The viewer
 
 `viewer/` is a Vite + React app built to a single HTML file. `docs/viewer/` is
-build output and is not committed — `just docs-build` and CI run `npm ci && npm
-run build` first, so a docs build never ships a stale viewer.
+build output and is not committed — the `docs-build` session builds the viewer
+first, so a docs build never ships a stale one.
 
 It is not versioned or published to an index. It deploys with the docs site
 whenever `docs/`, `viewer/` or `mkdocs.yml` change on `main`.

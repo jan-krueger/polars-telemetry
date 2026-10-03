@@ -33,7 +33,7 @@ def captured(request: pytest.FixtureRequest) -> Path:
 
 
 def test_at_least_one_fixture_version_exists() -> None:
-    assert FIXTURES, "no captured fixtures; run `just capture <version>`"
+    assert FIXTURES, "no captured fixtures; run `nox -s capture -- <version>`"
 
 
 @pytest.mark.parametrize("plan", ["ir", "physical"])

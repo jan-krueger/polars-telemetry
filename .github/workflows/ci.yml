@@ -25,8 +25,7 @@ jobs:
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           enable-cache: true
-      - run: uv run ruff check --output-format=github .
-      - run: uv run ruff format --check .
+      - run: uv run nox -s lint
 
   typecheck:
     runs-on: ubuntu-latest
@@ -35,7 +34,7 @@ jobs:
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           enable-cache: true
-      - run: uv run mypy
+      - run: uv run nox -s typecheck
 
   test:
     runs-on: ubuntu-latest
@@ -56,7 +55,7 @@ jobs:
           python-version: ${{ matrix.python }}
       - run: uv sync --locked
       - run: uv pip install "polars==${{ matrix.polars }}"
-      - run: uv run pytest -m "not integration and not bench" --cov --cov-report=xml
+      - run: uv run nox -s test -- --cov --cov-report=xml
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: matrix.python == '3.12'
         with:
@@ -72,7 +71,7 @@ jobs:
           enable-cache: true
       - run: docker compose -f docker/compose.yaml up -d --wait
       - run: uv sync --locked
-      - run: uv run pytest -m integration
+      - run: uv run nox -s integration
         env:
           OTEL_EXPORTER_OTLP_ENDPOINT: http://localhost:4317
       - if: always()
@@ -89,15 +88,11 @@ jobs:
           cache-dependency-path: viewer/package-lock.json
       # The profile viewer is a React Flow app; the docs site ships its build
       # output, which is generated rather than committed.
-      - run: npm ci
-        working-directory: viewer
-      - run: npm run build
-        working-directory: viewer
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           enable-cache: true
       # --strict turns broken links and nav errors into failures.
-      - run: uv run --group docs mkdocs build --strict
+      - run: uv run nox -s docs-build
 
   audit:
     runs-on: ubuntu-latest
@@ -105,7 +100,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
       - run: uv sync --locked
-      - run: uv run --with pip-audit pip-audit
+      - run: uv run nox -s audit
       - uses: google/osv-scanner-action/osv-scanner-action@a345acffa64b0eaede81a3d9aae6141214d9c8fc # v2.6.0
         with:
           scan-args: --lockfile=uv.lock
