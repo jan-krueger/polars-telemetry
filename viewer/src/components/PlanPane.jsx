@@ -33,7 +33,10 @@ export default function PlanPane({ title, plan, logical, selectedId, onSelect, f
           minZoom={0.05}
           nodesDraggable={false}
           nodesConnectable={false}
-          onNodeClick={(_, n) => onSelect(Number(n.id))}
+          onNodesChange={(changes) => {
+            const picked = changes.find((c) => c.type === "select" && c.selected);
+            if (picked) onSelect(Number(picked.id));
+          }}
         >
           <Background variant="dots" gap={16} size={1} color="var(--axis)" />
           <MiniMap pannable zoomable nodeClassName={(n) => n.className ?? ""}

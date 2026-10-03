@@ -57,7 +57,7 @@ export default function NodeDetails({ node, compareNode }) {
       <div className="card">
         <div className="hd">
           <Tip content={<TipText term={info.name} note={`polars: ${node.kind}`} />}>
-            <span className="nm-wrap">
+            <span className="nm-wrap" tabIndex={0}>
               {info.symbol ? <span className={`ra${info.muted ? " ra--muted" : ""}`}>{info.symbol}</span> : null}
               <span className="nm">{node.kind}</span>
             </span>
