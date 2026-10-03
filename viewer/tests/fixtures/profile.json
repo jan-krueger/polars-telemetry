@@ -17,8 +17,8 @@
  "failed": null,
  "redacted": null,
  "diagnostics": {
-  "parallel_efficiency": 0.006232550242550243,
-  "cpu_count": 12,
+  "parallel_efficiency": 0.009348825363825364,
+  "cpu_count": 8,
   "join_amplification": 1.0,
   "projection_efficiency": 1.0,
   "morsel_skew": 1.7899945024738866,
