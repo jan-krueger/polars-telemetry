@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { focusSteps, layout, NODE_H, NODE_W, planGraph, stepFor, toFlow } from "../src/lib/graph";
+import { applyView, EDGE_MAX, EDGE_MIN, edgeWidth, extent, focusSteps, shareView, layout, NODE_H, NODE_W, planGraph, stepFor, toFlow } from "../src/lib/graph";
 import { readProfile } from "../src/model/read";
 import type { PlanNode } from "../src/model/profile";
 
@@ -37,6 +37,27 @@ describe("toFlow", () => {
   it("labels physical edges with row counts and logical ones not at all", () => {
     expect(flow(physical, false).edges.some((e) => typeof e.label === "string" && e.label.endsWith("rows"))).toBe(true);
     expect(flow(logical, true).edges.every((e) => e.label === undefined)).toBe(true);
+  });
+
+  it("draws edges that carry more rows thicker, on a log scale", () => {
+    expect(edgeWidth(1_000_000, 1_000_000)).toBe(EDGE_MAX);
+    expect(edgeWidth(0, 1_000_000)).toBe(EDGE_MIN);
+    expect(edgeWidth(undefined, 1_000_000)).toBe(EDGE_MIN);
+    expect(edgeWidth(1_000, 1_000_000)).toBeCloseTo((EDGE_MIN + EDGE_MAX) / 2, 1);
+    const widths = flow(physical, false).edges.map((e) => Number(e.style?.strokeWidth));
+    expect(Math.max(...widths)).toBe(EDGE_MAX);
+    expect(flow(logical, true).edges.every((e) => e.style?.strokeWidth === undefined)).toBe(true);
+  });
+
+  it("links two panes by zoom and by how far along each plan they look", () => {
+    const pane = { width: 500, height: 700 };
+    const short = extent(layout(planGraph(logical)));
+    const tall = { ...short, height: short.height * 2 };
+    const seen = shareView({ x: -120, y: -300, zoom: 0.8 }, pane, short);
+    const followed = applyView(seen, pane, tall);
+    expect(followed.zoom).toBe(0.8);
+    expect(shareView(followed, pane, tall)).toEqual(expect.objectContaining({ fx: expect.closeTo(seen.fx), fy: expect.closeTo(seen.fy) }));
+    expect(applyView(seen, pane, short)).toEqual({ x: expect.closeTo(-120), y: expect.closeTo(-300), zoom: 0.8 });
   });
 
   it("marks only the selected node", () => {
