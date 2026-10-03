@@ -52,7 +52,10 @@ back to the trace for the same query.
 ## The viewer
 
 [Open the viewer](viewer/index.html). It starts empty: drag one or more
-`.jsonl` files onto the page, or use **Open .jsonl**.
+`.jsonl` files onto the page, or use **Open .jsonl**. The repository's
+[`examples/`](https://github.com/jan-krueger/polars-telemetry/tree/main/examples)
+holds TPC-H sessions to try it with: the 22 queries at scale factor 1 and 10,
+three runs each, labelled `tpch/q1` to `tpch/q22`.
 
 **Nothing is uploaded.** The page does no network I/O; files are read in the
 browser.
