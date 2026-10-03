@@ -65,7 +65,16 @@ COUNTERS: Final[tuple[tuple[str, str, str], ...]] = (
 
 
 class OTelExporter:
-    """A query span, plus per-node metric instruments."""
+    """One span per query and per-node metrics, through OpenTelemetry.
+
+    Uses the global tracer and meter providers, so the application's
+    OpenTelemetry SDK decides where they go. Without an SDK installed, both are
+    no-ops and nothing is sent.
+
+    Args:
+        config: Shared with `install()`; `include_plan` and `redact_literals`
+            apply here.
+    """
 
     __slots__ = ("_config", "_counters", "_histograms", "_meter", "_tracer")
 

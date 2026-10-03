@@ -9,6 +9,13 @@ if TYPE_CHECKING:
 
 
 class Exporter(Protocol):
-    """Receives a completed query. Must not raise."""
+    """Anything with an `export(query)` method can receive queries."""
 
-    def export(self, query: Query) -> None: ...
+    def export(self, query: Query) -> None:
+        """Handle one finished query.
+
+        Called on the thread that ran the query, once per query, after it has
+        finished, so the time spent here is added to the caller's. An exception
+        is logged and counted; after five, this exporter stops receiving
+        queries and the others carry on.
+        """

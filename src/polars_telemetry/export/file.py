@@ -30,16 +30,15 @@ queries before the first rotation."""
 
 
 class FileExporter:
-    """Append profiles to a `.jsonl` file, bounded by size.
+    """Append one profile per query to a `.jsonl` file the viewer can open.
 
-    One previous generation is kept alongside as `<name>.1`, so the bound on
-    disk is roughly twice ``max_bytes``. A long-running process writes profiles
-    indefinitely without unbounded growth.
-
-    The bound is honoured between records, not within one: a profile is never
-    split or dropped, so the active file can exceed ``max_bytes`` by up to the
-    size of a single record. Records run to a few tens of kilobytes on a large
-    plan, which is why the default is measured in megabytes.
+    Args:
+        path: The session file. Its directory is created if missing.
+        max_bytes: When the file would grow past this, it moves to
+            `<name>.1`, replacing the previous one, and a new file starts. At
+            most about twice this is on disk. A profile is never split, so a
+            file can run over by one record.
+        redact_literals: Mask literal values in the plans written.
     """
 
     __slots__ = ("_errors", "_lock", "_max_bytes", "_path", "_redact")
@@ -63,6 +62,7 @@ class FileExporter:
 
     @property
     def path(self) -> Path:
+        """The file being written."""
         return self._path
 
     def export(self, query: Query) -> None:

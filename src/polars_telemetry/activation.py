@@ -33,7 +33,7 @@ SUPPORTED_MESSAGE = f"polars {SUPPORTED}"
 
 @dataclass(frozen=True, slots=True)
 class Installation:
-    """What install() put in place, so uninstall() can take it back out."""
+    """What `install()` put in place."""
 
     binding: mod.Binding
     config: Config
@@ -58,24 +58,30 @@ def install(
     config: Config | None = None,
     exporter: Exporter | Sequence[Exporter] | None = None,
 ) -> Installation | None:
-    """Activate instrumentation for this process. Idempotent.
+    """Instrument every polars query this process runs.
 
-    `exporter` may be one exporter or several; with none, queries go to
-    OpenTelemetry. Activation is explicit because enabling monitoring sets
-    polars' engine affinity to "streaming". An unsupported polars degrades with
-    a warning.
+    Args:
+        config: What to record. Defaults to `Config()`.
+        exporter: Where queries go: one exporter or several. Defaults to
+            `OTelExporter`.
 
-    Returns None when the installed polars cannot be instrumented at all.
+    Returns:
+        What was installed, including what the probe found about this polars;
+        None when this polars cannot be instrumented at all.
+
+    Enabling polars' monitoring sets its engine affinity to `"streaming"`, so
+    this changes how queries execute and never happens on import. Calling it
+    again while installed logs a warning and changes nothing.
     """
     with _lock:
         return _install(config, _as_tuple(exporter), scoped=False)
 
 
 def uninstall() -> None:
-    """Deactivate and restore any wrapped factory.
+    """Stop instrumenting, and hand queries back to Polars Cloud if it was there.
 
-    Engine affinity is not restored; polars exposes no way to read the
-    previous value.
+    The engine affinity stays `"streaming"`; polars exposes no way to read the
+    previous value back.
     """
     global _state, _scoped_holders
     with _lock:

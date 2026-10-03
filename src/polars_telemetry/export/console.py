@@ -21,7 +21,11 @@ def _ms(value: float) -> str:
 
 
 class ConsoleExporter:
-    """Prints one summary block per query."""
+    """Print a short summary of each query: totals, call site, slowest nodes.
+
+    Args:
+        stream: Where to write. Defaults to standard error.
+    """
 
     __slots__ = ("_stream",)
 

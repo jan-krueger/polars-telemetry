@@ -23,7 +23,10 @@ if TYPE_CHECKING:
 
 
 class Session:
-    """The queries that ran inside a :func:`profile` block, in order."""
+    """The queries that ran inside a `profile()` block, in the order they finished.
+
+    Iterate it, index it or take its `len()` like a list of `Query`.
+    """
 
     __slots__ = ("queries",)
 
@@ -50,12 +53,21 @@ class Session:
         return sum(query.wall_ms for query in self.queries)
 
     def profiles(self) -> list[dict[str, Any]]:
-        """The full profile document for each query. Already redacted on
-        arrival if the block asked for it."""
+        """Each query as a profile document, the format the viewer reads.
+
+        Literals are already masked if the block's config asked for it.
+        """
         return [build_profile(query) for query in self.queries]
 
     def write(self, path: str | Path) -> Path:
-        """Write a session file the profile viewer can open."""
+        """Write the queries to a `.jsonl` file the viewer can open.
+
+        Args:
+            path: Where to write. An existing file is replaced.
+
+        Returns:
+            The path written.
+        """
         target = Path(path)
         target.parent.mkdir(parents=True, exist_ok=True)
         with target.open("w", encoding="utf-8") as handle:
@@ -72,12 +84,14 @@ def profile(config: Config | None = None) -> Iterator[Session]:
     ...     frame.collect()
     >>> session.slowest.call_site
 
-    Composes with an existing installation rather than replacing it: queries
-    still reach whatever exporter is already configured, and blocks may nest.
-    Instrumentation is installed for the duration only if it was not already.
+    Args:
+        config: Used only when nothing is installed yet; an existing
+            installation keeps its own.
 
-    The scope is the process, not the thread: a block collects every query that
-    completes while it is open, including ones other threads ran.
+    Queries still reach any exporters already installed, and blocks may nest.
+    If nothing was installed, instrumentation is installed for the block and
+    removed after it. A block collects every query that finishes while it is
+    open, including ones other threads ran.
     """
     held = acquire_scoped(config)
     current = installed()

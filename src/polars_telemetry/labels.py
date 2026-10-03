@@ -1,8 +1,8 @@
 """Naming the queries a block of code runs, so they can be found again.
 
 A label is set by the application and read back when a query starts; nothing
-of polars is involved. Nested labels join into a path, so ``label("etl")``
-around ``label("customers")`` names its queries ``etl/customers``.
+of polars is involved. Nested labels join into a path, so `label("etl")`
+around `label("customers")` names its queries `etl/customers`.
 """
 
 from __future__ import annotations
@@ -26,11 +26,18 @@ _path: ContextVar[tuple[str, ...]] = ContextVar("polars_telemetry_label", defaul
 def label(name: str) -> Iterator[None]:
     """Label every query run inside the block.
 
-    >>> with label("daily_report"):
-    ...     frame.collect()
+    >>> with label("etl"), label("customers"):
+    ...     frame.collect()  # labelled "etl/customers"
 
-    The label is recorded on the query's span and in its profile. It is not a
-    metric dimension: it is free-form, so it could carry unbounded values.
+    Args:
+        name: Any non-empty text. Nested labels are joined with `/`.
+
+    Raises:
+        ValueError: If `name` is empty or not a string.
+
+    The label goes on the query's span as `polars.query.label` and into its
+    profile, but never onto metrics: free-form values would make unbounded
+    metric series. Each thread and asyncio task has its own labels.
     """
     if not isinstance(name, str) or not name.strip():
         msg = "a label must be a non-empty string"

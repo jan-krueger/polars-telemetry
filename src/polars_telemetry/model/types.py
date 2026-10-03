@@ -175,12 +175,15 @@ profile document all derive from this."""
 
 @dataclass(frozen=True, slots=True)
 class Query:
-    """A completed query."""
+    """One finished query, as every exporter receives it."""
 
     query_id: UUID
+    """polars' id for the query: a UUIDv7, so ids sort by start time."""
     wall_ms: float
+    """Time from start to finish, in milliseconds."""
     plan: dict[int, PlanNode]
-    """Physical plan. Node ids here are what metrics key on."""
+    """Physical plan, by node id; empty when the query did not run on the
+    streaming engine. Node ids here are what `metrics` key on."""
 
     logical: dict[int, PlanNode] = field(default_factory=dict)
     """IR plan. Carries the user's own column names; the physical plan rewrites
@@ -206,7 +209,9 @@ class Query:
     """Derived once on arrival, so every exporter reports the same figures."""
 
     failed: str | None = None
+    """polars' error message when the query failed, else None."""
     started_unix_ns: int = 0
+    """When the query started, in nanoseconds since the Unix epoch."""
 
     @property
     def cpu_ms(self) -> float:

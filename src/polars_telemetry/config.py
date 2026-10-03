@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 
 @dataclass(frozen=True, slots=True)
 class Config:
-    """Runtime configuration."""
+    """What to record about each query. Every field has a working default."""
 
     node_metrics: bool = True
     """Read per-node counters once when the query ends.
@@ -32,10 +32,14 @@ class Config:
     """
 
     redact_literals: bool = False
-    """Mask literal values in plan expressions. Does not affect metric
-    attributes, which never carry literals (see export.semconv)."""
+    """Mask literal values in plan expressions, such as `"Brand#12"` in a filter.
+
+    Metrics never carry literals, so this affects spans and profiles only.
+    """
 
     resource_attributes: dict[str, str] = field(default_factory=dict)
+    """Deprecated and never applied: set resource attributes on your
+    OpenTelemetry provider instead."""
 
     def __post_init__(self) -> None:
         if self.resource_attributes:
