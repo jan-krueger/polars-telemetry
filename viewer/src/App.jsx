@@ -16,6 +16,11 @@ import {
   visibleShapes,
 } from "./state/viewer";
 
+const EXAMPLES = [
+  { file: "tpch-sf1.jsonl", title: "Scale factor 1" },
+  { file: "tpch-sf10.jsonl", title: "Scale factor 10" },
+];
+
 const VERDICT = { good: "var(--good)", warn: "var(--warn)", crit: "var(--crit)", info: "var(--muted)" };
 
 export default function App() {
@@ -103,6 +108,18 @@ export default function App() {
   }, [importFiles]);
 
   const pick = (queryId) => dispatch({ type: "queryPicked", queryId });
+
+  // Served beside the hosted viewer; opened from disk there is nothing to fetch.
+  const loadExample = async ({ file }) => {
+    try {
+      const response = await fetch(`examples/${file}`);
+      if (!response.ok) throw new Error(`${response.status}`);
+      await importFiles([new File([await response.blob()], file)]);
+    } catch {
+      setRejectedFiles([`${file}: examples load only on the hosted viewer. Download it from `
+        + "github.com/jan-krueger/polars-telemetry/tree/main/examples and open it here."]);
+    }
+  };
 
   // A query picked anywhere -- the overview, a link, the back button -- is
   // brought into view in the list with its other runs, ready to click.
@@ -234,11 +251,17 @@ export default function App() {
           {!current ? (
             <div className="blank">
               <h3>Nothing loaded</h3>
-              <p>Profiles stay in this browser. Nothing is uploaded, and no request leaves the page.</p>
+              <p>Profiles stay in this browser. Nothing is uploaded.</p>
               <button className="zone" onClick={chooseFiles}>
                 <div className="big">Drop a <code>.jsonl</code> session here, or click to choose one</div>
                 <div className="small">several files at once is fine</div>
               </button>
+              <div className="examples">
+                <span>Or try it with TPC-H, 22 queries run three times each:</span>
+                {EXAMPLES.map((e) => (
+                  <button key={e.file} className="btn" onClick={() => loadExample(e)}>{e.title}</button>
+                ))}
+              </div>
               <Code block code={`import polars_telemetry
 from polars_telemetry.export.file import FileExporter
 

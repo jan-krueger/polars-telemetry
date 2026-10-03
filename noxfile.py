@@ -11,6 +11,7 @@ the environment nox was started from -- use ``uv run nox -s <name>``.
 from __future__ import annotations
 
 import os
+import shutil
 from pathlib import Path
 
 import nox
@@ -130,6 +131,11 @@ def viewer(session: nox.Session) -> None:
         session.run("npm", "run", "build", external=True)
     finally:
         session.chdir(root)
+    # Beside the viewer, so the hosted one can load them with one click.
+    examples = root / "docs" / "viewer" / "examples"
+    examples.mkdir(parents=True, exist_ok=True)
+    for session_file in sorted((root / "examples").glob("*.jsonl")):
+        shutil.copy2(session_file, examples / session_file.name)
 
 
 @nox.session(venv_backend="none", name="viewer-test")

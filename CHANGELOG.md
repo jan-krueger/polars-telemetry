@@ -4,6 +4,12 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Viewer: the hosted viewer loads a TPC-H example session with one click, so it
+  can be tried without a workload of your own.
+
 ## [0.3.1] - 2026-10-03
 
 ### Changed

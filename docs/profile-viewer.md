@@ -6,17 +6,19 @@ and `profile()` write, and shows both plans of each query with every counter.
 [Open the viewer](viewer/index.html), then drag one or more `.jsonl` files onto
 the page, or use **Open .jsonl**.
 
-**Nothing is uploaded.** The page makes no network requests; files are read in
-your browser.
+**Nothing is uploaded.** Files are read in your browser. The page makes no
+requests of its own, except to fetch an example from this site when you ask for
+one.
 
 ![Both plans, per-node counters and diagnostics for one query](assets/viewer.png)
 
 ## Try it
 
-The repository's
-[`examples/`](https://github.com/jan-krueger/polars-telemetry/tree/main/examples)
-holds two sessions: the 22 TPC-H queries at scale factor 1 and 10, three runs
-each, labelled `tpch/q1` to `tpch/q22`.
+The empty viewer offers two example sessions, one click each: the 22 TPC-H
+queries at scale factor 1 and 10, three runs each, labelled `tpch/q1` to
+`tpch/q22`. They are also in the repository's
+[`examples/`](https://github.com/jan-krueger/polars-telemetry/tree/main/examples),
+for a viewer opened from disk.
 
 ## Sessions
 

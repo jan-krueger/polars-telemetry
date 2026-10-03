@@ -96,8 +96,9 @@ Drop the file on the
 [profile viewer](https://jan-krueger.github.io/polars-telemetry/viewer/) to read
 both plans, per-node counters, and a diff between two runs of the same shape.
 It runs entirely in your browser; nothing is uploaded. To try it without a
-workload of your own, download a TPC-H session from [`examples/`](examples/):
-the 22 queries at scale factor 1 or 10, three runs each.
+workload of your own, open the viewer and load a TPC-H example with one click:
+the 22 queries at scale factor 1 or 10, three runs each. The same sessions are
+in [`examples/`](examples/).
 
 ## Label what runs
 
