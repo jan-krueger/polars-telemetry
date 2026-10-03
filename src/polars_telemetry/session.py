@@ -6,14 +6,13 @@ pipeline did, a notebook cell, or an ad-hoc look at one function.
 
 from __future__ import annotations
 
-import json
 from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from polars_telemetry import _dispatch
 from polars_telemetry.activation import acquire_scoped, installed, release_scoped
-from polars_telemetry.export.profile import build_profile
+from polars_telemetry.export.profile import build_profile, profile_line
 from polars_telemetry.model.redaction import strictest
 
 if TYPE_CHECKING:
@@ -73,7 +72,7 @@ class Session:
         target.parent.mkdir(parents=True, exist_ok=True)
         with target.open("w", encoding="utf-8") as handle:
             for document in self.profiles():
-                handle.write(json.dumps(document, separators=(",", ":")) + "\n")
+                handle.write(profile_line(document) + "\n")
         return target
 
 

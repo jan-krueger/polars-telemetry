@@ -10,7 +10,6 @@ it, which is what makes it safe to keep plan literals at full fidelity.
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 import threading
@@ -18,7 +17,7 @@ import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from polars_telemetry.export.profile import build_profile
+from polars_telemetry.export.profile import build_profile, profile_line
 from polars_telemetry.model.redaction import LITERALS, redact_query
 
 if TYPE_CHECKING:
@@ -80,7 +79,7 @@ class FileExporter:
             if self._redact:
                 query = redact_query(query, LITERALS)
             document = build_profile(query)
-            line = json.dumps(document, separators=(",", ":"), default=str)
+            line = profile_line(document)
         except Exception as exc:
             self._record(exc, "building the profile")
             return
