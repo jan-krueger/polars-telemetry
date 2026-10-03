@@ -72,6 +72,20 @@ describe("viewer state", () => {
     expect([state.sessions.length, state.queryId, state.compareId, state.node]).toEqual([0, null, null, null]);
   });
 
+  it("keeping a shared session leaves it open and stops showing it as a link", () => {
+    const shared = { ...session("s3", profile("a", "f", 1)), shared: "#share=1.x" };
+    const kept = reducer(reducer(loaded(session("s1")), { type: "imported", sessions: [shared] }),
+                         { type: "kept", sessionId: "s3" });
+    expect(kept.sessionId).toBe("s3");
+    expect(kept.sessions.find((s) => s.id === "s3")?.shared).toBeUndefined();
+  });
+
+  it("renaming a session keeps it open and leaves the others alone", () => {
+    const renamed = reducer(loaded(session("s1"), session("s2")), { type: "renamed", sessionId: "s1", name: "nightly" });
+    expect(renamed.sessions.map((s) => s.name)).toEqual(["s2.jsonl", "nightly"]);
+    expect(renamed.sessionId).toBe(loaded(session("s1"), session("s2")).sessionId);
+  });
+
   it("importing selects the first new session", () => {
     const state = reducer(busy(), { type: "imported", sessions: [session("s3")] });
     expect(state.sessionId).toBe("s3");

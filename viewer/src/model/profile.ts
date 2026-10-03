@@ -56,9 +56,11 @@ export interface Session {
   profiles: Profile[];
   /** The documents as written, for downloading the session again. */
   raw: unknown[];
+  /** For a session opened from a link and not kept: that link's fragment. */
+  shared?: string;
 }
 
 /** What IndexedDB holds: the documents as written, normalised on every load. */
-export interface StoredSession extends Omit<Session, "profiles" | "raw"> {
+export interface StoredSession extends Omit<Session, "profiles" | "raw" | "shared"> {
   profiles: unknown[];
 }

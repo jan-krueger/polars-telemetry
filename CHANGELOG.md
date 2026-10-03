@@ -4,6 +4,15 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Viewer: **Copy link** shares the query on screen, and the run it is compared
+  with, as a link that carries the profiles itself, so nothing is uploaded. A
+  link opens as a temporary session that **Keep** stores. Unmasked profiles ask
+  before copying.
+- Viewer: double-click a session's name, or press F2, to rename it.
+
 ## [0.4.0] - 2026-10-03
 
 ### Added

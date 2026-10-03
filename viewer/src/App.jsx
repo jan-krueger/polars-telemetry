@@ -5,6 +5,7 @@ import PlanPane from "./components/PlanPane";
 import NodeDetails from "./components/NodeDetails";
 import Help from "./components/Help";
 import Code from "./components/Code";
+import ShareDialog from "./components/ShareDialog";
 import Tip, { TipText } from "./components/Tip";
 import { allSessions, dropAll, dropSession, saveSession, storageUnavailable } from "./lib/storage";
 import { bytes, diagnostics, ms, num, shapeName } from "./lib/format";
@@ -12,6 +13,8 @@ import { basename } from "./lib/polars";
 import { clock, instant, iso, ranBetween, spansDays } from "./lib/time";
 import { readJsonl, readSession, toJsonl } from "./model/read";
 import { fromHash, isNewPage, routeOf, toHash } from "./state/route";
+import { MAX_LINK_CHARS, isShareFragment, openShareFragment, shareFragment } from "./share/link";
+import { documentsFor, sharedSession } from "./share/session";
 import {
   compareProfile, currentProfile, currentSession, findNode, initialState, reducer, title,
   visibleShapes,
@@ -33,6 +36,8 @@ export default function App() {
   // What did not import, per file; shown until dismissed or the next import.
   const [rejectedFiles, setRejectedFiles] = useState([]);
   const [confirmingClear, setConfirmingClear] = useState(false);
+  const [sharing, setSharing] = useState(null);
+  const [renaming, setRenaming] = useState(null);
   const queryList = useRef(null);
 
   useEffect(() => {
@@ -40,9 +45,24 @@ export default function App() {
       // Stored raw and read on every load, so a newer reader improves old sessions.
       const stored = (await allSessions()) || [];
       dispatch({ type: "loaded", sessions: stored.map(readSession) });
-      dispatch({ type: "navigated", route: fromHash(location.hash) });
+      if (!isShareFragment(location.hash)) {
+        dispatch({ type: "navigated", route: fromHash(location.hash) });
+        return;
+      }
+      const opened = openShareFragment(location.hash);
+      if ("problem" in opened) {
+        setRejectedFiles([`Shared link: ${opened.problem}.`]);
+        history.replaceState(null, "", location.pathname + location.search);
+        return;
+      }
+      const shared = sharedSession(location.hash, opened.documents, Date.now());
+      dispatch({ type: "imported", sessions: [shared] });
+      if (shared.profiles[0]) dispatch({ type: "queryPicked", queryId: shared.profiles[0].query_id });
+      if (shared.profiles[1]) dispatch({ type: "comparePicked", queryId: shared.profiles[1].query_id });
     })();
-    const back = () => dispatch({ type: "navigated", route: fromHash(location.hash) });
+    const back = () => {
+      if (!isShareFragment(location.hash)) dispatch({ type: "navigated", route: fromHash(location.hash) });
+    };
     addEventListener("popstate", back);
     return () => removeEventListener("popstate", back);
   }, []);
@@ -52,6 +72,11 @@ export default function App() {
   // history, so the back button never lands on a page that moves straight on.
   useEffect(() => {
     if (!booted) return;
+    const open = currentSession(state);
+    if (open?.shared) {
+      if (location.hash !== open.shared) history.replaceState(null, "", open.shared);
+      return;
+    }
     const route = routeOf(state);
     const shown = fromHash(location.hash);
     const hash = toHash(route);
@@ -59,12 +84,13 @@ export default function App() {
     const url = hash || location.pathname + location.search;
     if (shown.sessionId && isNewPage(shown, route)) history.pushState(null, "", url);
     else history.replaceState(null, "", url);
-  }, [booted, state.sessionId, state.queryId, state.node]);
+  }, [booted, state.sessions, state.sessionId, state.queryId, state.node]);
 
   const current = currentSession(state);
   const profiles = current?.profiles ?? [];
   const profile = currentProfile(state);
   const compare = compareProfile(state);
+  useEffect(() => setSharing(null), [profile?.query_id, compare?.query_id]);
   const withDates = useMemo(() => spansDays(profiles), [profiles]);
 
   const importFiles = useCallback(async (files) => {
@@ -113,6 +139,47 @@ export default function App() {
   }, [importFiles]);
 
   const pick = (queryId) => dispatch({ type: "queryPicked", queryId });
+
+  const copyLink = async (fragment) => {
+    const url = location.href.split("#")[0] + fragment;
+    try {
+      await navigator.clipboard.writeText(url);
+      setSharing({ copied: true });
+      setTimeout(() => setSharing((s) => (s?.copied ? null : s)), 2000);
+    } catch {
+      setSharing({ manual: url });
+    }
+  };
+
+  const share = () => {
+    const shown = [profile, compare].filter(Boolean);
+    const fragment = shareFragment(documentsFor(current, shown));
+    if (fragment.length > MAX_LINK_CHARS) setSharing({ tooLong: fragment.length });
+    else if (shown.some((p) => !p.redacted?.length)) setSharing({ confirm: fragment });
+    else copyLink(fragment);
+  };
+
+  const rename = async (session, typed) => {
+    setRenaming(null);
+    const name = typed.trim();
+    if (!name || name === session.name) return;
+    dispatch({ type: "renamed", sessionId: session.id, name });
+    if (session.shared || storageUnavailable()) return;
+    try {
+      await saveSession(stored({ ...session, name }));
+    } catch (e) {
+      setRejectedFiles([`${name}: renamed on this page only, not stored (${e?.message ?? e})`]);
+    }
+  };
+
+  const keep = async (session) => {
+    try {
+      await saveSession(stored(session));
+      dispatch({ type: "kept", sessionId: session.id });
+    } catch (e) {
+      setRejectedFiles([`${session.name}: could not be stored (${e?.message ?? e})`]);
+    }
+  };
 
   // Served beside the hosted viewer; opened from disk there is nothing to fetch.
   const loadExample = async ({ file }) => {
@@ -176,12 +243,32 @@ export default function App() {
               <h2>Sessions</h2>
               {sessions.map((s) => (
                 <div className="sessrow" key={s.id} aria-current={s.id === state.sessionId}>
-                  <button className="pick" onClick={() => dispatch({ type: "sessionPicked", sessionId: s.id })}>
-                    <div className="nm">{s.name}</div>
-                    <div className="mt">{s.profiles.length} profiles · {bytes(s.bytes || 0)}</div>
-                    <div className="mt">{ranBetween(s.profiles)
-                      ?? `imported ${new Date(s.importedAt).toLocaleDateString()}`}</div>
-                  </button>
+                  {renaming === s.id ? (
+                    <div className="pick">
+                      <input className="rename" id={`rename-${s.id}`} aria-label={`New name for ${s.name}`}
+                             defaultValue={s.name} autoFocus onFocus={(e) => e.target.select()}
+                             onBlur={(e) => (e.target.dataset.cancel ? setRenaming(null) : rename(s, e.target.value))}
+                             onKeyDown={(e) => {
+                               if (e.key === "Escape") e.currentTarget.dataset.cancel = "1";
+                               if (e.key === "Enter" || e.key === "Escape") e.currentTarget.blur();
+                             }} />
+                      <SessionMeta session={s} />
+                    </div>
+                  ) : (
+                    <button className="pick" onClick={() => dispatch({ type: "sessionPicked", sessionId: s.id })}
+                            onDoubleClick={() => setRenaming(s.id)}
+                            onKeyDown={(e) => { if (e.key === "F2") setRenaming(s.id); }}>
+                      <Tip content="Double-click to rename">
+                      <div className="nm">{s.name}</div>
+                      </Tip>
+                      <SessionMeta session={s} />
+                    </button>
+                  )}
+                  {s.shared && (
+                    <Tip content="Store this session in this browser">
+                    <button className="link keep" onClick={() => keep(s)}>Keep</button>
+                    </Tip>
+                  )}
                   <Tip content="Download this session">
                   <button className="x dl" aria-label={`Download ${s.name}`}
                           onClick={() => download(s)}>
@@ -342,7 +429,18 @@ polars_telemetry.install(exporter=FileExporter("profiles/session.jsonl"))`} />
                         </option>))}
                     </select>
                   )}
+                  <Tip content={compare ? "Copy a link to this query and the run it is compared with" : "Copy a link to this query"}>
+                  <button className="btn share" style={siblings.length ? undefined : { marginLeft: "auto" }}
+                          onClick={share}>{sharing?.copied ? "Copied" : "Copy link"}</button>
+                  </Tip>
                 </div>
+                {sharing && !sharing.copied && (
+                  <ShareDialog sharing={sharing}
+                               what={compare ? "query and its comparison run" : "query"}
+                               onCopy={copyLink}
+                               onDownload={() => { download(current); setSharing(null); }}
+                               onClose={() => setSharing(null)} />
+                )}
                 <div className="qstats">
                   <b>{num(profile.wall_ms, 1)} ms</b> wall{delta(profile.wall_ms, compare?.wall_ms)} ·{" "}
                   <b>{num(profile.cpu_ms, 1)} ms</b> cpu{delta(profile.cpu_ms, compare?.cpu_ms)} ·{" "}
@@ -412,4 +510,19 @@ function download(session) {
   });
   link.click();
   URL.revokeObjectURL(url);
+}
+
+function stored(session) {
+  return { id: session.id, name: session.name, importedAt: session.importedAt,
+           bytes: session.bytes, profiles: session.raw };
+}
+
+function SessionMeta({ session }) {
+  return (
+    <>
+      <div className="mt">{session.profiles.length} profiles · {bytes(session.bytes || 0)}</div>
+      <div className="mt">{session.shared ? "opened from a link, not stored" : ranBetween(session.profiles)
+        ?? `imported ${new Date(session.importedAt).toLocaleDateString()}`}</div>
+    </>
+  );
 }
