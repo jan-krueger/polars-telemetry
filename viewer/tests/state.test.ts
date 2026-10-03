@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readProfile } from "../src/model/read";
 import type { Profile, Session } from "../src/model/profile";
-import { currentProfile, initialState, reducer, shapes, type ViewerState } from "../src/state/viewer";
+import { currentProfile, initialState, matches, reducer, shapes, title, visibleShapes, type ViewerState } from "../src/state/viewer";
 
 function profile(id: string, fingerprint: string, wall: number, hotNode = 7): Profile {
   const result = readProfile({
@@ -85,5 +85,45 @@ describe("shapes", () => {
   it("groups runs by fingerprint, the most expensive shape first", () => {
     const rows = shapes([profile("a", "f1", 5), profile("b", "f2", 50), profile("c", "f1", 1)]);
     expect(rows.map((r) => [r.fingerprint, r.runs.length])).toEqual([["f2", 1], ["f1", 2]]);
+  });
+});
+
+describe("search", () => {
+  const labelled = (id: string, label: string | null, fingerprint: string) => {
+    const read = readProfile({
+      schema: "polars-telemetry/profile@1", query_id: id, label, fingerprint, wall_ms: 1,
+      call_site: { filepath: `/srv/queries/${id}.py`, lineno: 12, function: "q" },
+      plan: { physical: [{ id: 1, kind: "Filter", inputs: [] }], logical: [] },
+    });
+    if ("problem" in read) throw new Error(read.problem);
+    return read.profile;
+  };
+  const q3 = labelled("q3", "tpch/q3", "f3");
+  const q9 = labelled("q9", "tpch/q9", "f9");
+
+  it.each([
+    ["the label", "tpch/q3"],
+    ["part of a nested label", "q3"],
+    ["the call site file", "q3.py"],
+    ["the fingerprint", "f3"],
+  ])("matches by %s", (_, search) => {
+    expect(matches(q3, search)).toBe(true);
+    expect(matches(q9, search)).toBe(false);
+  });
+
+  it("ignores case and surrounding space", () => {
+    expect(matches(q3, "  TPCH/Q3 ")).toBe(true);
+  });
+
+  it("narrows the listed shapes, and an empty search lists them all", () => {
+    let state = reducer(initialState, { type: "loaded", sessions: [session("s1", q3, q9)] });
+    expect(visibleShapes(state)).toHaveLength(2);
+    state = reducer(state, { type: "searched", text: "q9" });
+    expect(visibleShapes(state).map((r) => r.fingerprint)).toEqual(["f9"]);
+  });
+
+  it("is titled by its label, else by its shape", () => {
+    expect(title(q3)).toBe("tpch/q3");
+    expect(title(labelled("x", null, "fx"))).not.toBe("");
   });
 });

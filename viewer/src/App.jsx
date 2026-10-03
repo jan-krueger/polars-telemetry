@@ -9,7 +9,8 @@ import { allSessions, dropAll, dropSession, saveSession, storageUnavailable } fr
 import { bytes, diagnostics, ms, num, shapeName } from "./lib/format";
 import { readJsonl, readSession } from "./model/read";
 import {
-  compareProfile, currentProfile, currentSession, findNode, initialState, reducer, shapes,
+  compareProfile, currentProfile, currentSession, findNode, initialState, reducer, title,
+  visibleShapes,
 } from "./state/viewer";
 
 const VERDICT = { good: "var(--good)", warn: "var(--warn)", crit: "var(--crit)", info: "var(--muted)" };
@@ -72,7 +73,7 @@ export default function App() {
   }, [importFiles]);
 
   const pick = (queryId) => dispatch({ type: "queryPicked", queryId });
-  const overview = useMemo(() => shapes(profiles), [profiles]);
+  const overview = useMemo(() => visibleShapes(state), [state.sessions, state.sessionId, state.search]);
   const totalWall = overview.reduce((a, r) => a + r.wallMs, 0) || 1;
 
   const selectedNode = findNode(profile, state.node);
@@ -137,6 +138,11 @@ export default function App() {
           {current && (
             <>
               <h2>Queries</h2>
+              <input id="query-search" className="search" type="search" value={state.search}
+                     placeholder="Search label, file or shape"
+                     aria-label="Search queries by label, file or shape"
+                     onChange={(e) => dispatch({ type: "searched", text: e.target.value })} />
+              {!overview.length && <div className="nomatch">No query matches “{state.search}”.</div>}
               {overview.map((row) => (
                 <div className="shape" key={row.fingerprint}>
                   <div className="fp"><span>{row.fingerprint}</span>
@@ -144,7 +150,7 @@ export default function App() {
                   {row.runs.map((p) => (
                     <button className="run" key={p.query_id} aria-pressed={p.query_id === state.queryId}
                             onClick={() => pick(p.query_id)}>
-                      <div className="l1">{shapeName(p)}</div>
+                      <div className="l1" title={shapeName(p)}>{title(p)}</div>
                       <div className="l2">{ms(p.wall_ms)} wall · {ms(p.cpu_ms)} cpu</div>
                     </button>
                   ))}
@@ -182,8 +188,9 @@ polars_telemetry.install(exporter=FileExporter("profiles/session.jsonl"))`} />
                 <tbody>
                   {overview.map((r) => (
                     <tr key={r.fingerprint} onClick={() => pick(r.runs[0].query_id)}>
-                      <td><div style={{ fontWeight: 500 }}>{shapeName(r.runs[0])}</div>
-                        <div style={{ font: "10.5px ui-monospace,monospace", color: "var(--muted)" }}>{r.fingerprint}</div></td>
+                      <td><div style={{ fontWeight: 500 }}>{title(r.runs[0])}</div>
+                        <div style={{ font: "10.5px ui-monospace,monospace", color: "var(--muted)" }}>
+                          {r.runs[0].label ? `${shapeName(r.runs[0])} · ` : ""}{r.fingerprint}</div></td>
                       <td>{r.runs.length}</td><td>{ms(r.wallMs)}</td>
                       <td>{num((r.wallMs / totalWall) * 100, 1)}%</td><td>{ms(r.cpuMs / r.runs.length)}</td>
                       <td style={{ width: 140 }}>
@@ -197,8 +204,8 @@ polars_telemetry.install(exporter=FileExporter("profiles/session.jsonl"))`} />
             <>
               <div className="qhead">
                 <div className="qline">
-                  <span className="qname">{shapeName(profile)}</span>
-                  <span className="qmeta">{profile.fingerprint} ·{" "}
+                  <span className="qname">{title(profile)}</span>
+                  <span className="qmeta">{profile.label ? `${shapeName(profile)} · ` : ""}{profile.fingerprint} ·{" "}
                     {new Date(profile.started_unix_ns / 1e6).toLocaleTimeString()}</span>
                   {profile.call_site && (
                     <span className="qsite" title={profile.call_site.filepath}>

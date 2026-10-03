@@ -31,6 +31,8 @@ export interface CallSite {
 
 export interface Profile {
   query_id: string;
+  /** Set with polars_telemetry.label(); nested labels joined with "/". */
+  label: string | null;
   schema: string;
   polars_version: string;
   fingerprint: string;

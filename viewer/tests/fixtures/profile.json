@@ -3,6 +3,7 @@
  "polars_version": "1.44.2",
  "polars_telemetry_version": "0.1.1",
  "query_id": "01a10000-0000-7000-8000-000000000000",
+ "label": null,
  "fingerprint": "94b7e38a9c1e",
  "started_unix_ns": 1759478400000000000,
  "wall_ms": 48.1,

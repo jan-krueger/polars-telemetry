@@ -8,6 +8,7 @@
  */
 
 import type { PlanNode, Profile, Session } from "../model/profile";
+import { shapeName } from "../lib/format";
 
 export interface NodeRef {
   plan: "logical" | "physical";
@@ -21,6 +22,8 @@ export interface ViewerState {
   queryId: string | null;
   compareId: string | null;
   node: NodeRef | null;
+  /** Filters the query list; kept across sessions, as a view setting. */
+  search: string;
 }
 
 export type Action =
@@ -31,7 +34,8 @@ export type Action =
   | { type: "sessionPicked"; sessionId: string }
   | { type: "queryPicked"; queryId: string }
   | { type: "comparePicked"; queryId: string | null }
-  | { type: "nodePicked"; node: NodeRef };
+  | { type: "nodePicked"; node: NodeRef }
+  | { type: "searched"; text: string };
 
 export const initialState: ViewerState = {
   booted: false,
@@ -40,6 +44,7 @@ export const initialState: ViewerState = {
   queryId: null,
   compareId: null,
   node: null,
+  search: "",
 };
 
 const nothingSelected = { queryId: null, compareId: null, node: null } as const;
@@ -75,6 +80,8 @@ export function reducer(state: ViewerState, action: Action): ViewerState {
       return { ...state, compareId: action.queryId };
     case "nodePicked":
       return { ...state, node: action.node };
+    case "searched":
+      return { ...state, search: action.text };
   }
 }
 
@@ -127,3 +134,25 @@ export function shapes(profiles: Profile[]): ShapeRow[] {
   }
   return [...byShape.values()].sort((a, b) => b.wallMs - a.wallMs);
 }
+
+/** What a search matches: the label, where it ran, the shape, the fingerprint. */
+export function matches(profile: Profile, search: string): boolean {
+  const needle = search.trim().toLowerCase();
+  if (!needle) return true;
+  const site = profile.call_site;
+  const haystack = [
+    profile.label,
+    site && `${site.filepath.split("/").pop()}:${site.lineno} ${site.function}`,
+    shapeName(profile),
+    profile.fingerprint,
+  ];
+  return haystack.some((text) => text?.toLowerCase().includes(needle));
+}
+
+/** The query shapes to list: grouped, ranked, and narrowed by the search. */
+export const visibleShapes = (state: ViewerState): ShapeRow[] =>
+  shapes((currentSession(state)?.profiles ?? []).filter((p) => matches(p, state.search)));
+
+/** What to call a query: its label, else a name derived from its plan. */
+export const title = (profile: Profile): string => profile.label ?? shapeName(profile);
+
