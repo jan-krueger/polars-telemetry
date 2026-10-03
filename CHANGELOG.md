@@ -14,6 +14,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   predate it are unaffected.
 
 ### Changed
+- polars' callback protocol is isolated in `adapter/hook.py`, which translates
+  each callback into a call on a recorder that assembles the query. The
+  capability probe now runs through the same hook rather than its own copy of
+  the protocol, so a change to polars' callbacks is a change in one module.
+- The closing snapshot is not retried when the query failed, since a failed
+  query's nodes never report done, nor when the snapshot carries no `done`
+  flag at all. Either way the retries only added latency inside the caller's
+  path.
 - The plan fingerprint and the diagnostics are computed once, as a query
   arrives, and carried on `Query`; exporters read them rather than each
   deriving their own. The fingerprint is computed before any redaction, so it

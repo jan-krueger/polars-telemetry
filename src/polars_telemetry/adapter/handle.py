@@ -47,7 +47,7 @@ class MetricsHandle:
         """Snapshot once the engine has finished flushing, or near enough."""
         records = self.snapshot()
         for _ in range(_SETTLE_ATTEMPTS):
-            if not records or all(record.get("done") for record in records):
+            if _settled(records):
                 return records
             time.sleep(_SETTLE_WAIT_S)
             records = self.snapshot()
@@ -56,3 +56,11 @@ class MetricsHandle:
     @property
     def failures(self) -> int:
         return self._failures
+
+
+def _settled(records: list[dict[str, Any]]) -> bool:
+    """Done, or no way to tell: without a `done` flag -- polars having renamed
+    it, say -- retrying would only make every query pay the full budget."""
+    if not records or any("done" not in record for record in records):
+        return True
+    return all(record["done"] for record in records)

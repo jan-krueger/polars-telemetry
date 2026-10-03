@@ -291,12 +291,12 @@ def test_an_unreadable_ir_costs_only_the_ir(monkeypatch):
     query counted toward the disarm threshold, so five queries in, telemetry
     switched off entirely.
     """
-    from polars_telemetry.adapter import observer
+    from polars_telemetry.adapter import recorder
 
     def reshaped(payload: bytes) -> list[dict[str, object]]:
         raise ValueError("IR payload reshaped by a newer polars")
 
-    monkeypatch.setattr(observer, "decode_plan", reshaped)
+    monkeypatch.setattr(recorder, "decode_plan", reshaped)
 
     collected, exporter = _collecting()
     state = polars_telemetry.install(exporter=exporter)
@@ -315,9 +315,9 @@ def test_an_unreadable_ir_costs_only_the_ir(monkeypatch):
 
 def test_an_unrecognised_kind_is_warned_about_once(monkeypatch, caplog):
     """A renamed operator must say so, not just make attributes vanish."""
-    from polars_telemetry.adapter import dialect, observer
+    from polars_telemetry.adapter import dialect, recorder
 
-    monkeypatch.setattr(observer, "_reported_kinds", set())
+    monkeypatch.setattr(recorder, "_reported_kinds", set())
     table = dict(dialect._BY_KIND)
     table.pop("GroupBy")
     monkeypatch.setattr(dialect, "_BY_KIND", table)

@@ -14,6 +14,7 @@ from polars_telemetry.adapter.decode import (
     metrics_problems,
     plan_problems,
 )
+from polars_telemetry.adapter.hook import ObserverFactory
 
 # The observer hook was added in 1.44.0; 1.44.0's runtime is yanked.
 # No upper bound: unknown newer versions are probed, not refused.
@@ -56,12 +57,33 @@ class _ProbeResult:
     metric_breaks: list[str] = field(default_factory=list)
 
 
-class _ProbeGuard:
-    def __init__(self, handle: Any, result: _ProbeResult) -> None:
-        self._handle = handle
-        self._result = result
+class _ProbeRecorder:
+    """Captures what polars delivered, through the same hook real queries use,
+    so the callback protocol is written once."""
 
-    def close(self) -> None:
+    def __init__(self, result: _ProbeResult) -> None:
+        self._result = result
+        self._handle: Any = None
+
+    def started(self, query_id: Any) -> None:
+        self._result.started = True
+
+    def planned(self, query_id: Any, ir_plan: bytes, physical_plan: bytes, handle: Any) -> None:
+        self._result.planned = True
+        self._handle = handle
+        try:
+            self._result.plan_problems = plan_problems(decode_plan(physical_plan))
+        except Exception as exc:
+            self._result.plan_problems = [f"plan decode failed: {type(exc).__name__}: {exc}"]
+        try:
+            self._result.ir_problems = [f"IR: {p}" for p in plan_problems(decode_plan(ir_plan))]
+        except Exception as exc:
+            self._result.ir_problems = [f"IR decode failed: {type(exc).__name__}: {exc}"]
+
+    def failed(self, message: str) -> None:
+        return
+
+    def closed(self) -> None:
         self._result.closed = True
         try:
             records = decode_metrics(self._handle.snapshot_query_metrics())
@@ -71,31 +93,6 @@ class _ProbeGuard:
             failure = [f"snapshot failed: {type(exc).__name__}: {exc}"]
             self._result.metric_problems = failure
             self._result.metric_breaks = failure
-
-
-class _ProbeObserver:
-    def __init__(self, result: _ProbeResult) -> None:
-        self._result = result
-
-    def on_query_started(self, query_id: Any) -> None:
-        self._result.started = True
-
-    def on_query_planned(
-        self, query_id: Any, handle: Any, ir_plan: bytes, physical_plan: bytes
-    ) -> _ProbeGuard:
-        self._result.planned = True
-        try:
-            self._result.plan_problems = plan_problems(decode_plan(physical_plan))
-        except Exception as exc:
-            self._result.plan_problems = [f"plan decode failed: {type(exc).__name__}: {exc}"]
-        try:
-            self._result.ir_problems = [f"IR: {p}" for p in plan_problems(decode_plan(ir_plan))]
-        except Exception as exc:
-            self._result.ir_problems = [f"IR decode failed: {type(exc).__name__}: {exc}"]
-        return _ProbeGuard(handle, self._result)
-
-    def on_query_failed(self, *args: Any) -> None:
-        return None
 
 
 def probe(binding: mod.Binding) -> Capabilities:
@@ -116,7 +113,7 @@ def probe(binding: mod.Binding) -> Capabilities:
 
     result = _ProbeResult()
     previous = getattr(binding.module, mod.FACTORY_ATTR, None)
-    mod.set_factory(binding, lambda workspace=None, organization=None: _ProbeObserver(result))
+    mod.set_factory(binding, ObserverFactory(lambda _: _ProbeRecorder(result), label="probe"))
     try:
         pl.DataFrame({"probe": [1, 2, 3]}).lazy().filter(pl.col("probe") > 1).collect()
     except Exception as exc:

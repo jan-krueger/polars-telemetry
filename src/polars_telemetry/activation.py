@@ -18,7 +18,8 @@ from typing import TYPE_CHECKING
 
 from polars_telemetry import _dispatch
 from polars_telemetry.adapter import module as mod
-from polars_telemetry.adapter.observer import ObserverFactory
+from polars_telemetry.adapter.hook import ObserverFactory
+from polars_telemetry.adapter.recorder import QueryRecorder
 from polars_telemetry.compat import SUPPORTED, Capabilities, probe
 from polars_telemetry.config import Config
 
@@ -160,9 +161,7 @@ def _install(
         )
 
     effective = _effective(config or Config(), capabilities)
-    mod.set_factory(
-        binding, ObserverFactory(effective, _dispatch.dispatch, delegate=binding.previous_factory)
-    )
+    mod.set_factory(binding, _factory(effective, binding))
     if not scoped and not exporters:
         exporters = (_default_exporter(effective),)
     _state = Installation(
@@ -189,12 +188,7 @@ def _join(config: Config | None, exporters: tuple[Exporter, ...], *, scoped: boo
         # close no longer uninstalls.
         effective = _effective(config or _state.config, _state.capabilities)
         if effective != _state.config:
-            mod.set_factory(
-                _state.binding,
-                ObserverFactory(
-                    effective, _dispatch.dispatch, delegate=_state.binding.previous_factory
-                ),
-            )
+            mod.set_factory(_state.binding, _factory(effective, _state.binding))
         exporters = exporters or (_default_exporter(effective),)
         _state = replace(
             _state,
@@ -212,6 +206,13 @@ def _join(config: Config | None, exporters: tuple[Exporter, ...], *, scoped: boo
             "to change the configuration or exporters."
         )
     return _state
+
+
+def _factory(config: Config, binding: mod.Binding) -> ObserverFactory:
+    return ObserverFactory(
+        lambda tracker: QueryRecorder(config, _dispatch.dispatch, tracker),
+        delegate=binding.previous_factory,
+    )
 
 
 def _effective(config: Config, capabilities: Capabilities) -> Config:

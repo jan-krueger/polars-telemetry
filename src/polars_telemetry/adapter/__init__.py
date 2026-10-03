@@ -9,4 +9,4 @@ from __future__ import annotations
 
 __all__ = ["ObserverFactory"]
 
-from polars_telemetry.adapter.observer import ObserverFactory
+from polars_telemetry.adapter.hook import ObserverFactory
