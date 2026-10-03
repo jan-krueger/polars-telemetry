@@ -162,16 +162,31 @@ pre.snip b{color:var(--ink);font-weight:500}
 .ovw .bar{height:5px;border-radius:3px;background:var(--sq2);min-width:2px}
 
 /* React Flow surfaces take our theme */
-.react-flow__minimap{background:var(--surface)!important;border:1px solid var(--rule-2);border-radius:5px}
-.react-flow__minimap-mask{fill:var(--plane);fill-opacity:.7;stroke:var(--accent);stroke-width:2px}
-.react-flow__minimap-node{fill:var(--sq2);stroke:none}
-.react-flow__minimap.logical .react-flow__minimap-node{fill:var(--axis)}
-.react-flow__controls-button{background:var(--surface);border-bottom:1px solid var(--border);fill:var(--ink-2)}
-.react-flow__controls-button:hover{background:var(--surface-2)}
-.react-flow__edge-text{font:9.5px ui-monospace,monospace;fill:var(--ink-2)}
-.react-flow__edge-textbg{fill:var(--surface)}
+/* React Flow is themed through the variables it publishes, set on our own
+   wrapper and inherited, so a release that restructures its DOM keeps them. */
+.planbox{
+  --xy-minimap-background-color:var(--surface);
+  --xy-minimap-mask-background-color:color-mix(in srgb,var(--plane) 70%,transparent);
+  --xy-minimap-mask-stroke-color:var(--accent);
+  --xy-minimap-mask-stroke-width:2;
+  --xy-minimap-node-background-color:var(--sq2);
+  --xy-minimap-node-stroke-color:transparent;
+  --xy-controls-button-background-color:var(--surface);
+  --xy-controls-button-background-color-hover:var(--surface-2);
+  --xy-controls-button-color:var(--ink-2);
+  --xy-controls-button-color-hover:var(--ink);
+  --xy-controls-button-border-color:var(--border);
+  --xy-edge-label-color:var(--ink-2);
+  --xy-edge-label-background-color:var(--surface);
+  --xy-attribution-background-color:transparent;
+}
+.planbox.logical{--xy-minimap-node-background-color:var(--axis)}
+
+/* No variable exists for these, so they still reach into React Flow's own
+   classes. Keep any such rule here, where an upgrade can check them at once. */
+.react-flow__edge-text{font:9.5px ui-monospace,monospace}
 .react-flow__handle{opacity:0}
-.react-flow__attribution{background:transparent;font-size:9px}
+.react-flow__attribution{font-size:9px}
 .react-flow__attribution a{color:var(--muted)}
 .crash{max-width:640px;margin:48px auto;padding:0 16px}
 .crash pre{background:var(--surface-2);border:1px solid var(--border);border-radius:6px;

@@ -41,6 +41,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   reading them again on each load: sessions stored today keep opening when the
   schema moves on, with no storage migration. A stored profile that no longer
   reads is dropped on its own instead of taking the viewer down.
+- The viewer themes React Flow through the CSS variables it publishes rather
+  than by overriding its internal class names, which removes the one
+  `!important`. The four rules that have no variable are kept together, so an
+  upgrade has one place to check.
 - The viewer lays a plan out once per plan rather than on every click, and
   refits the view when a different query is picked; it kept the previous
   query's zoom. Layout and the shaping of React Flow's input are pure,

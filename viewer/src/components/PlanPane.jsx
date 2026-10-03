@@ -14,7 +14,7 @@ export default function PlanPane({ title, subtitle, plan, logical, selectedId, o
   );
 
   return (
-    <div className="planbox">
+    <div className={logical ? "planbox logical" : "planbox"}>
       <div className="ph"><span className="nm">{title}</span><span className="sub">{subtitle}</span></div>
       <div className="body">
         <ReactFlow
@@ -28,8 +28,8 @@ export default function PlanPane({ title, subtitle, plan, logical, selectedId, o
           onNodeClick={(_, n) => onSelect(Number(n.id))}
         >
           <Background variant="dots" gap={16} size={1} color="var(--axis)" />
-          <MiniMap pannable zoomable className={logical ? "logical" : undefined}
-                   style={{ width: 112, height: 172 }} />
+          <MiniMap pannable zoomable
+                   style={{ width: 112, height: 172, border: "1px solid var(--rule-2)", borderRadius: 5 }} />
           <Controls showInteractive={false} />
         </ReactFlow>
       </div>
