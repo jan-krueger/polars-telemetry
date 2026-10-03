@@ -10,20 +10,24 @@ from __future__ import annotations
 import copy
 import json
 from pathlib import Path
+from uuid import uuid4
 
 import msgpack
 import pytest
 
-from polars_telemetry._safety import FailureTracker, fail_soft
+from polars_telemetry._safety import FailureTracker
 from polars_telemetry.adapter.decode import (
-    decode_metrics,
     decode_optional_plan,
-    decode_plan,
     metrics_additions,
     metrics_breaks,
     metrics_problems,
     plan_problems,
 )
+from polars_telemetry.adapter.hook import QueryObserver
+from polars_telemetry.adapter.recorder import QueryRecorder
+from polars_telemetry.config import Config
+from polars_telemetry.model.types import Query
+from tests.unit.test_hook import Log
 
 FIXTURE = sorted(p for p in (Path(__file__).parents[1] / "fixtures").iterdir() if p.is_dir())[-1]
 
@@ -87,33 +91,44 @@ def test_dangling_input_reference_is_detected(plan):
     assert any("unknown nodes" in p for p in plan_problems(mutated))
 
 
-def test_corrupt_payload_does_not_escape_the_guard():
-    """A payload we cannot parse at all must not reach the caller."""
-    tracker = FailureTracker("decode")
-    guarded = fail_soft(tracker)(decode_plan)
-
-    assert guarded(b"\xc1not-msgpack") is None
-    assert tracker.errors == 1
-
-
-def test_non_list_payload_does_not_escape_the_guard():
-    tracker = FailureTracker("decode")
-    guarded = fail_soft(tracker)(decode_metrics)
-
-    assert guarded(msgpack.packb({"unexpected": "shape"})) is None
-    assert tracker.errors == 1
-
-
-def test_callback_arity_change_does_not_escape_the_guard():
-    """If polars adds a callback argument, we must degrade, not raise."""
+def _record(ir_plan: bytes, physical_plan: bytes) -> tuple[list[Query], FailureTracker]:
+    emitted: list[Query] = []
     tracker = FailureTracker("observer")
+    recorder = QueryRecorder(Config(), emitted.append, tracker)
+    query_id = uuid4()
+    recorder.started(query_id)
+    recorder.planned(query_id, ir_plan, physical_plan, None)
+    recorder.closed()
+    return emitted, tracker
 
-    @fail_soft(tracker)
-    def on_query_planned(query_id, handle, ir, phys):
-        return "ok"
 
-    assert on_query_planned(1, 2, 3, 4, "new_argument") is None  # type: ignore[call-arg]
-    assert tracker.errors == 1
+@pytest.mark.parametrize(
+    "payload",
+    [b"\xc1not-msgpack", msgpack.packb({"unexpected": "shape"})],
+    ids=["not msgpack", "not a list"],
+)
+def test_an_unreadable_plan_still_yields_the_query(payload):
+    """A payload polars has reshaped costs that plan, not the query span."""
+    emitted, tracker = _record(payload, payload)
+
+    assert len(emitted) == 1
+    assert emitted[0].plan == {}
+    assert emitted[0].logical == {}
+    assert not tracker.disarmed
+    assert tracker.errors == 0, "noted, never counted toward disarming"
+
+
+def test_an_added_callback_argument_does_not_escape():
+    """If polars passes callbacks a new argument, we keep working."""
+    log = Log()
+    tracker = FailureTracker("observer")
+    observer = QueryObserver(log, tracker)
+
+    observer.on_query_started("q", "new_argument")
+    observer.on_query_planned("q", None, b"", b"", "new_argument").close()
+
+    assert log.events == ["started", "planned", "closed"]
+    assert tracker.errors == 0
 
 
 def test_nil_physical_plan_is_not_an_error():

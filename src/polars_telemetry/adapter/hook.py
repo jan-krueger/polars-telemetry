@@ -102,20 +102,19 @@ class QueryObserver:
         self._tracker = tracker
         self._delegate = delegate
 
-    def on_query_started(self, query_id: UUID) -> None:
+    def on_query_started(self, *args: Any) -> None:
         if not self._tracker.disarmed:
             try:
-                self._recorder.started(query_id)
+                self._recorder.started(args[0])
             except Exception as exc:
                 self._tracker.record(exc)
-        self._forward("on_query_started", query_id)
+        self._forward("on_query_started", *args)
 
-    def on_query_planned(
-        self, query_id: UUID, handle: Any, ir_plan: bytes, physical_plan: bytes
-    ) -> ExecutionGuard:
-        delegate_guard = self._forward("on_query_planned", query_id, handle, ir_plan, physical_plan)
+    def on_query_planned(self, *args: Any) -> ExecutionGuard:
+        delegate_guard = self._forward("on_query_planned", *args)
         if not self._tracker.disarmed:
             try:
+                query_id, handle, ir_plan, physical_plan = args[:4]
                 self._recorder.planned(query_id, ir_plan, physical_plan, handle)
             except Exception as exc:
                 self._tracker.record(exc)

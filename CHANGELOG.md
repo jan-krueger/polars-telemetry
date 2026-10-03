@@ -46,6 +46,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The docs promised labels per asyncio task, but queries run with
   `collect_async()` or `collect_batches()` carry no label or call site: polars
   reports them from its own threads. The docs now say so.
+- Had polars passed an observer callback a new argument, the callback would
+  have raised before its own error handling ran. Callbacks now accept any
+  arguments and unpack them inside it.
 - `uninstall()` left polars' engine affinity on `"streaming"`. It now puts back
   the affinity from before `install()`, engine objects such as `GPUEngine`
   included, unless the application chose another engine in the meantime.

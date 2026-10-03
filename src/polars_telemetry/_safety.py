@@ -8,9 +8,7 @@ the process.
 
 from __future__ import annotations
 
-import functools
 import logging
-from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import ParamSpec, TypeVar
 
@@ -75,28 +73,3 @@ class FailureTracker:
             self.label,
             self.errors,
         )
-
-
-def fail_soft(
-    tracker: FailureTracker,
-) -> Callable[[Callable[P, R]], Callable[P, R | None]]:
-    """Swallow exceptions from the wrapped callable, returning None instead.
-
-    Skips the call entirely once the tracker is disarmed. BaseException is not
-    caught: KeyboardInterrupt and SystemExit must still reach the caller.
-    """
-
-    def decorate(fn: Callable[P, R]) -> Callable[P, R | None]:
-        @functools.wraps(fn)
-        def wrapper(*args: P.args, **kwargs: P.kwargs) -> R | None:
-            if tracker.disarmed:
-                return None
-            try:
-                return fn(*args, **kwargs)
-            except Exception as exc:
-                tracker.record(exc)
-                return None
-
-        return wrapper
-
-    return decorate
