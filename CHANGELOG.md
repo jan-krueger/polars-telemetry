@@ -7,6 +7,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Fixed
+- A counter polars *adds* no longer disables node metrics. An unmodelled field
+  was treated as a contract break, so the next polars release to add one would
+  have degraded every user to query-spans-only on a single startup warning.
+  Additions are now reported and ignored; only missing or retyped fields
+  degrade.
 - A query that fails before planning — a missing column, most commonly — now
   produces a span. The clock started in `on_query_planned`, which polars never
   calls for that class of failure, so the whole query went unreported. Losing

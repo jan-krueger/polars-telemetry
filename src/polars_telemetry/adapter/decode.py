@@ -107,8 +107,22 @@ def plan_problems(records: list[dict[str, Any]]) -> list[str]:
     return problems
 
 
-def metrics_problems(records: list[dict[str, Any]]) -> list[str]:
-    """Describe every way a metrics payload departs from the known contract."""
+def metrics_additions(records: list[dict[str, Any]]) -> list[str]:
+    """Counters polars reports that we do not model yet.
+
+    Worth reporting, never fatal: a field we ignore costs nothing, and treating
+    it as a break would disable node metrics the day polars adds a counter.
+    """
+    additions: list[str] = []
+    for index, record in enumerate(records):
+        unexpected = record.keys() - METRIC_FIELDS
+        if unexpected:
+            additions.append(f"record {index}: unknown fields {sorted(unexpected)}")
+    return additions
+
+
+def metrics_breaks(records: list[dict[str, Any]]) -> list[str]:
+    """Departures that make the counters unusable: missing or retyped fields."""
     problems: list[str] = []
     if not records:
         return ["metrics payload is empty"]
@@ -117,9 +131,6 @@ def metrics_problems(records: list[dict[str, Any]]) -> list[str]:
         missing = METRIC_FIELDS - record.keys()
         if missing:
             problems.append(f"record {index}: missing fields {sorted(missing)}")
-        unexpected = record.keys() - METRIC_FIELDS
-        if unexpected:
-            problems.append(f"record {index}: unknown fields {sorted(unexpected)}")
         for field_name in _COUNTER_FIELDS & record.keys():
             value = record[field_name]
             if not isinstance(value, int) or isinstance(value, bool):
@@ -131,3 +142,8 @@ def metrics_problems(records: list[dict[str, Any]]) -> list[str]:
                 f"record {index}: done is {type(record['done']).__name__}, expected bool"
             )
     return problems
+
+
+def metrics_problems(records: list[dict[str, Any]]) -> list[str]:
+    """Every way a metrics payload departs from the known contract."""
+    return metrics_breaks(records) + metrics_additions(records)

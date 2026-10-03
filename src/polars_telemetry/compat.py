@@ -10,6 +10,7 @@ from polars_telemetry.adapter import module as mod
 from polars_telemetry.adapter.decode import (
     decode_metrics,
     decode_plan,
+    metrics_breaks,
     metrics_problems,
     plan_problems,
 )
@@ -48,6 +49,7 @@ class _ProbeResult:
     closed: bool = False
     plan_problems: list[str] = field(default_factory=list)
     metric_problems: list[str] = field(default_factory=list)
+    metric_breaks: list[str] = field(default_factory=list)
 
 
 class _ProbeGuard:
@@ -60,8 +62,11 @@ class _ProbeGuard:
         try:
             records = decode_metrics(self._handle.snapshot_query_metrics())
             self._result.metric_problems = metrics_problems(records)
+            self._result.metric_breaks = metrics_breaks(records)
         except Exception as exc:
-            self._result.metric_problems = [f"snapshot failed: {type(exc).__name__}: {exc}"]
+            failure = [f"snapshot failed: {type(exc).__name__}: {exc}"]
+            self._result.metric_problems = failure
+            self._result.metric_breaks = failure
 
 
 class _ProbeObserver:
@@ -125,6 +130,6 @@ def probe(binding: mod.Binding) -> Capabilities:
         has_monitoring_api=True,
         observer_callbacks_ok=result.started and result.planned and result.closed,
         plan_payload_ok=not result.plan_problems,
-        metrics_snapshot_ok=not result.metric_problems,
+        metrics_snapshot_ok=not result.metric_breaks,
         problems=tuple(problems),
     )

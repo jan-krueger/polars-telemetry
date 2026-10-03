@@ -19,6 +19,8 @@ from polars_telemetry.adapter.decode import (
     decode_metrics,
     decode_optional_plan,
     decode_plan,
+    metrics_additions,
+    metrics_breaks,
     metrics_problems,
     plan_problems,
 )
@@ -122,3 +124,29 @@ def test_nil_physical_plan_is_not_an_error():
 def test_nil_payload_still_rejects_a_wrong_shape():
     with pytest.raises(ValueError, match="expected a list payload"):
         decode_optional_plan(msgpack.packb({"unexpected": "shape"}))
+
+
+def test_an_added_counter_is_reported_but_does_not_degrade(metrics):
+    """polars adding a counter must not cost everyone their node metrics."""
+    mutated = copy.deepcopy(metrics)
+    for record in mutated:
+        record["spill_bytes"] = 0
+
+    assert any("spill_bytes" in p for p in metrics_additions(mutated))
+    assert metrics_breaks(mutated) == []
+
+
+def test_a_removed_counter_still_degrades(metrics):
+    mutated = copy.deepcopy(metrics)
+    for record in mutated:
+        del record["rows_sent"]
+
+    assert any("rows_sent" in p for p in metrics_breaks(mutated))
+
+
+def test_a_retyped_counter_still_degrades(metrics):
+    mutated = copy.deepcopy(metrics)
+    for record in mutated:
+        record["rows_sent"] = "many"
+
+    assert any("rows_sent" in p for p in metrics_breaks(mutated))
