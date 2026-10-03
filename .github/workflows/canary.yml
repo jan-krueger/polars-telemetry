@@ -16,25 +16,37 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           enable-cache: true
 
       - run: uv sync --locked
 
-      # Lift the 7-day release quarantine for polars only; seeing new polars
-      # early is the point of this job.
       - name: Install newest polars
         run: |
+          now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
           uv pip install --prerelease=allow --upgrade \
-            --exclude-newer-package "polars=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --exclude-newer-package "polars=$now" \
+            --exclude-newer-package "polars-runtime-32=$now" \
+            --exclude-newer-package "polars-runtime-64=$now" \
+            --exclude-newer-package "polars-runtime-compat=$now" \
             polars
-          uv run python -c "import polars; print(polars.__version__)"
+          installed=$(uv run --no-sync python -c "import importlib.metadata as m; print(m.version('polars'))")
+          newest=$(curl -sf https://pypi.org/pypi/polars/json | uv run --no-sync python -c "
+          import json, sys
+          from packaging.version import Version
+          releases = json.load(sys.stdin)['releases']
+          live = [v for v, files in releases.items() if files and not all(f.get('yanked') for f in files)]
+          print(max(live, key=Version))")
+          echo "testing against polars $installed (newest on PyPI: $newest)"
+          [ "$installed" = "$newest" ]
 
       - id: contract
-        run: uv run pytest -m "contract and live" -v
+        run: uv run --no-sync pytest -m "contract and live" -v
 
-      - run: uv run pytest -m bench
+      - run: uv run --no-sync pytest -m bench
 
       - name: Report a broken contract
         if: failure()

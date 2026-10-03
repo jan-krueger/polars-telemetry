@@ -61,8 +61,12 @@ jobs:
       - name: Install the polars under test
         run: |
           if [ "${{ matrix.polars }}" = "2 pre-release" ]; then
-            # Exempt from the release quarantine, for polars only, as the canary is.
-            uv pip install --prerelease=allow --exclude-newer-package polars=2099-01-01 "polars>=2.0.0rc1,<3"
+            uv pip install --prerelease=allow \
+              --exclude-newer-package polars=2099-01-01 \
+              --exclude-newer-package polars-runtime-32=2099-01-01 \
+              --exclude-newer-package polars-runtime-64=2099-01-01 \
+              --exclude-newer-package polars-runtime-compat=2099-01-01 \
+              "polars>=2.0.0rc1,<3"
           else
             uv pip install "polars==${{ matrix.polars }}"
           fi

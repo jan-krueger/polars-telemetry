@@ -20,6 +20,8 @@ nox.options.default_venv_backend = "uv"
 nox.options.reuse_existing_virtualenvs = True
 nox.options.sessions = ["lint", "typecheck", "test"]
 
+POLARS_PACKAGES = ["polars", "polars-runtime-32", "polars-runtime-64", "polars-runtime-compat"]
+
 PYTHONS = ["3.10", "3.11", "3.12", "3.13", "3.14"]
 
 # The hook does not exist before 1.44.0, and 1.44.0's runtime is yanked.
@@ -76,19 +78,16 @@ def matrix(session: nox.Session, polars: str) -> None:
 def canary(session: nox.Session) -> None:
     """Live contract against the newest polars, pre-releases included.
 
-    Lifts the release quarantine for polars only.
+    Lifts the release quarantine for polars and its runtime packages only.
     """
     session.install("-e", ".", "pytest")
+    exempt = [
+        arg
+        for package in POLARS_PACKAGES
+        for arg in ("--exclude-newer-package", f"{package}=2099-01-01")
+    ]
     session.run(
-        "uv",
-        "pip",
-        "install",
-        "--prerelease=allow",
-        "--exclude-newer-package",
-        "polars=2099-01-01",
-        "--upgrade",
-        "polars",
-        external=True,
+        "uv", "pip", "install", "--prerelease=allow", *exempt, "--upgrade", "polars", external=True
     )
     session.run("pytest", "-m", "contract and live", "-v", *session.posargs)
 
