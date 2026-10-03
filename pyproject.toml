@@ -38,6 +38,10 @@ otlp = [
     "opentelemetry-sdk>=1.20",
     "opentelemetry-exporter-otlp-proto-grpc>=1.20",
 ]
+# Datadog's DogStatsD client, for DogStatsdExporter.
+datadog = [
+    "datadog>=0.50",
+]
 
 
 [project.urls]
@@ -55,6 +59,7 @@ dev = [
     "msgpack-types>=0.5",
     "opentelemetry-sdk>=1.20",
     "opentelemetry-exporter-otlp-proto-grpc>=1.20",
+    "datadog>=0.50",
 ]
 
 docs = [
@@ -120,6 +125,8 @@ ignore = [
 # These modules exist to absorb failures from a foreign interface.
 "src/polars_telemetry/_safety.py" = ["BLE001"]
 "src/polars_telemetry/_dispatch.py" = ["BLE001"]
+# Closing an exporter at uninstall or exit must not raise into the caller.
+"src/polars_telemetry/activation.py" = ["BLE001"]
 "src/polars_telemetry/compat.py" = ["BLE001"]
 "src/polars_telemetry/export/profile.py" = ["BLE001"]
 "src/polars_telemetry/export/file.py" = ["BLE001"]

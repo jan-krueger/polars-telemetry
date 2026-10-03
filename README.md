@@ -22,6 +22,7 @@ at all.
 ```bash
 pip install polars-telemetry          # API only; bring your own OTel SDK
 pip install 'polars-telemetry[otlp]'  # with SDK and OTLP exporter
+pip install 'polars-telemetry[datadog]'  # for the DogStatsD exporter
 ```
 
 Python 3.10+.
@@ -57,6 +58,27 @@ updates, IO time and bytes — as 15 metric instruments dimensioned by node kind
 
 Every name is listed in the
 [attribute reference](https://jan-krueger.github.io/polars-telemetry/reference/spans-and-metrics/).
+
+## Where it goes
+
+| Exporter | Sends | To |
+| --- | --- | --- |
+| `OTelExporter`, the default | a span and per-node metrics | your OpenTelemetry SDK |
+| `DogStatsdExporter` | the same metrics, with tags | the Datadog Agent, or Telegraf into InfluxDB |
+| `FileExporter` | a profile per query: both plans, every counter | a `.jsonl` file for the viewer |
+| `ConsoleExporter` | a short summary | standard error |
+
+```python
+from datadog import DogStatsd
+from polars_telemetry.export.dogstatsd import DogStatsdExporter
+
+statsd = DogStatsd(disable_buffering=False, disable_background_sender=False)
+polars_telemetry.install(exporter=DogStatsdExporter(statsd))
+```
+
+`exporter` takes a list, so several can run at once. Each has a
+[page in the docs](https://jan-krueger.github.io/polars-telemetry/exporters/),
+with its options and what it costs.
 
 ## Profiles without a collector
 
@@ -114,7 +136,8 @@ polars_telemetry.install(Config(node_metrics=False))
 | `node_metrics` | `True` | Read per-node counters once at query end |
 | `include_plan` | `False` | Attach the full plan to the span as JSON |
 | `call_site` | `True` | Record the file, line and function that ran the query |
-| `redact_literals` | `False` | Mask literal values in plan expressions |
+| `redaction` | `None` | What to mask before exporters see a query; `Redaction()` masks literal values |
+| `redact_literals` | `False` | Deprecated: use `redaction=Redaction()` |
 | `resource_attributes` | `{}` | Deprecated: never applied; set them on your OpenTelemetry provider |
 
 ## Your data
@@ -123,7 +146,10 @@ Spans carry plan detail: scan paths, column names, join keys and **literal
 predicate values** — `col("email") == "..."` arrives verbatim, because knowing
 which predicate was slow is usually the point.
 
-- `Config(redact_literals=True)` masks literal values.
+- `Config(redaction=Redaction())` masks literal values: text, numbers, dates
+  and times. `Redaction(paths=True, call_site=True, labels=True)` masks more.
+- `redacted(exporter, ...)` gives one exporter its own setting, so a shared
+  backend can get a masked copy while a local file keeps full detail.
 - Literals are never used as metric attributes, at any setting.
 - Attributes that can carry user data are listed in
   `polars_telemetry.export.semconv.CARRIES_USER_DATA`.

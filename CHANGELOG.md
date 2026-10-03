@@ -4,6 +4,51 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-10-03
+
+### Added
+- `Redaction` chooses what is masked: `strings`, `numbers` and `temporal`
+  (dates, datetimes, times, durations) by default, and `paths`, `call_site`
+  and `labels` on request, plus a `custom` rule of your own. Set it with
+  `Config(redaction=Redaction(...))`.
+- `redacted(exporter, redaction)` gives one exporter its own setting, so a
+  shared backend can receive a masked copy while a local file keeps every
+  detail. `redacted(exporter, None)` sends that exporter everything.
+- Profiles record what was masked in a `redacted` field, and the viewer shows
+  it beside the query.
+- `DogStatsdExporter`: the same metrics as OpenTelemetry, with tags, through
+  Datadog's DogStatsD client, for the Datadog Agent or Telegraf. Metric names
+  and tag keys can be renamed or left out, labels sent as a tag, and times
+  sent as histograms for Telegraf. Install with `polars-telemetry[datadog]`.
+- Exporters may have a `close()` method, which `uninstall()` and the process's
+  exit call, so buffered data is sent.
+- Viewer: a focus slider on the physical plan fades all but the most
+  expensive nodes, a step at a time, in the plan and the minimap alike. It is
+  kept as a share of CPU time, so it carries over between queries.
+
+### Changed
+- Viewer: tooltips appear on hover after a short pause and at once on keyboard
+  focus, where the browser's own showed late and never for the keyboard.
+- Masking happens once, before a query is delivered, and nowhere else.
+  `OTelExporter` and `FileExporter` no longer mask on their own. An
+  `OTelExporter` made with a masking config still masks when `install()` was
+  given none, as before.
+
+### Deprecated
+All three are removed in 0.4.0.
+- `Config(redact_literals=True)`: use `Config(redaction=Redaction())`, which
+  it now sets.
+- `FileExporter(redact_literals=True)`: use
+  `redacted(FileExporter(...), Redaction())`.
+- `Config.resource_attributes`, deprecated since 0.2.0 and never applied: set
+  resource attributes on your OpenTelemetry provider.
+
+### Fixed
+- Masking left some literals readable: durations such as `5h`, the mantissa of
+  numbers like `1.0000e-9`, and any literal followed by a method call, such as
+  `1.5.alias("x")` or `2024-01-01.alias("d")`. Times came out as
+  `<num>:<num>:<num>`, and digits inside file paths were masked piecemeal.
+
 ## [0.2.0] - 2026-10-03
 
 ### Added
@@ -268,6 +313,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and collapsed most nodes onto identical windows. The same counters read once
   at query end are exact and cost nothing measurable.
 
+[0.3.0]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.3.0
 [0.2.0]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.2.0
 [0.1.1]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.1.1
 [0.1.0]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.1.0

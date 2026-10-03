@@ -3,6 +3,7 @@ import { visibleCounters } from "../lib/counters";
 import { ROLES, exprLines, roleOf } from "../lib/polars";
 import { ms, num } from "../lib/format";
 import Help from "./Help";
+import Tip, { TipText } from "./Tip";
 import Code from "./Code";
 
 const looksExpr = (v) => typeof v === "string" && /[()"]/.test(v);
@@ -55,10 +56,12 @@ export default function NodeDetails({ node, compareNode }) {
     <>
       <div className="card">
         <div className="hd">
-          {info.symbol
-            ? <span className={`ra${info.muted ? " ra--muted" : ""}`} title={info.name}>{info.symbol}</span>
-            : null}
-          <span className="nm" title={info.name}>{node.kind}</span>
+          <Tip content={<TipText term={info.name} note={`polars: ${node.kind}`} />}>
+            <span className="nm-wrap">
+              {info.symbol ? <span className={`ra${info.muted ? " ra--muted" : ""}`}>{info.symbol}</span> : null}
+              <span className="nm">{node.kind}</span>
+            </span>
+          </Tip>
           <span style={{ marginLeft: "auto", font: "10.5px ui-monospace,monospace", color: "var(--muted)" }}>
             #{node.id}
           </span>
@@ -72,10 +75,12 @@ export default function NodeDetails({ node, compareNode }) {
         <div className="card">
           <div className="hd">
             <span className="ic">☰</span><span className="nm">Node metrics</span>
-            <span className="badge" title={GLOSSARY.done[1]}
-                  style={{ marginLeft: "auto", color: m.done ? "var(--good)" : "var(--warn)" }}>
-              {m.done ? "✓ Completed" : "⚠ Unfinished"}
-            </span>
+            <Tip content={<TipText term={GLOSSARY.done[0]}>{GLOSSARY.done[1]}</TipText>}>
+              <span className="badge" tabIndex={0}
+                    style={{ marginLeft: "auto", color: m.done ? "var(--good)" : "var(--warn)" }}>
+                {m.done ? "✓ Completed" : "⚠ Unfinished"}
+              </span>
+            </Tip>
           </div>
           {visibleCounters(m).map(({ label, key, unit }) => {
             const raw = m[key];

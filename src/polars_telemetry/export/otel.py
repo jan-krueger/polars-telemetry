@@ -11,7 +11,7 @@ query-span aggregates instead.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING
 
 from opentelemetry import metrics, trace
 from opentelemetry.trace import SpanKind, Status, StatusCode
@@ -19,49 +19,16 @@ from opentelemetry.trace import SpanKind, Status, StatusCode
 from polars_telemetry._version import __version__
 from polars_telemetry.export import semconv
 from polars_telemetry.export.attributes import query_attributes
+from polars_telemetry.export.measurements import COUNTERS, HISTOGRAMS, measurements
 from polars_telemetry.model.diagnostics import derive
-from polars_telemetry.model.redaction import redact
 
 if TYPE_CHECKING:
     from opentelemetry.metrics import Counter, Histogram
 
     from polars_telemetry.config import Config
-    from polars_telemetry.model.diagnostics import Diagnostics
     from polars_telemetry.model.types import Query
 
 _MS_TO_NS = 1_000_000
-
-
-# The instrument registry: name, unit, description. Units are public API --
-# an OTLP-to-Prometheus translator derives the series suffix from them --
-# so they are declared here and checked against the attribute reference.
-HISTOGRAMS: Final[tuple[tuple[str, str, str], ...]] = (
-    (semconv.QUERY_DURATION, "ms", "Wall time per query"),
-    (semconv.QUERY_CPU_TIME, "ms", "Summed node self time per query"),
-    (semconv.QUERY_PARALLEL_EFFICIENCY, "1", "CPU time over wall time over cores"),
-    (semconv.NODE_CPU_TIME, "ms", "Self time per plan node"),
-    (semconv.NODE_POLL_TIME, "ms", "Time a node spent being polled"),
-    (semconv.NODE_MAX_POLL_TIME, "ms", "Longest single poll of a node"),
-    (semconv.NODE_STATE_UPDATE_TIME, "ms", "Time a node spent in state updates"),
-    (
-        semconv.NODE_MAX_STATE_UPDATE_TIME,
-        "ms",
-        "Longest single state update of a node",
-    ),
-    (semconv.NODE_LARGEST_MORSEL, "{row}", "Largest morsel a node received"),
-    (semconv.NODE_STOLEN_RATIO, "1", "Share of a node's polls that were stolen"),
-    (semconv.NODE_IO_TIME, "ms", "Time a node spent active on IO"),
-)
-
-COUNTERS: Final[tuple[tuple[str, str, str], ...]] = (
-    (semconv.NODE_ROWS_IN, "{row}", "Rows received by a plan node"),
-    (semconv.NODE_ROWS_OUT, "{row}", "Rows emitted by a plan node"),
-    (semconv.NODE_MORSELS_IN, "{morsel}", "Morsels received by a plan node"),
-    (semconv.NODE_MORSELS_OUT, "{morsel}", "Morsels emitted by a plan node"),
-    (semconv.NODE_POLLS, "{poll}", "Times a node was polled"),
-    (semconv.NODE_STATE_UPDATES, "{update}", "State updates on a node"),
-    (semconv.NODE_IO_BYTES, "By", "Bytes moved by a node"),
-)
 
 
 class OTelExporter:
@@ -72,8 +39,9 @@ class OTelExporter:
     no-ops and nothing is sent.
 
     Args:
-        config: Shared with `install()`; `include_plan` and `redact_literals`
-            apply here.
+        config: Shared with `install()`; `node_metrics` and `include_plan`
+            apply here. Masking happens before the query arrives; see
+            `Config.redaction`.
     """
 
     __slots__ = ("_config", "_counters", "_histograms", "_meter", "_tracer")
@@ -92,6 +60,11 @@ class OTelExporter:
             for name, unit, desc in COUNTERS
         }
 
+    @property
+    def config(self) -> Config:
+        """The configuration this exporter was made with."""
+        return self._config
+
     def export(self, query: Query) -> None:
         # Attached on arrival; derived here only for a Query built by hand.
         diagnostics = query.diagnostics or derive(query)
@@ -106,76 +79,19 @@ class OTelExporter:
             start_time=start_ns,
             attributes=query_attributes(
                 query,
-                redact_literals=self._config.redact_literals,
                 diagnostics=diagnostics,
                 plan_fingerprint=shape,
                 include_plan=self._config.include_plan,
             ),
         )
         if query.failed:
-            # polars' failure text quotes the offending values.
-            message = redact(query.failed) if self._config.redact_literals else query.failed
-            span.set_status(Status(StatusCode.ERROR, message))
+            span.set_status(Status(StatusCode.ERROR, query.failed))
         else:
             span.set_status(Status(StatusCode.OK))
         span.end(end_time=end_ns)
 
-        self._record_query(query, diagnostics, shape)
-        self._record_nodes(query)
-
-    def _record_query(self, query: Query, diagnostics: Diagnostics, shape: str) -> None:
-        dims = {semconv.ENGINE: query.engine or "unknown", semconv.PLAN_FINGERPRINT: shape}
-        self._histograms[semconv.QUERY_DURATION].record(query.wall_ms, dims)
-        if query.metrics:
-            self._histograms[semconv.QUERY_CPU_TIME].record(query.cpu_ms, dims)
-        if diagnostics.parallel_efficiency is not None:
-            self._histograms[semconv.QUERY_PARALLEL_EFFICIENCY].record(
-                diagnostics.parallel_efficiency, dims
-            )
-
-    def _record_nodes(self, query: Query) -> None:
-        for node_id, metric in query.metrics.items():
-            node = query.plan.get(node_id)
-            if node is None:
-                continue
-            # Bounded dimensions only; plan literals would wreck cardinality.
-            dims = {semconv.NODE_KIND: node.kind, semconv.ENGINE: query.engine or "unknown"}
-
-            self._histograms[semconv.NODE_CPU_TIME].record(metric.cpu_ms, dims)
-            self._histograms[semconv.NODE_POLL_TIME].record(metric.total_poll_time_ns / 1e6, dims)
-            self._histograms[semconv.NODE_MAX_POLL_TIME].record(metric.max_poll_time_ns / 1e6, dims)
-            self._histograms[semconv.NODE_STATE_UPDATE_TIME].record(
-                metric.total_state_update_time_ns / 1e6, dims
-            )
-            self._histograms[semconv.NODE_MAX_STATE_UPDATE_TIME].record(
-                metric.max_state_update_time_ns / 1e6, dims
-            )
-            for direction, largest in (
-                ("received", metric.largest_morsel_received),
-                ("sent", metric.largest_morsel_sent),
-            ):
-                if largest:
-                    self._histograms[semconv.NODE_LARGEST_MORSEL].record(
-                        largest, {**dims, semconv.DIRECTION: direction}
-                    )
-            if metric.stolen_ratio is not None:
-                self._histograms[semconv.NODE_STOLEN_RATIO].record(metric.stolen_ratio, dims)
-            if metric.io_total_active_ns:
-                self._histograms[semconv.NODE_IO_TIME].record(metric.io_total_active_ns / 1e6, dims)
-
-            self._counters[semconv.NODE_ROWS_IN].add(metric.rows_received, dims)
-            self._counters[semconv.NODE_ROWS_OUT].add(metric.rows_sent, dims)
-            self._counters[semconv.NODE_MORSELS_IN].add(metric.morsels_received, dims)
-            self._counters[semconv.NODE_MORSELS_OUT].add(metric.morsels_sent, dims)
-            self._counters[semconv.NODE_POLLS].add(metric.total_polls, dims)
-            self._counters[semconv.NODE_STATE_UPDATES].add(metric.total_state_updates, dims)
-
-            for direction, value in (
-                ("requested", metric.io_total_bytes_requested),
-                ("received", metric.io_total_bytes_received),
-                ("sent", metric.io_total_bytes_sent),
-            ):
-                if value:
-                    self._counters[semconv.NODE_IO_BYTES].add(
-                        value, {**dims, semconv.DIRECTION: direction}
-                    )
+        for m in measurements(query, diagnostics):
+            if m.kind == "histogram":
+                self._histograms[m.name].record(m.value, m.dims)
+            else:
+                self._counters[m.name].add(m.value, m.dims)

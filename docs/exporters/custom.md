@@ -41,8 +41,9 @@ profile document, if a dictionary is easier to ship.
 
 ## Options
 
-Whatever your exporter takes. `Config(redact_literals=True)` applies to yours
-too: queries are masked before any exporter receives them.
+Whatever your exporter takes. `Config(redaction=...)` applies to yours too:
+queries are masked before any exporter receives them, so `export()` never has
+to. `redacted(SlowQueries(500), ...)` gives it a setting of its own.
 
 ## Your data
 
@@ -54,6 +55,9 @@ there is up to you.
 `export()` runs on the thread that ran the query, after it finished, so its
 time is added to the caller's. Hand slow work, such as network calls, to a
 queue or a background thread.
+
+An exporter that holds data, such as a buffer, can add a `close()` method.
+`uninstall()` calls it, and so does the process on exit.
 
 ## When it fails
 

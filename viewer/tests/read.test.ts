@@ -86,3 +86,13 @@ describe("toJsonl", () => {
     expect(readJsonl(text).profiles).toEqual(session.profiles.map((p) => ({ ...p, query_id: expect.any(String) })));
   });
 });
+
+describe("redacted", () => {
+  it("reads what was masked, and null when nothing was", () => {
+    const masked = readProfile(minimal({ redacted: ["strings", "paths"] }));
+    const plain = readProfile(minimal());
+    if (!("profile" in masked) || !("profile" in plain)) throw new Error("did not read");
+    expect(masked.profile.redacted).toEqual(["strings", "paths"]);
+    expect(plain.profile.redacted).toBeNull();
+  });
+});

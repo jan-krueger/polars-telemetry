@@ -13,7 +13,7 @@ import pytest
 
 from polars_telemetry import Config
 from polars_telemetry.export import semconv
-from polars_telemetry.export.otel import COUNTERS, HISTOGRAMS
+from polars_telemetry.export.measurements import COUNTERS, HISTOGRAMS
 
 ROOT = Path(__file__).parents[2]
 REFERENCE = ROOT / "docs" / "reference" / "spans-and-metrics.md"

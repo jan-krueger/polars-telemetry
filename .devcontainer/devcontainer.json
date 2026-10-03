@@ -4,6 +4,8 @@
     "dockerfile": "../docker/Dockerfile",
     "context": ".."
   },
+  "workspaceFolder": "/workspace",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind",
   "customizations": {
     "vscode": {
       "extensions": [
@@ -12,11 +14,11 @@
         "ms-python.mypy-type-checker"
       ],
       "settings": {
-        "python.defaultInterpreterPath": "/workspace/.venv/bin/python",
+        "python.defaultInterpreterPath": "/opt/venv/bin/python",
         "editor.formatOnSave": true,
         "editor.defaultFormatter": "charliermarsh.ruff"
       }
     }
   },
-  "postCreateCommand": "uv sync && uv run pre-commit install"
+  "postCreateCommand": "uv sync --locked"
 }

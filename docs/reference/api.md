@@ -11,6 +11,12 @@ Generated from the docstrings. Everything here is importable from
 
 ::: polars_telemetry.Config
 
+## Masking
+
+::: polars_telemetry.Redaction
+
+::: polars_telemetry.redacted
+
 ## Labelling and scoping
 
 ::: polars_telemetry.label
@@ -22,6 +28,8 @@ Generated from the docstrings. Everything here is importable from
 ## Exporters
 
 ::: polars_telemetry.export.otel.OTelExporter
+
+::: polars_telemetry.export.dogstatsd.DogStatsdExporter
 
 ::: polars_telemetry.export.file.FileExporter
 

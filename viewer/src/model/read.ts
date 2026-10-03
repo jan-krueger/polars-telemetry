@@ -68,6 +68,7 @@ function readV1(raw: Record<string, unknown>, schema: string): Read {
     profile: {
       query_id: str(raw.query_id, crypto.randomUUID()),
       label: typeof raw.label === "string" && raw.label ? raw.label : null,
+      redacted: Array.isArray(raw.redacted) ? raw.redacted.filter((k): k is string => typeof k === "string") : null,
       schema,
       polars_version: str(raw.polars_version, "unknown"),
       fingerprint: str(raw.fingerprint),

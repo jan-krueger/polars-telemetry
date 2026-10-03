@@ -92,3 +92,16 @@ def test_every_node_carries_its_role(query):
     }
     assert NodeRole.UNKNOWN not in roles
     assert NodeRole.JOIN in roles
+
+
+def test_a_profile_says_what_was_masked():
+    from uuid import uuid4
+
+    from polars_telemetry.export.profile import build_profile
+    from polars_telemetry.model.redaction import Redaction, redact_query
+    from polars_telemetry.model.types import Query
+
+    query = Query(query_id=uuid4(), wall_ms=1.0, plan={})
+    assert build_profile(query)["redacted"] is None
+    masked = build_profile(redact_query(query, Redaction(paths=True)))
+    assert masked["redacted"] == ["strings", "numbers", "temporal", "paths"]

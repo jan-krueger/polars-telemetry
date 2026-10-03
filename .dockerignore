@@ -1,0 +1,14 @@
+# Keep the build context to what the image installs from.
+.git
+.venv
+.nox
+.mypy_cache
+.ruff_cache
+.pytest_cache
+**/__pycache__
+dist
+site
+docs/viewer
+viewer/node_modules
+examples/*.jsonl
+*.parquet

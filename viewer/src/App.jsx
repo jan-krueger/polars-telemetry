@@ -5,6 +5,7 @@ import PlanPane from "./components/PlanPane";
 import NodeDetails from "./components/NodeDetails";
 import Help from "./components/Help";
 import Code from "./components/Code";
+import Tip, { TipText } from "./components/Tip";
 import { allSessions, dropAll, dropSession, saveSession, storageUnavailable } from "./lib/storage";
 import { bytes, diagnostics, ms, num, shapeName } from "./lib/format";
 import { clock, instant, iso, ranBetween, spansDays } from "./lib/time";
@@ -159,18 +160,22 @@ export default function App() {
                     <div className="mt">{ranBetween(s.profiles)
                       ?? `imported ${new Date(s.importedAt).toLocaleDateString()}`}</div>
                   </button>
-                  <button className="x dl" title="Download this session" aria-label={`Download ${s.name}`}
+                  <Tip content="Download this session">
+                  <button className="x dl" aria-label={`Download ${s.name}`}
                           onClick={() => download(s)}>
                     <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true" fill="none"
                          stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M8 2.5v8M4.5 7 8 10.5 11.5 7M3 13.5h10" />
                     </svg>
                   </button>
-                  <button className="x" title="Remove this session" aria-label={`Remove ${s.name}`}
+                  </Tip>
+                  <Tip content="Remove this session">
+                  <button className="x" aria-label={`Remove ${s.name}`}
                           onClick={async () => {
                             await dropSession(s.id);
                             dispatch({ type: "removed", sessionId: s.id });
                           }}>×</button>
+                  </Tip>
                 </div>
               ))}
               {confirmingClear ? (
@@ -206,7 +211,7 @@ export default function App() {
                   {row.runs.map((p) => (
                     <button className="run" key={p.query_id} aria-pressed={p.query_id === state.queryId}
                             onClick={() => pick(p.query_id)}>
-                      <div className="l1" title={shapeName(p)}>{title(p)}</div>
+                      <Tip content={p.label ? shapeName(p) : null}><div className="l1">{title(p)}</div></Tip>
                       <div className="l2">{ms(p.wall_ms)} wall · {ms(p.cpu_ms)} cpu</div>
                     </button>
                   ))}
@@ -275,14 +280,17 @@ polars_telemetry.install(exporter=FileExporter("profiles/session.jsonl"))`} />
                 <div className="qline">
                   <span className="qname">{title(profile)}</span>
                   <span className="qmeta">{profile.label ? `${shapeName(profile)} · ` : ""}{profile.fingerprint} ·{" "}
-                    <time dateTime={iso(profile.started_unix_ns)}
-                          title={instant(profile.started_unix_ns)}>
-                      {clock(profile.started_unix_ns, withDates)}</time></span>
+                    <Tip content={instant(profile.started_unix_ns)}>
+                      <time dateTime={iso(profile.started_unix_ns)} tabIndex={0}>
+                        {clock(profile.started_unix_ns, withDates)}</time>
+                    </Tip></span>
                   {profile.call_site && (
-                    <span className="qsite" title={profile.call_site.filepath}>
+                    <Tip content={profile.call_site.filepath}>
+                    <span className="qsite" tabIndex={0}>
                       {profile.call_site.filepath.split("/").pop()}:{profile.call_site.lineno}
                       {" in "}{profile.call_site.function}()
                     </span>
+                    </Tip>
                   )}
                   {siblings.length > 0 && (
                     <select className="picker" style={{ marginLeft: "auto" }}
@@ -301,6 +309,12 @@ polars_telemetry.install(exporter=FileExporter("profiles/session.jsonl"))`} />
                   <b>{num(profile.cpu_ms, 1)} ms</b> cpu{delta(profile.cpu_ms, compare?.cpu_ms)} ·{" "}
                   <b>{profile.plan.physical.length}</b> nodes ·{" "}
                   <b>{num(profile.result_rows ?? 0)}</b> rows out · polars {profile.polars_version}
+                  {profile.redacted?.length ? (
+                    <Tip content={<TipText term="Masked before export">Values such as {'"<str>"'} and {"<num>"} are placeholders, not your data.</TipText>}>
+                      <span className="masked" tabIndex={0}>
+                        {" "}· masked: {profile.redacted.join(", ").replace("_", " ")}</span>
+                    </Tip>
+                  ) : null}
                 </div>
                 {profile.failed && (
                   <div className="qfail" role="alert"><b>Failed</b> {profile.failed}</div>
@@ -321,8 +335,9 @@ polars_telemetry.install(exporter=FileExporter("profiles/session.jsonl"))`} />
                           plan={profile.plan.logical} logical
                           selectedId={state.node?.plan === "logical" ? state.node.id : null}
                           onSelect={(id) => dispatch({ type: "nodePicked", node: { plan: "logical", id } })} />
-                <PlanPane key={`physical-${profile.query_id}`} title="Physical plan" subtitle="fill = CPU · edges = rows"
+                <PlanPane key={`physical-${profile.query_id}`} title="Physical plan"
                           plan={profile.plan.physical} logical={false}
+                          focus={state.focus} onFocus={(focus) => dispatch({ type: "focused", focus })}
                           selectedId={state.node?.plan === "physical" ? state.node.id : null}
                           onSelect={(id) => dispatch({ type: "nodePicked", node: { plan: "physical", id } })} />
               </div>

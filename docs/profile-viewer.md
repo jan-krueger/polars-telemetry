@@ -52,6 +52,11 @@ Click a node for its properties and every counter in the right sidebar. Each
 counter's `?` explains what it measures. Long expressions are set one method
 call or condition per line.
 
+To see where the time goes in a large plan, drag the slider above the
+physical plan. Each step fades the cheapest nodes still lit, and the readout
+says how many remain and how much of the CPU time they account for. The
+setting carries over to the next query as that share, not as a node count.
+
 ## Comparing runs
 
 When a query ran more than once, pick another run under **compare with…** and

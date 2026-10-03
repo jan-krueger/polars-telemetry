@@ -38,7 +38,7 @@ mid-write still reads up to the last complete line.
   "wall_ms": 20.49, "cpu_ms": 81.71, "result_rows": 4,
   "call_site": { "filepath": "/srv/app/reports.py", "lineno": 23,
                  "function": "revenue_by_region" },
-  "failed": null,
+  "failed": null, "redacted": null,
   "trace_id": "...", "span_id": "...",
   "diagnostics": { "parallel_efficiency": 0.33, "morsel_skew": 1.46, ... },
   "plan": { "physical": [ ... ], "logical": [ ... ] }
@@ -53,6 +53,7 @@ mid-write still reads up to the last complete line.
 | `fingerprint` | The plan's shape, without literals: equal for runs of the same query |
 | `call_site` | The file, line and function that ran the query, else `null` |
 | `trace_id`, `span_id` | Present when a span was active, linking the profile to its trace |
+| `redacted` | What was masked before writing, such as `["strings", "numbers"]`, else `null` |
 | `diagnostics` | Derived figures, as on the [span](../reference/spans-and-metrics.md#diagnostics) |
 | `plan.physical` | Physical nodes with their properties, `role`, and all 19 counters |
 | `plan.logical` | The logical plan's nodes, with your own column names |
@@ -63,9 +64,10 @@ mid-write still reads up to the last complete line.
 | --- | --- | --- |
 | `path` | required | The file; its directory is created |
 | `max_bytes` | 64 MiB | Past this, the file moves to `<name>.1` and a new one starts |
-| `redact_literals` | `False` | Mask literals in the plans written |
 
 At most about twice `max_bytes` is on disk: the current file and one previous.
+Masking is set on `install()`'s config, or for this file alone with
+`redacted(FileExporter(...), Redaction())`.
 
 ## Your data
 

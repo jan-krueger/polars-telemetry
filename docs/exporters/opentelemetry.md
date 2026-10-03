@@ -85,13 +85,15 @@ Through `Config`, passed to both `install()` and `OTelExporter`:
 | `node_metrics` | `True` | Per-node counters and all that comes from them: node metrics, `polars.cpu_ms`, the hot node, most diagnostics |
 | `include_plan` | `False` | The whole plan as JSON in `polars.plan` |
 | `call_site` | `True` | The `code.*` attributes |
-| `redact_literals` | `False` | Mask literals in span attributes and the error message |
+| `redaction` | `None` | Mask literals and more in span attributes and the error message; set on `install()`'s config or with `redacted()` |
 
 ## Your data
 
 Scan paths, predicates, join keys and group-by keys go into span attributes
 as written, literals included. Metrics never carry them: every metric
-dimension comes from a bounded set. See [Data and privacy](../privacy.md).
+dimension comes from a bounded set. To send this exporter a masked copy while
+others keep full detail, wrap it in `redacted()`; see
+[Data and privacy](../privacy.md#one-setting-per-exporter).
 
 ## Cost
 

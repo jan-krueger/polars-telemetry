@@ -453,6 +453,18 @@ toml = [
 ]
 
 [[package]]
+name = "datadog"
+version = "0.54.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "requests" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/e4/01/0f7b044e0cd3f3d851948a612fc09d48cd28b436fe09dd357fbde8f134aa/datadog-0.54.0.tar.gz", hash = "sha256:62afcedb3e56b8ea6fff04aa807ebcbf9a6bd843bd1c7feab0a9035ce21b8ca2", size = 407291, upload-time = "2026-09-22T20:53:51.34Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/1c/7f/d9538fded4be4f13b26e2848e74aafdf8d20d4bee94b966c443145c53cf8/datadog-0.54.0-py2.py3-none-any.whl", hash = "sha256:5a3d47154ed5ef223ca85533da3703691ba8707812db1a95f335094cdf884d4b", size = 152270, upload-time = "2026-09-22T20:53:49.677Z" },
+]
+
+[[package]]
 name = "dependency-groups"
 version = "1.3.2"
 source = { registry = "https://pypi.org/simple" }
@@ -1395,6 +1407,9 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+datadog = [
+    { name = "datadog" },
+]
 otlp = [
     { name = "opentelemetry-exporter-otlp-proto-grpc" },
     { name = "opentelemetry-sdk" },
@@ -1402,6 +1417,7 @@ otlp = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "datadog" },
     { name = "msgpack-types" },
     { name = "mypy" },
     { name = "nox" },
@@ -1418,16 +1434,18 @@ docs = [
 
 [package.metadata]
 requires-dist = [
+    { name = "datadog", marker = "extra == 'datadog'", specifier = ">=0.50" },
     { name = "msgpack", specifier = ">=1.0" },
     { name = "opentelemetry-api", specifier = ">=1.20" },
     { name = "opentelemetry-exporter-otlp-proto-grpc", marker = "extra == 'otlp'", specifier = ">=1.20" },
     { name = "opentelemetry-sdk", marker = "extra == 'otlp'", specifier = ">=1.20" },
     { name = "polars", specifier = ">=1.44.1" },
 ]
-provides-extras = ["otlp"]
+provides-extras = ["datadog", "otlp"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "datadog", specifier = ">=0.50" },
     { name = "msgpack-types", specifier = ">=0.5" },
     { name = "mypy", specifier = ">=1.11" },
     { name = "nox", specifier = ">=2024.4.15" },

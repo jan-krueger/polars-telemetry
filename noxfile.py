@@ -203,6 +203,8 @@ def influx(session: nox.Session) -> None:
     session.run(*COMPOSE_INFLUX, "up", "-d", "--wait", external=True)
     session.log("InfluxDB:  http://localhost:8086  (polars / polars-telemetry)")
     session.log("Telegraf OTLP endpoint: localhost:4327")
+    session.log("Telegraf DogStatsD:     localhost:8125/udp")
+    session.log("Grafana:   http://localhost:3000/d/polars-statsd")
 
 
 @nox.session(venv_backend="none")

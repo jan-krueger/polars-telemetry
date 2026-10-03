@@ -1,0 +1,437 @@
+{
+  "uid": "polars-statsd",
+  "title": "polars-telemetry \u00b7 DogStatsD via Telegraf",
+  "schemaVersion": 39,
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "refresh": "",
+  "tags": [
+    "polars",
+    "statsd",
+    "influxdb"
+  ],
+  "editable": true,
+  "panels": [
+    {
+      "id": 1,
+      "title": "Queries",
+      "type": "stat",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"telemetry\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"polars_query_duration\" and r._field == \"count\")\n  |> group()\n  |> sum()"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "sum"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value"
+      }
+    },
+    {
+      "id": 2,
+      "title": "Wall time",
+      "type": "stat",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"telemetry\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"polars_query_duration\" and r._field == \"sum\")\n  |> group()\n  |> sum()"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "sum"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value"
+      }
+    },
+    {
+      "id": 3,
+      "title": "CPU time",
+      "type": "stat",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"telemetry\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"polars_query_cpu_time\" and r._field == \"sum\")\n  |> group()\n  |> sum()"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "sum"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value"
+      }
+    },
+    {
+      "id": 4,
+      "title": "Rows read by scans",
+      "type": "stat",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"telemetry\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"polars_node_rows_out\" and r._field == \"value\" and r.node_kind == \"MultiScan\")\n  |> group()\n  |> sum()"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "sum"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value"
+      }
+    },
+    {
+      "id": 5,
+      "title": "Mean wall time per query",
+      "type": "barchart",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 12,
+        "h": 11
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "import \"strings\"\nfrom(bucket: \"telemetry\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"polars_query_duration\" and (r._field == \"sum\" or r._field == \"count\"))\n  |> group(columns: [\"label\", \"_field\"])\n  |> sum()\n  |> pivot(rowKey: [\"label\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> map(fn: (r) => ({query: r.label, n: int(v: strings.trimPrefix(v: r.label, prefix: \"tpch/q\")), \"mean wall\": r.sum / float(v: r.count)}))\n  |> group()\n  |> sort(columns: [\"n\"])\n  |> drop(columns: [\"n\"])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "vertical",
+        "showValue": "never",
+        "legend": {
+          "showLegend": false
+        },
+        "xTickLabelRotation": -45
+      },
+      "description": "Mean of every run of each labelled query, from polars.query.duration histograms."
+    },
+    {
+      "id": 6,
+      "title": "Parallel efficiency per query",
+      "type": "barchart",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 4,
+        "w": 12,
+        "h": 11
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "import \"strings\"\nfrom(bucket: \"telemetry\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"polars_query_parallel_efficiency\" and (r._field == \"sum\" or r._field == \"count\"))\n  |> group(columns: [\"label\", \"_field\"])\n  |> sum()\n  |> pivot(rowKey: [\"label\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> map(fn: (r) => ({query: r.label, n: int(v: strings.trimPrefix(v: r.label, prefix: \"tpch/q\")), \"parallel efficiency\": r.sum / float(v: r.count)}))\n  |> group()\n  |> sort(columns: [\"n\"])\n  |> drop(columns: [\"n\"])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "vertical",
+        "showValue": "never",
+        "legend": {
+          "showLegend": false
+        },
+        "xTickLabelRotation": -45
+      },
+      "description": "CPU time over wall time over cores: 1 keeps every core busy."
+    },
+    {
+      "id": 7,
+      "title": "CPU time by node kind",
+      "type": "barchart",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 15,
+        "w": 8,
+        "h": 10
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"telemetry\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"polars_node_cpu_time\" and r._field == \"sum\")\n  |> group(columns: [\"node_kind\"])\n  |> sum()\n  |> group()\n  |> map(fn: (r) => ({\"node kind\": r.node_kind, \"cpu\": r._value}))\n  |> sort(columns: [\"cpu\"], desc: true)\n  |> limit(n: 12)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "showValue": "auto",
+        "legend": {
+          "showLegend": false
+        },
+        "xTickLabelMaxLength": 0
+      }
+    },
+    {
+      "id": 8,
+      "title": "Rows in by node kind",
+      "type": "barchart",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 15,
+        "w": 8,
+        "h": 10
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"telemetry\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"polars_node_rows_in\" and r._field == \"value\")\n  |> group(columns: [\"node_kind\"])\n  |> sum()\n  |> group()\n  |> map(fn: (r) => ({\"node kind\": r.node_kind, \"rows\": r._value}))\n  |> sort(columns: [\"rows\"], desc: true)\n  |> limit(n: 12)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "showValue": "auto",
+        "legend": {
+          "showLegend": false
+        },
+        "xTickLabelMaxLength": 0
+      }
+    },
+    {
+      "id": 9,
+      "title": "Morsels in by node kind",
+      "type": "barchart",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 15,
+        "w": 8,
+        "h": 10
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"telemetry\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"polars_node_morsels_in\" and r._field == \"value\")\n  |> group(columns: [\"node_kind\"])\n  |> sum()\n  |> group()\n  |> map(fn: (r) => ({\"node kind\": r.node_kind, \"morsels\": r._value}))\n  |> sort(columns: [\"morsels\"], desc: true)\n  |> limit(n: 12)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "showValue": "auto",
+        "legend": {
+          "showLegend": false
+        },
+        "xTickLabelMaxLength": 0
+      }
+    },
+    {
+      "id": 10,
+      "title": "Slowest query, per flush",
+      "type": "timeseries",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "influxdb"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 25,
+        "w": 24,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "influxdb"
+          },
+          "query": "from(bucket: \"telemetry\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"polars_query_duration\" and r._field == \"upper\")\n  |> group()\n  |> aggregateWindow(every: 10s, fn: max, createEmpty: false)\n  |> rename(columns: {_value: \"slowest\"})\n  |> keep(columns: [\"_time\", \"slowest\"])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "showPoints": "always",
+            "pointSize": 6,
+            "fillOpacity": 0
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": false
+        }
+      },
+      "description": "The longest query finishing in each 10 s Telegraf flush. Telegraf summarises each label separately, so percentiles cannot be combined across queries."
+    }
+  ],
+  "templating": {
+    "list": []
+  }
+}

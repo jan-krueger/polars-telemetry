@@ -10,6 +10,7 @@ and `profile()` blocks from any thread, so every change happens under one lock.
 
 from __future__ import annotations
 
+import atexit
 import logging
 import threading
 from collections.abc import Sequence
@@ -22,9 +23,11 @@ from polars_telemetry.adapter.hook import ObserverFactory
 from polars_telemetry.adapter.recorder import QueryRecorder
 from polars_telemetry.compat import SUPPORTED, Capabilities, probe
 from polars_telemetry.config import Config
+from polars_telemetry.export.base import Redacted
 
 if TYPE_CHECKING:
     from polars_telemetry.export.base import Exporter
+    from polars_telemetry.model.redaction import Redaction
 
 _log = logging.getLogger("polars_telemetry")
 
@@ -91,12 +94,40 @@ def uninstall() -> None:
 
         for receiver in _state.receivers:
             _dispatch.remove(receiver)
+        _close(_state.exporters)
         try:
             pl.Config.enable_monitoring(False)
         finally:
             mod.unbind(_state.binding)
             _state = None
             _scoped_holders = 0
+
+
+def _close(exporters: tuple[Exporter, ...]) -> None:
+    """Let exporters that hold data send it: those with a `close()` method."""
+    for exporter in exporters:
+        target = _unwrapped(exporter)
+        close = getattr(target, "close", None)
+        if close is None:
+            continue
+        try:
+            close()
+        except Exception as exc:
+            _log.warning(
+                "polars-telemetry: closing %s failed (%s: %s).",
+                type(target).__name__,
+                type(exc).__name__,
+                exc,
+            )
+
+
+@atexit.register
+def _close_at_exit() -> None:
+    # Most applications never call uninstall(); what an exporter still holds
+    # would otherwise go down with the process.
+    state = _state
+    if state is not None:
+        _close(state.exporters)
 
 
 def acquire_scoped(config: Config | None) -> bool:
@@ -234,16 +265,31 @@ def _effective(config: Config, capabilities: Capabilities) -> Config:
 
 
 def _register(exporters: tuple[Exporter, ...], config: Config) -> tuple[_dispatch.Receiver, ...]:
-    # Redacted before delivery, so an exporter the application wrote is covered
-    # by the setting as much as the bundled ones are.
-    return tuple(
-        _dispatch.add(
-            exporter.export,
-            f"exporter {type(exporter).__name__}",
-            redact=config.redact_literals,
+    # Masked before delivery, so an exporter the application wrote is covered
+    # as much as the bundled ones are.
+    receivers = []
+    for exporter in exporters:
+        target, redaction = _redaction_for(exporter, config)
+        receivers.append(
+            _dispatch.add(target.export, f"exporter {type(target).__name__}", redaction=redaction)
         )
-        for exporter in exporters
-    )
+    return tuple(receivers)
+
+
+def _unwrapped(exporter: Exporter) -> Exporter:
+    """The exporter itself, without the redaction `redacted()` gave it."""
+    return exporter.exporter if isinstance(exporter, Redacted) else exporter
+
+
+def _redaction_for(exporter: Exporter, config: Config) -> tuple[Exporter, Redaction | None]:
+    if isinstance(exporter, Redacted):
+        return _unwrapped(exporter), exporter.redaction
+    # Before 0.3, OTelExporter masked by the config it was given, whatever
+    # install() was given; keep that rather than start sending literals.
+    own = getattr(exporter, "config", None)
+    if config.redaction is None and isinstance(own, Config) and own.redaction is not None:
+        return exporter, own.redaction
+    return exporter, config.redaction
 
 
 def _as_tuple(exporter: Exporter | Sequence[Exporter] | None) -> tuple[Exporter, ...]:

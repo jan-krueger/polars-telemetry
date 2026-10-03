@@ -6,7 +6,6 @@ import json
 from typing import TYPE_CHECKING
 
 from polars_telemetry.export import semconv
-from polars_telemetry.model.redaction import redact
 
 if TYPE_CHECKING:
     from polars_telemetry.model.diagnostics import Diagnostics
@@ -15,9 +14,8 @@ if TYPE_CHECKING:
 AttributeValue = str | int | float | bool | tuple[str, ...]
 
 
-def _text(value: object, *, redact_literals: bool) -> str:
-    rendered = value if isinstance(value, str) else str(value)
-    return redact(rendered) if redact_literals else rendered
+def _text(value: object) -> str:
+    return value if isinstance(value, str) else str(value)
 
 
 # The include_plan JSON names counters for readers rather than for polars, and
@@ -44,7 +42,7 @@ PLAN_JSON_FIELDS: tuple[tuple[str, str], ...] = (
 )
 
 
-def plan_json(query: Query, *, redact_literals: bool = False) -> str:
+def plan_json(query: Query) -> str:
     """The whole plan and its counters, as one JSON document.
 
     Opt-in: it is kilobytes, and identical for every run of a shape. Carries
@@ -94,7 +92,6 @@ def _add_diagnostics(attrs: dict[str, AttributeValue], diagnostics: Diagnostics)
 def query_attributes(
     query: Query,
     *,
-    redact_literals: bool = False,
     diagnostics: Diagnostics | None = None,
     plan_fingerprint: str | None = None,
     include_plan: bool = False,
@@ -127,7 +124,7 @@ def query_attributes(
     if diagnostics is not None:
         _add_diagnostics(attrs, diagnostics)
     if include_plan:
-        attrs[semconv.PLAN] = plan_json(query, redact_literals=redact_literals)
+        attrs[semconv.PLAN] = plan_json(query)
 
     hottest = query.hottest
     if hottest is not None and query.cpu_ms > 0:
@@ -157,7 +154,7 @@ def query_attributes(
             columns += node.scan.columns_read
 
     def text(value: str) -> str:
-        return _text(value, redact_literals=redact_literals)
+        return _text(value)
 
     for node in semantic.values():
         if node.scan is not None:
