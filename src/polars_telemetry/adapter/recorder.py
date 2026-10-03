@@ -19,6 +19,7 @@ from polars_telemetry._callsite import caller
 from polars_telemetry.adapter.build import build_metrics, build_plan, enrich
 from polars_telemetry.adapter.decode import decode_optional_plan, decode_plan
 from polars_telemetry.adapter.handle import MetricsHandle
+from polars_telemetry.labels import current_label
 from polars_telemetry.model.types import CallSite, NodeRole, PlanNode, Query
 
 if TYPE_CHECKING:
@@ -62,6 +63,7 @@ class QueryRecorder:
         "_config",
         "_emit",
         "_handle",
+        "_label",
         "_logical",
         "_plan",
         "_query_id",
@@ -81,6 +83,7 @@ class QueryRecorder:
         self._plan: dict[int, PlanNode] = {}
         self._logical: dict[int, PlanNode] = {}
         self._call_site: CallSite | None = None
+        self._label: str | None = None
         self._started = 0.0
         self._started_unix_ns = 0
 
@@ -89,6 +92,7 @@ class QueryRecorder:
         # missing column, most commonly -- still produces a span.
         self._query_id = query_id
         self._call_site = caller() if self._config.call_site else None
+        self._label = current_label()
         self._started = time.perf_counter()
         self._started_unix_ns = time.time_ns()
 
@@ -151,6 +155,7 @@ class QueryRecorder:
                     logical=self._logical,
                     metrics=metrics,
                     call_site=self._call_site,
+                    label=self._label,
                     polars_version=_POLARS_VERSION,
                     failed=failure,
                     started_unix_ns=self._started_unix_ns,

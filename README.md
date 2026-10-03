@@ -74,6 +74,15 @@ Drop the file on the
 both plans, per-node counters, and a diff between two runs of the same shape.
 It runs entirely in your browser; nothing is uploaded.
 
+## Label what runs
+
+```python
+with polars_telemetry.label("revenue_by_region"):
+    report.collect()
+```
+
+The label is on the span and in the profile; nested labels join with `/`.
+
 ## Profile a block of code
 
 ```python

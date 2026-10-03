@@ -11,6 +11,7 @@ The span is named `polars.collect`.
 | Attribute | Type | Notes |
 | --- | --- | --- |
 | `polars.query_id` | str | UUIDv7 from polars; time-ordered |
+| `polars.query.label` | str | Set with `polars_telemetry.label()`; nested labels joined with `/`. Never a metric dimension |
 | `polars.plan.fingerprint` | str | Hash of the plan *shape* — see below |
 | `polars.engine` | str | Always `streaming` while monitoring is on |
 | `polars.cpu_ms` | float | Summed node self time; exceeds wall time when parallel |

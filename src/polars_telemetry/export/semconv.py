@@ -21,6 +21,8 @@ CODE_LINE_NUMBER: Final = "code.line.number"
 CODE_FUNCTION_NAME: Final = "code.function.name"
 
 QUERY_ID: Final = "polars.query_id"
+QUERY_LABEL: Final = "polars.query.label"
+"""Set by the application with `label()`. Free-form, so never a metric dimension."""
 ENGINE: Final = "polars.engine"
 CPU_MS: Final = "polars.cpu_ms"
 PARALLELISM: Final = "polars.parallelism"

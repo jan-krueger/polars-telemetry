@@ -7,6 +7,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- `label()`: a context manager naming the queries run inside it, so they can
+  be found again. Nested labels join with `/` (`etl/customers`). The label is
+  recorded on the span as `polars.query.label` and in the profile, and is
+  never a metric dimension, being free-form.
 - `install(exporter=[...])` takes several exporters. Each receives every
   query, and one that keeps raising disables itself without costing the others.
 - Each node in a profile carries its `role`, so a reader can render the plan

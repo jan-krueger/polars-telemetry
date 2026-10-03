@@ -71,6 +71,7 @@ def build_profile(query: Query, *, diagnostics: Diagnostics | None = None) -> di
         "polars_version": query.polars_version or "unknown",
         "polars_telemetry_version": __version__,
         "query_id": str(query.query_id),
+        "label": query.label,
         "fingerprint": query.fingerprint,
         "started_unix_ns": query.started_unix_ns,
         "wall_ms": round(query.wall_ms, 4),

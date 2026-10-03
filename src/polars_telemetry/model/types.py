@@ -190,6 +190,9 @@ class Query:
     call_site: CallSite | None = None
     """Where in the caller's code the query ran."""
 
+    label: str | None = None
+    """What the application called it, via `polars_telemetry.label()`."""
+
     polars_version: str = ""
     """The polars that ran it. Carried here so nothing downstream imports polars."""
 

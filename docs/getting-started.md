@@ -53,6 +53,20 @@ polars_telemetry.install(Config(node_metrics=False))
 | `redact_literals` | `False` | Mask literal values in plan expressions |
 | `resource_attributes` | `{}` | Deprecated: never applied; set them on your OpenTelemetry provider |
 
+## Label queries
+
+```python
+from polars_telemetry import label
+
+with label("nightly"), label("revenue_by_region"):
+    report.collect()
+```
+
+The label lands on the query's span and in its profile, where the viewer
+shows and searches it. Nested labels join with `/`, so the query above is
+`nightly/revenue_by_region`. A label is free-form and therefore never a metric
+dimension.
+
 ## Profile a block of code
 
 Where a global exporter is the wrong shape — a test, a notebook cell, one

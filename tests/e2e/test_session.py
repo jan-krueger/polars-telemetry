@@ -191,3 +191,18 @@ def test_literals_are_kept_by_default():
 class _Nothing:
     def export(self, query: object) -> None:
         return
+
+
+def test_a_label_reaches_the_query_and_its_profile():
+    from polars_telemetry import label
+
+    with profile() as session, label("tpch"), label("q3"):
+        _run()
+    assert session[0].label == "tpch/q3"
+    assert session.profiles()[0]["label"] == "tpch/q3"
+
+
+def test_queries_outside_a_label_have_none():
+    with profile() as session:
+        _run()
+    assert session[0].label is None

@@ -109,6 +109,8 @@ def query_attributes(
         semconv.ENGINE: "streaming",
         semconv.NODE_COUNT: len(query.plan),
     }
+    if query.label is not None:
+        attrs[semconv.QUERY_LABEL] = query.label
     if query.call_site is not None:
         attrs[semconv.CODE_FILE_PATH] = query.call_site.filepath
         attrs[semconv.CODE_LINE_NUMBER] = query.call_site.lineno
