@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field, fields
 from enum import Enum
+from typing import TYPE_CHECKING
 from uuid import UUID
+
+if TYPE_CHECKING:
+    from polars_telemetry.model.diagnostics import Diagnostics
 
 
 @dataclass(frozen=True, slots=True)
@@ -188,6 +192,12 @@ class Query:
 
     polars_version: str = ""
     """The polars that ran it. Carried here so nothing downstream imports polars."""
+
+    fingerprint: str = ""
+    """The plan shape, hashed once on arrival; empty on a Query built by hand."""
+
+    diagnostics: Diagnostics | None = None
+    """Derived once on arrival, so every exporter reports the same figures."""
 
     failed: str | None = None
     started_unix_ns: int = 0

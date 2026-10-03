@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from polars_telemetry.adapter.build import build_plan
-from polars_telemetry.model.fingerprint import FINGERPRINT_LENGTH, fingerprint
+from polars_telemetry.adapter.fingerprint import FINGERPRINT_LENGTH, fingerprint
 
 FIXTURE = sorted(p for p in (Path(__file__).parents[1] / "fixtures").iterdir() if p.is_dir())[-1]
 

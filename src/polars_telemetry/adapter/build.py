@@ -6,10 +6,13 @@ assigns each node its role through the dialect.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import Any
 
 from polars_telemetry.adapter.dialect import facets, role_of
-from polars_telemetry.model.types import COUNTER_NAMES, NodeMetrics, PlanNode
+from polars_telemetry.adapter.fingerprint import fingerprint
+from polars_telemetry.model.diagnostics import derive
+from polars_telemetry.model.types import COUNTER_NAMES, NodeMetrics, PlanNode, Query
 
 
 def build_plan(records: list[dict[str, Any]]) -> dict[int, PlanNode]:
@@ -41,3 +44,16 @@ def build_metrics(records: list[dict[str, Any]]) -> dict[int, NodeMetrics]:
             **{name: int(record.get(name, 0)) for name in COUNTER_NAMES},
         )
     return metrics
+
+
+def enrich(query: Query) -> Query:
+    """Attach what every consumer would otherwise derive for itself.
+
+    Before any redaction, so the fingerprint is the same whatever a receiver's
+    privacy settings are.
+    """
+    return replace(
+        query,
+        fingerprint=fingerprint(query.logical or query.plan),
+        diagnostics=derive(query),
+    )

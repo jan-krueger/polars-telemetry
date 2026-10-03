@@ -171,7 +171,7 @@ def _install(
         capabilities=capabilities,
         exporters=exporters,
         scoped=scoped,
-        receivers=_register(exporters),
+        receivers=_register(exporters, effective),
     )
     return _state
 
@@ -201,7 +201,7 @@ def _join(config: Config | None, exporters: tuple[Exporter, ...], *, scoped: boo
             config=effective,
             exporters=exporters,
             scoped=False,
-            receivers=(*_state.receivers, *_register(exporters)),
+            receivers=(*_state.receivers, *_register(exporters, effective)),
         )
         return _state
 
@@ -226,9 +226,15 @@ def _effective(config: Config, capabilities: Capabilities) -> Config:
     return config
 
 
-def _register(exporters: tuple[Exporter, ...]) -> tuple[_dispatch.Receiver, ...]:
+def _register(exporters: tuple[Exporter, ...], config: Config) -> tuple[_dispatch.Receiver, ...]:
+    # Redacted before delivery, so an exporter the application wrote is covered
+    # by the setting as much as the bundled ones are.
     return tuple(
-        _dispatch.add(exporter.export, f"exporter {type(exporter).__name__}")
+        _dispatch.add(
+            exporter.export,
+            f"exporter {type(exporter).__name__}",
+            redact=config.redact_literals,
+        )
         for exporter in exporters
     )
 

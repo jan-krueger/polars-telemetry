@@ -14,6 +14,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   predate it are unaffected.
 
 ### Changed
+- The plan fingerprint and the diagnostics are computed once, as a query
+  arrives, and carried on `Query`; exporters read them rather than each
+  deriving their own. The fingerprint is computed before any redaction, so it
+  is the same whatever a receiver's privacy settings are.
 - Exporters and `profile()` sessions are receivers in one registry, and the
   installation is changed under one lock. `install()` called again with
   different arguments now warns instead of silently ignoring them; called
@@ -61,6 +65,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   attribute and diagnostic that depended on it.
 
 ### Fixed
+- `redact_literals` covers exporters an application writes. Only the bundled
+  exporters redacted, so a custom exporter installed with
+  `Config(redact_literals=True)` received every literal. Redaction is now a
+  transform on the whole query, applied before delivery to each exporter and
+  session that asked for it — and if it fails, that receiver gets nothing
+  rather than the unredacted query.
 - The viewer shows a sink's IO counters when it only writes; the check for
   whether to show the IO group ignored bytes sent.
 - Profiles record the polars version that ran the query again. A refactor in

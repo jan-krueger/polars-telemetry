@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Any
 
 from polars_telemetry import _dispatch
 from polars_telemetry.activation import acquire_scoped, installed, release_scoped
-from polars_telemetry.export.profile import build_profile, redact_profile
+from polars_telemetry.export.profile import build_profile
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -25,11 +25,10 @@ if TYPE_CHECKING:
 class Session:
     """The queries that ran inside a :func:`profile` block, in order."""
 
-    __slots__ = ("_redact_literals", "queries")
+    __slots__ = ("queries",)
 
-    def __init__(self, *, redact_literals: bool = False) -> None:
+    def __init__(self) -> None:
         self.queries: list[Query] = []
-        self._redact_literals = redact_literals
 
     def __len__(self) -> int:
         return len(self.queries)
@@ -51,11 +50,9 @@ class Session:
         return sum(query.wall_ms for query in self.queries)
 
     def profiles(self) -> list[dict[str, Any]]:
-        """The full profile document for each query, redacted if the block asked."""
-        documents = [build_profile(query) for query in self.queries]
-        if self._redact_literals:
-            documents = [redact_profile(document) for document in documents]
-        return documents
+        """The full profile document for each query. Already redacted on
+        arrival if the block asked for it."""
+        return [build_profile(query) for query in self.queries]
 
     def write(self, path: str | Path) -> Path:
         """Write a session file the profile viewer can open."""
@@ -87,8 +84,12 @@ def profile(config: Config | None = None) -> Iterator[Session]:
     # The block's own config wins; otherwise inherit whatever is installed, so
     # a session never hands out literals an installed config would mask.
     effective = config or (current.config if current is not None else None)
-    session = Session(redact_literals=effective.redact_literals if effective else False)
-    receiver = _dispatch.add(session.queries.append, "profile session")
+    session = Session()
+    receiver = _dispatch.add(
+        session.queries.append,
+        "profile session",
+        redact=effective.redact_literals if effective else False,
+    )
     try:
         yield session
     finally:

@@ -114,3 +114,16 @@ def test_overlapping_blocks_keep_instrumentation_until_the_last_closes():
 def test_resource_attributes_warns_that_it_does_nothing():
     with pytest.warns(DeprecationWarning, match="resource_attributes"):
         Config(resource_attributes={"service.name": "x"})
+
+
+def test_an_application_exporter_receives_redacted_queries():
+    """redact_literals used to cover only the bundled exporters."""
+    mine = Collect()
+    polars_telemetry.install(Config(redact_literals=True), exporter=mine)
+    polars.LazyFrame({"e": ["a"]}).filter(polars.col("e") == "secret@corp.com").collect()
+
+    text = repr(
+        [n.properties for q in mine.queries for n in [*q.plan.values(), *q.logical.values()]]
+    )
+    assert mine.queries
+    assert "secret@corp.com" not in text

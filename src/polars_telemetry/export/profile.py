@@ -16,7 +16,6 @@ from typing import TYPE_CHECKING, Any
 
 from polars_telemetry._version import __version__
 from polars_telemetry.model.diagnostics import Diagnostics, derive
-from polars_telemetry.model.fingerprint import fingerprint
 from polars_telemetry.model.types import COUNTER_NAMES
 
 if TYPE_CHECKING:
@@ -65,15 +64,14 @@ def _node(node: PlanNode, metric: NodeMetrics | None) -> dict[str, Any]:
 
 def build_profile(query: Query, *, diagnostics: Diagnostics | None = None) -> dict[str, Any]:
     """Assemble the complete profile document for one query."""
-    diagnostics = diagnostics if diagnostics is not None else derive(query)
-    plan = query.logical or query.plan
+    diagnostics = diagnostics or query.diagnostics or derive(query)
 
     document: dict[str, Any] = {
         "schema": SCHEMA,
         "polars_version": query.polars_version or "unknown",
         "polars_telemetry_version": __version__,
         "query_id": str(query.query_id),
-        "fingerprint": fingerprint(plan),
+        "fingerprint": query.fingerprint,
         "started_unix_ns": query.started_unix_ns,
         "wall_ms": round(query.wall_ms, 4),
         "cpu_ms": round(query.cpu_ms, 4),
@@ -110,7 +108,7 @@ def redact_profile(document: dict[str, Any]) -> dict[str, Any]:
     Every route that hands out a profile -- the file exporter, a scoped
     session -- goes through this, so redaction has one definition.
     """
-    from polars_telemetry.export.attributes import redact
+    from polars_telemetry.model.redaction import redact
 
     def walk(value: object) -> object:
         if isinstance(value, str):

@@ -8,7 +8,7 @@ from uuid import uuid4
 
 import pytest
 
-from polars_telemetry.adapter.build import build_metrics, build_plan
+from polars_telemetry.adapter.build import build_metrics, build_plan, enrich
 from polars_telemetry.export.profile import SCHEMA, build_profile
 from polars_telemetry.model.types import NodeMetrics, Query
 
@@ -17,13 +17,16 @@ FIXTURE = sorted(p for p in (Path(__file__).parents[1] / "fixtures").iterdir() i
 
 @pytest.fixture
 def query():
-    return Query(
-        query_id=uuid4(),
-        wall_ms=40.0,
-        plan=build_plan(json.loads((FIXTURE / "physical.json").read_text())),
-        logical=build_plan(json.loads((FIXTURE / "ir.json").read_text())),
-        metrics=build_metrics(json.loads((FIXTURE / "metrics.json").read_text())),
-        started_unix_ns=1_700_000_000_000_000_000,
+    # Enriched as ingress would, so the fingerprint and diagnostics are set.
+    return enrich(
+        Query(
+            query_id=uuid4(),
+            wall_ms=40.0,
+            plan=build_plan(json.loads((FIXTURE / "physical.json").read_text())),
+            logical=build_plan(json.loads((FIXTURE / "ir.json").read_text())),
+            metrics=build_metrics(json.loads((FIXTURE / "metrics.json").read_text())),
+            started_unix_ns=1_700_000_000_000_000_000,
+        )
     )
 
 
@@ -74,7 +77,7 @@ def test_diagnostics_omit_absent_signals(query):
 
 
 def test_fingerprint_matches_the_shape(query):
-    from polars_telemetry.model.fingerprint import fingerprint
+    from polars_telemetry.adapter.fingerprint import fingerprint
 
     assert build_profile(query)["fingerprint"] == fingerprint(query.logical)
 

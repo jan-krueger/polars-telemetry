@@ -1,5 +1,8 @@
 """Stable identity for a query *shape*.
 
+In the adapter because it hashes polars' own kind names and property values:
+it is a function of polars' vocabulary, computed once as a query arrives.
+
 A query id identifies one run and is unbounded, so it can never be a metric
 dimension. The plan shape is bounded by the application's code paths, so it
 can: the same query with different parameter values hashes the same.

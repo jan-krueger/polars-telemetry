@@ -3,37 +3,16 @@
 from __future__ import annotations
 
 import json
-import re
 from typing import TYPE_CHECKING
 
 from polars_telemetry.export import semconv
+from polars_telemetry.model.redaction import redact
 
 if TYPE_CHECKING:
     from polars_telemetry.model.diagnostics import Diagnostics
     from polars_telemetry.model.types import Query
 
 AttributeValue = str | int | float | bool | tuple[str, ...]
-
-# Quoted text directly after these is a column or alias name, not user data.
-_NAME_CONTEXT = re.compile(r"(?:col|alias|name|nth)\($")
-_QUOTED = re.compile(r'"[^"]*"')
-_NUMERIC = re.compile(r"(?<![\w.])\d+(?:\.\d+)?(?![\w.])")
-
-
-def redact(expression: str) -> str:
-    """Mask literal values in a plan expression, keeping its structure.
-
-    Best effort over polars' textual expression form: quoted text is kept when
-    it is a column or alias name and masked otherwise, and bare numbers are
-    masked. Structure, column names and operators survive.
-    """
-
-    def mask_quoted(match: re.Match[str]) -> str:
-        if _NAME_CONTEXT.search(expression[: match.start()]):
-            return match.group(0)
-        return '"<str>"'
-
-    return _NUMERIC.sub("<num>", _QUOTED.sub(mask_quoted, expression))
 
 
 def _text(value: object, *, redact_literals: bool) -> str:

@@ -18,9 +18,9 @@ from opentelemetry.trace import SpanKind, Status, StatusCode
 
 from polars_telemetry._version import __version__
 from polars_telemetry.export import semconv
-from polars_telemetry.export.attributes import query_attributes, redact
+from polars_telemetry.export.attributes import query_attributes
 from polars_telemetry.model.diagnostics import derive
-from polars_telemetry.model.fingerprint import fingerprint
+from polars_telemetry.model.redaction import redact
 
 if TYPE_CHECKING:
     from opentelemetry.metrics import Counter, Histogram
@@ -84,8 +84,9 @@ class OTelExporter:
         }
 
     def export(self, query: Query) -> None:
-        diagnostics = derive(query)
-        shape = fingerprint(query.logical or query.plan)
+        # Attached on arrival; derived here only for a Query built by hand.
+        diagnostics = query.diagnostics or derive(query)
+        shape = query.fingerprint
 
         start_ns = query.started_unix_ns or 0
         end_ns = start_ns + int(query.wall_ms * _MS_TO_NS)

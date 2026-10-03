@@ -26,7 +26,7 @@ import polars
 
 from polars_telemetry._callsite import caller
 from polars_telemetry._safety import FailureTracker
-from polars_telemetry.adapter.build import build_metrics, build_plan
+from polars_telemetry.adapter.build import build_metrics, build_plan, enrich
 from polars_telemetry.adapter.decode import decode_optional_plan, decode_plan
 from polars_telemetry.adapter.handle import MetricsHandle
 from polars_telemetry.model.types import CallSite, NodeRole, PlanNode, Query
@@ -229,7 +229,7 @@ class QueryObserver:
             failed=failure,
             started_unix_ns=self._started_unix_ns,
         )
-        self._emit(query)
+        self._emit(enrich(query))
 
     def _forward(self, method: str, *args: Any) -> Any:
         """Pass the callback on to polars-cloud, when it is also installed."""
