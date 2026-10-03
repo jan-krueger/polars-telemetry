@@ -86,21 +86,34 @@ def uninstall() -> None:
     The engine affinity stays `"streaming"`; polars exposes no way to read the
     previous value back.
     """
-    global _state, _scoped_holders
     with _lock:
-        if _state is None:
-            return
-        import polars as pl
+        detached = _detach()
+    # Outside the lock: a flush can take seconds, and must not hold up another
+    # thread's install() or profile() meanwhile. The exporters no longer
+    # receive queries, so nothing reaches them while they close.
+    _close(detached)
 
-        for receiver in _state.receivers:
-            _dispatch.remove(receiver)
-        _close(_state.exporters)
-        try:
-            pl.Config.enable_monitoring(False)
-        finally:
-            mod.unbind(_state.binding)
-            _state = None
-            _scoped_holders = 0
+
+def _detach() -> tuple[Exporter, ...]:
+    """Take the installation down, returning its exporters for closing.
+
+    Called with the lock held.
+    """
+    global _state, _scoped_holders
+    if _state is None:
+        return ()
+    import polars as pl
+
+    exporters = _state.exporters
+    for receiver in _state.receivers:
+        _dispatch.remove(receiver)
+    try:
+        pl.Config.enable_monitoring(False)
+    finally:
+        mod.unbind(_state.binding)
+        _state = None
+        _scoped_holders = 0
+    return exporters
 
 
 def _close(exporters: tuple[Exporter, ...]) -> None:
@@ -147,11 +160,13 @@ def acquire_scoped(config: Config | None) -> bool:
 
 def release_scoped() -> None:
     global _scoped_holders
+    detached: tuple[Exporter, ...] = ()
     with _lock:
         _scoped_holders = max(_scoped_holders - 1, 0)
         # An application may have adopted the installation meanwhile.
         if _scoped_holders == 0 and _state is not None and _state.scoped:
-            uninstall()
+            detached = _detach()
+    _close(detached)
 
 
 def _install(

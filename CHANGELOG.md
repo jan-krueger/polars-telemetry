@@ -12,6 +12,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   on a 22-node TPC-H query. Backends see the same totals. Times and ratios
   still record one value per node.
 
+### Fixed
+- `uninstall()` flushed exporters while holding its lock, so a slow flush, up
+  to 2 s for DogStatsD, held up `install()` and `profile()` in other threads.
+  Exporters are now closed after the lock is released.
+
 ## [0.3.0] - 2026-10-03
 
 ### Added

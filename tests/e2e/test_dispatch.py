@@ -190,3 +190,35 @@ def test_uninstall_closes_exporters_that_hold_data():
     polars_telemetry.install(exporter=[Holding(), redacted(AlsoHolding(), None), Collect()])
     polars_telemetry.uninstall()
     assert closed == ["plain", "wrapped"]
+
+
+def test_a_slow_close_does_not_hold_up_another_install():
+    """uninstall() flushes outside its lock, so other threads carry on."""
+    import threading
+
+    closing, release = threading.Event(), threading.Event()
+
+    class Slow(Collect):
+        def close(self) -> None:
+            closing.set()
+            release.wait(timeout=10)
+
+    polars_telemetry.install(exporter=Slow())
+    leaving = threading.Thread(target=polars_telemetry.uninstall)
+    leaving.start()
+    try:
+        assert closing.wait(timeout=10), "close() was never called"
+        fresh = Collect()
+        done = threading.Event()
+
+        def install_fresh() -> None:
+            polars_telemetry.install(exporter=fresh)
+            done.set()
+
+        threading.Thread(target=install_fresh, daemon=True).start()
+        assert done.wait(timeout=5), "install() waited for another thread's flush"
+        polars.LazyFrame({"a": [1]}).collect()
+        assert fresh.queries, "the new installation does not receive queries"
+    finally:
+        release.set()
+        leaving.join(timeout=10)
