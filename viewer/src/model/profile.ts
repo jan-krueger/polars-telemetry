@@ -52,9 +52,11 @@ export interface Session {
   importedAt: number;
   bytes: number;
   profiles: Profile[];
+  /** The documents as written, for downloading the session again. */
+  raw: unknown[];
 }
 
 /** What IndexedDB holds: the documents as written, normalised on every load. */
-export interface StoredSession extends Omit<Session, "profiles"> {
+export interface StoredSession extends Omit<Session, "profiles" | "raw"> {
   profiles: unknown[];
 }

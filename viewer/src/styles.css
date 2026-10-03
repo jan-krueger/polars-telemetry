@@ -54,6 +54,8 @@ h2{font:600 10.5px/1 ui-monospace,monospace;letter-spacing:.1em;text-transform:u
 .x{background:none;border:0;color:var(--muted);cursor:pointer;font-size:15px;line-height:1;
   padding:2px 5px;border-radius:4px}
 .x:hover{color:var(--crit);background:var(--surface-2)}
+.x.dl{display:inline-flex;padding:3px 4px}
+.x.dl:hover{color:var(--accent)}
 .railfoot{display:flex;justify-content:space-between;align-items:center;font-size:10.5px;
   color:var(--muted);padding-top:6px;border-top:1px solid var(--border);margin-bottom:16px}
 .link{background:none;border:0;color:var(--accent);cursor:pointer;font-size:11px;padding:0}

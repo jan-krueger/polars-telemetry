@@ -22,7 +22,7 @@ function profile(id: string, fingerprint: string, wall: number, hotNode = 7): Pr
 }
 
 const session = (id: string, ...profiles: Profile[]): Session =>
-  ({ id, name: `${id}.jsonl`, importedAt: Number(id.slice(1)), bytes: 0, profiles });
+  ({ id, name: `${id}.jsonl`, importedAt: Number(id.slice(1)), bytes: 0, profiles, raw: [] });
 
 const loaded = (...sessions: Session[]): ViewerState =>
   reducer(initialState, { type: "loaded", sessions });

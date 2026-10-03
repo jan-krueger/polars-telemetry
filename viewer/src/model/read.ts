@@ -111,6 +111,10 @@ export function readJsonl(text: string): { profiles: Profile[]; raw: unknown[]; 
   return { profiles, raw, rejected };
 }
 
+/** A session's documents as a session file again, one per line. */
+export const toJsonl = (raw: unknown[]): string =>
+  raw.map((doc) => JSON.stringify(doc)).join("\n") + "\n";
+
 /** A stored session, read. Profiles that no longer read are dropped one by one
  *  rather than taking the whole viewer down. */
 export function readSession(stored: StoredSession): Session {
@@ -119,5 +123,5 @@ export function readSession(stored: StoredSession): Session {
     const read = readProfile(raw);
     if ("profile" in read) profiles.push(read.profile);
   }
-  return { ...stored, profiles };
+  return { ...stored, profiles, raw: stored.profiles };
 }

@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { readJsonl, readProfile, readSession } from "../src/model/read";
+import { readJsonl, readProfile, readSession, toJsonl } from "../src/model/read";
 import type { Profile } from "../src/model/profile";
 
 const fixture = JSON.parse(readFileSync(new URL("./fixtures/profile.json", import.meta.url), "utf8"));
@@ -74,5 +74,15 @@ describe("readSession", () => {
       profiles: [minimal(), { schema: "polars-telemetry/profile@1" }],
     });
     expect(session.profiles).toHaveLength(1);
+  });
+});
+
+describe("toJsonl", () => {
+  it("writes back every stored document, including one that no longer reads", () => {
+    const stored = [fixture, minimal(), { schema: "polars-telemetry/profile@1" }];
+    const session = readSession({ id: "s", name: "s.jsonl", importedAt: 0, bytes: 0, profiles: stored });
+    const text = toJsonl(session.raw);
+    expect(text.trimEnd().split("\n").map((line) => JSON.parse(line))).toEqual(stored);
+    expect(readJsonl(text).profiles).toEqual(session.profiles.map((p) => ({ ...p, query_id: expect.any(String) })));
   });
 });

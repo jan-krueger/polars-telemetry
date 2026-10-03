@@ -7,7 +7,7 @@ import Help from "./components/Help";
 import Code from "./components/Code";
 import { allSessions, dropAll, dropSession, saveSession, storageUnavailable } from "./lib/storage";
 import { bytes, diagnostics, ms, num, shapeName } from "./lib/format";
-import { readJsonl, readSession } from "./model/read";
+import { readJsonl, readSession, toJsonl } from "./model/read";
 import {
   compareProfile, currentProfile, currentSession, findNode, initialState, reducer, title,
   visibleShapes,
@@ -54,7 +54,7 @@ export default function App() {
       }
       const meta = { id: crypto.randomUUID(), name: f.name, importedAt: Date.now(), bytes: f.size };
       await saveSession({ ...meta, profiles: read.raw });
-      added.push({ ...meta, profiles: read.profiles });
+      added.push({ ...meta, profiles: read.profiles, raw: read.raw });
     }
     if (!added.length) { alert(rejected.join("\n") || "No polars-telemetry profiles found."); return; }
     dispatch({ type: "imported", sessions: added });
@@ -118,6 +118,13 @@ export default function App() {
                     <div className="nm">{s.name}</div>
                     <div className="mt">{s.profiles.length} profiles · {bytes(s.bytes || 0)} ·{" "}
                       {new Date(s.importedAt).toLocaleDateString()}</div>
+                  </button>
+                  <button className="x dl" title="Download this session" aria-label={`Download ${s.name}`}
+                          onClick={() => download(s)}>
+                    <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true" fill="none"
+                         stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M8 2.5v8M4.5 7 8 10.5 11.5 7M3 13.5h10" />
+                    </svg>
                   </button>
                   <button className="x" title="Remove this session" aria-label={`Remove ${s.name}`}
                           onClick={async () => {
@@ -265,4 +272,14 @@ polars_telemetry.install(exporter=FileExporter("profiles/session.jsonl"))`} />
       </div>
     </>
   );
+}
+
+/** Save a session as the .jsonl it was imported from. */
+function download(session) {
+  const url = URL.createObjectURL(new Blob([toJsonl(session.raw)], { type: "application/jsonl" }));
+  const link = Object.assign(document.createElement("a"), {
+    href: url, download: session.name.endsWith(".jsonl") ? session.name : `${session.name}.jsonl`,
+  });
+  link.click();
+  URL.revokeObjectURL(url);
 }
