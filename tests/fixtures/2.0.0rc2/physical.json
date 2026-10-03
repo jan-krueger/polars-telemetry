@@ -1,0 +1,196 @@
+[
+ {
+  "id": 4294967307,
+  "input_ids": [
+   4294967306
+  ],
+  "properties": {
+   "type": "InMemorySink"
+  }
+ },
+ {
+  "id": 4294967306,
+  "input_ids": [
+   4294967305
+  ],
+  "properties": {
+   "limit": null,
+   "maintain_order": false,
+   "multithreaded": true,
+   "slice": null,
+   "sort_columns": [
+    {
+     "descending": false,
+     "expr": "col(\"segment\")",
+     "nulls_last": false
+    }
+   ],
+   "type": "Sort"
+  }
+ },
+ {
+  "id": 4294967305,
+  "input_ids": [
+   4294967304
+  ],
+  "properties": {
+   "columns": [
+    "_POLARS_TMP_1",
+    "_POLARS_TMP_3",
+    "_POLARS_TMP_5"
+   ],
+   "type": "SimpleProjection"
+  }
+ },
+ {
+  "id": 4294967304,
+  "input_ids": [
+   4294967303
+  ],
+  "properties": {
+   "aggs_per_input": [
+    [
+     "col(\"revenue\").sum().alias(\"_POLARS_TMP_3\")",
+     "col(\"order_id\").count().alias(\"_POLARS_TMP_5\")"
+    ]
+   ],
+   "fused_agg_inputs_per_input": [
+    []
+   ],
+   "key_per_input": [
+    [
+     "col(\"_POLARS_TMP_1\")"
+    ]
+   ],
+   "num_inputs": 1,
+   "type": "GroupBy"
+  }
+ },
+ {
+  "id": 4294967303,
+  "input_ids": [
+   4294967302
+  ],
+  "properties": {
+   "columns": [
+    "segment",
+    "revenue",
+    "order_id"
+   ],
+   "type": "SimpleProjection"
+  }
+ },
+ {
+  "id": 4294967302,
+  "input_ids": [
+   4294967301
+  ],
+  "properties": {
+   "columns": [
+    "segment",
+    "revenue",
+    "order_id"
+   ],
+   "type": "SimpleProjection"
+  }
+ },
+ {
+  "id": 4294967301,
+  "input_ids": [
+   4294967300
+  ],
+  "properties": {
+   "extend_original": true,
+   "selectors": [
+    "(col(\"amount\") * col(\"qty\").cast(Float64)).alias(\"revenue\")"
+   ],
+   "type": "Select"
+  }
+ },
+ {
+  "id": 4294967300,
+  "input_ids": [
+   4294967299
+  ],
+  "properties": {
+   "columns": [
+    "order_id",
+    "amount",
+    "qty",
+    "segment"
+   ],
+   "type": "SimpleProjection"
+  }
+ },
+ {
+  "id": 4294967299,
+  "input_ids": [
+   4294967297,
+   4294967298
+  ],
+  "properties": {
+   "coalesce": "JoinSpecific",
+   "fused_predicate": null,
+   "how": "INNER",
+   "left_on": [
+    "col(\"customer_id\")"
+   ],
+   "maintain_order": "none",
+   "nulls_equal": false,
+   "right_on": [
+    "col(\"customer_id\")"
+   ],
+   "suffix": "_right",
+   "type": "EquiJoin",
+   "validation": "ManyToMany"
+  }
+ },
+ {
+  "id": 4294967297,
+  "input_ids": [],
+  "properties": {
+   "deletion_files_type": null,
+   "first_source": "orders.parquet",
+   "has_table_statistics": false,
+   "hive_columns": null,
+   "include_file_paths": null,
+   "num_sources": 1,
+   "pre_slice": null,
+   "predicate": "col(\"amount\") > 10.0",
+   "predicate_file_skip_applied": null,
+   "projected_file_columns": [
+    "order_id",
+    "customer_id",
+    "amount",
+    "qty"
+   ],
+   "row_index_name": null,
+   "row_index_offset": null,
+   "scan_type": "parquet",
+   "type": "MultiScan"
+  }
+ },
+ {
+  "id": 4294967298,
+  "input_ids": [],
+  "properties": {
+   "deletion_files_type": null,
+   "first_source": "customers.parquet",
+   "has_table_statistics": false,
+   "hive_columns": null,
+   "include_file_paths": null,
+   "num_sources": 1,
+   "pre_slice": null,
+   "predicate": null,
+   "predicate_file_skip_applied": null,
+   "projected_file_columns": [
+    "customer_id",
+    "segment"
+   ],
+   "row_index_name": null,
+   "row_index_offset": null,
+   "scan_type": "parquet",
+   "type": "MultiScan"
+  }
+ }
+]
