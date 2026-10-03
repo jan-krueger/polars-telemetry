@@ -41,7 +41,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Corners plus the primary cell. The hook exists only on 1.44.x.
+        # Corners plus the primary cell. The hook first appears in 1.44.
         python: ["3.10", "3.13"]
         polars: ["1.44.1", "1.44.2"]
         include:
@@ -54,8 +54,14 @@ jobs:
           enable-cache: true
           python-version: ${{ matrix.python }}
       - run: uv sync --locked
-      - run: uv pip install "polars==${{ matrix.polars }}"
-      - run: uv run nox -s test -- --cov --cov-report=xml
+      - name: Install the polars under test
+        run: |
+          uv pip install "polars==${{ matrix.polars }}"
+          installed=$(uv run --no-sync python -c "import importlib.metadata as m; print(m.version('polars'))")
+          echo "testing against polars $installed"
+          [ "$installed" = "${{ matrix.polars }}" ]
+      # --no-sync: a plain uv run would put the locked polars back first.
+      - run: uv run --no-sync nox -s test -- --cov --cov-report=xml
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: matrix.python == '3.12'
         with:
