@@ -233,3 +233,19 @@ def test_written_paths_are_masked_with_paths_on(tmp_path):
         polars.LazyFrame({"a": [1]}).sink_parquet(target)
     assert session.profiles(), "the sink ran as a query"
     assert "alice_private" not in json.dumps(session.profiles())
+
+
+def test_a_block_config_never_masks_less_than_the_installation():
+    polars_telemetry.install(Config(redaction=Redaction(call_site=True)), exporter=_Nothing())
+    with profile(Config(include_plan=True)) as session:
+        _filter_on_a_secret()
+    assert "secret@corp.com" not in json.dumps(session.profiles())
+    assert session[0].call_site is None
+
+
+def test_a_block_config_can_mask_more_than_the_installation():
+    polars_telemetry.install(Config(redaction=Redaction()), exporter=_Nothing())
+    with profile(Config(redaction=Redaction(call_site=True))) as session:
+        _filter_on_a_secret()
+    assert "secret@corp.com" not in json.dumps(session.profiles())
+    assert session[0].call_site is None

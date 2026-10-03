@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any
 from polars_telemetry import _dispatch
 from polars_telemetry.activation import acquire_scoped, installed, release_scoped
 from polars_telemetry.export.profile import build_profile
+from polars_telemetry.model.redaction import strictest
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -86,8 +87,9 @@ def profile(config: Config | None = None) -> Iterator[Session]:
         >>> session.slowest.call_site
 
     Args:
-        config: Used only when nothing is installed yet; an existing
-            installation keeps its own.
+        config: Used when nothing is installed yet; an existing installation
+            keeps its own. The session masks what the installation masks and
+            what `config.redaction` adds.
 
     Queries still reach any exporters already installed, and blocks may nest.
     If nothing was installed, instrumentation is installed for the block and
@@ -96,14 +98,14 @@ def profile(config: Config | None = None) -> Iterator[Session]:
     """
     held = acquire_scoped(config)
     current = installed()
-    # The block's own config wins; otherwise inherit whatever is installed, so
-    # a session never hands out literals an installed config would mask.
-    effective = config or (current.config if current is not None else None)
     session = Session()
     receiver = _dispatch.add(
         session.queries.append,
         "profile session",
-        redaction=effective.redaction if effective else None,
+        redaction=strictest(
+            config.redaction if config else None,
+            current.config.redaction if current else None,
+        ),
     )
     try:
         yield session

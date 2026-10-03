@@ -57,12 +57,32 @@ class Redaction:
     @property
     def masks(self) -> tuple[str, ...]:
         """What this masks, by field name, for a reader to show."""
-        names = ("strings", "numbers", "temporal", "paths", "call_site", "labels")
-        chosen = tuple(name for name in names if getattr(self, name))
+        chosen = tuple(name for name in _SWITCHES if getattr(self, name))
         return (*chosen, "custom") if self.custom is not None else chosen
 
 
 LITERALS = Redaction()
+
+_SWITCHES = ("strings", "numbers", "temporal", "paths", "call_site", "labels")
+
+
+def strictest(*redactions: Redaction | None) -> Redaction | None:
+    """A redaction masking everything any of `redactions` masks."""
+    given = [r for r in redactions if r is not None]
+    if len(set(given)) <= 1:
+        return given[0] if given else None
+    rules = [r.custom for r in given if r.custom is not None]
+
+    def every_rule(text: str) -> str:
+        for rule in rules:
+            text = rule(text)
+        return text
+
+    return Redaction(
+        **{switch: any(getattr(r, switch) for r in given) for switch in _SWITCHES},
+        custom=every_rule if rules else None,
+    )
+
 
 # Where a literal may end: not inside a word, and not before more digits. A
 # dot before a letter is a method call on the literal, as in `1.5.alias("x")`.
