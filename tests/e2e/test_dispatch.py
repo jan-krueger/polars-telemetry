@@ -265,3 +265,62 @@ def test_a_config_of_the_wrong_type_is_rejected():
     with pytest.raises(TypeError, match="Config"):
         polars_telemetry.install({"node_metrics": False}, exporter=Collect())  # type: ignore[arg-type]
     _nothing_left_behind()
+
+
+@pytest.fixture
+def polars_cloud(monkeypatch):
+    """A stand-in for the real polars-cloud package, recording what polars asks of it."""
+    import sys
+    import types
+
+    calls: list[tuple[str | None, str | None]] = []
+
+    class Observer:
+        def on_query_started(self, query_id: object) -> None:
+            pass
+
+        def on_query_planned(self, *args: object) -> object:
+            return types.SimpleNamespace(close=lambda: None)
+
+        def on_query_failed(self, *args: object) -> None:
+            pass
+
+    def factory(workspace: str | None = None, organization: str | None = None) -> Observer:
+        calls.append((workspace, organization))
+        return Observer()
+
+    module = types.ModuleType("polars_cloud")
+    module.authenticate = lambda *args, **kwargs: None  # type: ignore[attr-defined]
+    module.QueryCloudObserver = factory  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "polars_cloud", module)
+    for key in (
+        "POLARS_QUERY_MONITORING",
+        "POLARS_QUERY_MONITORING_WORKSPACE",
+        "POLARS_QUERY_MONITORING_ORGANIZATION",
+    ):
+        monkeypatch.delenv(key, raising=False)
+    yield module, calls
+    polars_telemetry.uninstall()
+    polars.Config.enable_monitoring(False)
+    polars.Config.set_engine_affinity(None)
+
+
+def test_polars_cloud_keeps_its_workspace_and_stays_on_after_uninstall(polars_cloud):
+    import sys
+
+    module, calls = polars_cloud
+    query = polars.LazyFrame({"a": [1, 2]}).filter(polars.col("a") > 1)
+    polars.Config.enable_monitoring(workspace="prod", organization="acme")
+
+    mine = Collect()
+    polars_telemetry.install(exporter=mine)
+    calls.clear()
+    query.collect()
+    assert calls == [("prod", "acme")], "polars-cloud still receives every query, for its workspace"
+    assert len(mine.queries) == 1, "and so does polars-telemetry"
+
+    polars_telemetry.uninstall()
+    assert sys.modules["polars_cloud"] is module
+    calls.clear()
+    query.collect()
+    assert calls == [("prod", "acme")], "polars-cloud monitoring is still on after uninstall"

@@ -40,6 +40,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `export` method in the exporter list, left monitoring on and its hook in
   place, and a retry then delivered every query several times. Arguments are
   now checked first, with a `TypeError`, and a failure undoes everything.
+- With Polars Cloud monitoring on, `install()` sent its metrics to the default
+  workspace instead of the chosen one, and `uninstall()` turned Polars Cloud
+  monitoring off. Its workspace, organization and on/off state are now kept.
 - `uninstall()` left polars' engine affinity on `"streaming"`. It now puts back
   the affinity from before `install()`, engine objects such as `GPUEngine`
   included, unless the application chose another engine in the meantime.

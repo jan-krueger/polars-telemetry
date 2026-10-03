@@ -47,8 +47,7 @@ class Installation:
     """Made by a profile() block, not by the application; the last block to
     close takes it back out."""
     receivers: tuple[_dispatch.Receiver, ...] = field(default=(), repr=False)
-    previous_affinity: object = field(default=None, repr=False)
-    """The engine affinity before monitoring set it to streaming, to restore."""
+    before: Before | None = field(default=None, repr=False)
 
 
 _lock = threading.RLock()
@@ -110,7 +109,7 @@ def _detach() -> tuple[Exporter, ...]:
     for receiver in _state.receivers:
         _dispatch.remove(receiver)
     try:
-        _monitoring_off(_state.previous_affinity)
+        _monitoring_off(_state.before)
     finally:
         mod.unbind(_state.binding)
         _state = None
@@ -130,17 +129,53 @@ def _engine_affinity() -> object:
     return override if override is not None else os.environ.get("POLARS_ENGINE_AFFINITY")
 
 
-def _monitoring_off(previous_affinity: object) -> None:
-    """Turn monitoring off, and put back the engine affinity it replaced.
+@dataclass(frozen=True)
+class Before:
+    """polars' settings that monitoring changes, as they were before install()."""
 
-    Only while the affinity is still the streaming one monitoring set: an
+    affinity: object
+    monitoring: dict[str, str | None]
+
+
+_MONITORING_ENV = (
+    "POLARS_QUERY_MONITORING",
+    "POLARS_QUERY_MONITORING_WORKSPACE",
+    "POLARS_QUERY_MONITORING_ORGANIZATION",
+)
+
+
+def _monitoring_on() -> Before:
+    import polars as pl
+
+    before = Before(_engine_affinity(), {key: os.environ.get(key) for key in _MONITORING_ENV})
+    pl.Config.enable_monitoring()
+    _restore_env(before, _MONITORING_ENV[1:])
+    return before
+
+
+def _monitoring_off(before: Before | None) -> None:
+    """Put polars' monitoring settings and engine affinity back as they were.
+
+    The affinity only while it is still the streaming one monitoring set: an
     engine chosen since is the application's choice, and stays.
     """
     import polars as pl
 
     pl.Config.enable_monitoring(False)
+    if before is None:
+        return
+    _restore_env(before, _MONITORING_ENV)
     if _engine_affinity() == "streaming":
-        pl.Config.set_engine_affinity(previous_affinity)  # type: ignore[arg-type]
+        pl.Config.set_engine_affinity(before.affinity)  # type: ignore[arg-type]
+
+
+def _restore_env(before: Before, keys: tuple[str, ...]) -> None:
+    for key in keys:
+        value = before.monitoring[key]
+        if value is None:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = value
 
 
 def _close(exporters: tuple[Exporter, ...]) -> None:
@@ -219,12 +254,11 @@ def _install(
         mod.unbind(binding)
         return None
 
-    previous_affinity = _engine_affinity()
-    pl.Config.enable_monitoring()
+    before = _monitoring_on()
     try:
-        return _activate(binding, config, exporters, previous_affinity, scoped=scoped)
+        return _activate(binding, config, exporters, before, scoped=scoped)
     except BaseException:
-        _monitoring_off(previous_affinity)
+        _monitoring_off(before)
         mod.unbind(binding)
         raise
 
@@ -233,7 +267,7 @@ def _activate(
     binding: mod.Binding,
     config: Config | None,
     exporters: tuple[Exporter, ...],
-    previous_affinity: object,
+    before: Before,
     *,
     scoped: bool,
 ) -> Installation | None:
@@ -248,7 +282,7 @@ def _activate(
             capabilities.polars_version,
             "; ".join(capabilities.problems) or "no detail",
         )
-        _monitoring_off(previous_affinity)
+        _monitoring_off(before)
         mod.unbind(binding)
         return None
 
@@ -270,7 +304,7 @@ def _activate(
         exporters=exporters,
         scoped=scoped,
         receivers=_register(exporters, effective),
-        previous_affinity=previous_affinity,
+        before=before,
     )
     return _state
 
