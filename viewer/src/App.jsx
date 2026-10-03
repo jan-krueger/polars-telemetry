@@ -5,6 +5,7 @@ import PlanPane from "./components/PlanPane";
 import NodeDetails from "./components/NodeDetails";
 import Help from "./components/Help";
 import Code from "./components/Code";
+import ShareDialog from "./components/ShareDialog";
 import Tip, { TipText } from "./components/Tip";
 import { allSessions, dropAll, dropSession, saveSession, storageUnavailable } from "./lib/storage";
 import { bytes, diagnostics, ms, num, shapeName } from "./lib/format";
@@ -143,6 +144,7 @@ export default function App() {
     try {
       await navigator.clipboard.writeText(url);
       setSharing({ copied: true });
+      setTimeout(() => setSharing((s) => (s?.copied ? null : s)), 2000);
     } catch {
       setSharing({ manual: url });
     }
@@ -401,27 +403,15 @@ polars_telemetry.install(exporter=FileExporter("profiles/session.jsonl"))`} />
                   )}
                   <Tip content={compare ? "Copy a link to this query and the run it is compared with" : "Copy a link to this query"}>
                   <button className="btn share" style={siblings.length ? undefined : { marginLeft: "auto" }}
-                          onClick={share}>Copy link</button>
+                          onClick={share}>{sharing?.copied ? "Copied" : "Copy link"}</button>
                   </Tip>
                 </div>
-                {sharing && (
-                  <div className="sharing" role="status">
-                    {sharing.copied && <span>Link copied. Anyone with it sees this {compare ? "query and its comparison run" : "query"}; nothing is uploaded.</span>}
-                    {sharing.tooLong && <span>This plan is too large for a link ({num(sharing.tooLong)} characters). Download the session and send the file instead.</span>}
-                    {sharing.confirm && (
-                      <>
-                        <span>This profile is not masked: the link carries its literal values, file paths and label.</span>
-                        <button className="link link--crit" onClick={() => copyLink(sharing.confirm)}>Copy anyway</button>
-                      </>
-                    )}
-                    {sharing.manual && (
-                      <>
-                        <span>Copy the link yourself:</span>
-                        <input readOnly id="share-link" value={sharing.manual} onFocus={(e) => e.target.select()} autoFocus />
-                      </>
-                    )}
-                    <button className="x" aria-label="Close" onClick={() => setSharing(null)}>×</button>
-                  </div>
+                {sharing && !sharing.copied && (
+                  <ShareDialog sharing={sharing}
+                               what={compare ? "query and its comparison run" : "query"}
+                               onCopy={copyLink}
+                               onDownload={() => { download(current); setSharing(null); }}
+                               onClose={() => setSharing(null)} />
                 )}
                 <div className="qstats">
                   <b>{num(profile.wall_ms, 1)} ms</b> wall{delta(profile.wall_ms, compare?.wall_ms)} ·{" "}

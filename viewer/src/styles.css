@@ -205,11 +205,21 @@ pre.snip b{color:var(--ink);font-weight:500}
   border:1px solid color-mix(in srgb,var(--crit) 40%,transparent)}
 .qfail b{color:var(--crit);margin-right:6px}
 .share{padding:3px 9px;font-size:12px}
-.sharing{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:6px 0 2px;padding:6px 10px;
-  border-radius:6px;font-size:12px;background:var(--surface-2);border:1px solid var(--border)}
-.sharing span{flex:1 1 20em;min-width:0}
-.sharing input{flex:1 1 20em;min-width:0;font:11px ui-monospace,monospace;padding:3px 6px;
-  border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--ink)}
+.btn--primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn--primary:hover{color:#fff;filter:brightness(1.1)}
+.btn--crit{background:var(--crit);border-color:var(--crit);color:#fff}
+.btn--crit:hover{color:#fff;border-color:var(--crit);filter:brightness(1.1)}
+.dialog{width:min(30rem,calc(100vw - 32px));padding:20px 22px;border:1px solid var(--border);
+  border-radius:10px;background:var(--surface);color:var(--ink);font-size:13px;line-height:1.5;
+  box-shadow:0 12px 40px rgb(0 0 0 / .35)}
+.dialog::backdrop{background:rgb(0 0 0 / .45)}
+.dialog h3{margin:0 0 8px;font-size:15px;text-wrap:balance}
+.dialog p{margin:0 0 8px}
+.dialog ul{margin:0 0 10px;padding-left:18px}
+.dialog-note{color:var(--muted);font-size:12px}
+.dialog input{width:100%;box-sizing:border-box;margin:4px 0 8px;font:11.5px ui-monospace,monospace;
+  padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface-2);color:var(--ink)}
+.dialog-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
 .sessrow .keep{flex:none}
 
 /* Code is dark in both themes on purpose, like an editor pane; the palette is
