@@ -340,13 +340,11 @@ export default function App() {
                   <div className="fp"><span>{row.fingerprint}</span>
                     <span>{row.runs.length} run{row.runs.length > 1 ? "s" : ""}</span></div>
                   {row.runs.map((p) => (
-                    <Tip key={p.query_id} content={p.label ? shapeName(p) : null}>
-                      <button className="run" aria-pressed={p.query_id === state.queryId}
-                              onClick={() => pick(p.query_id)}>
-                        <div className="l1">{title(p)}</div>
-                        <div className="l2">{ms(p.wall_ms)} wall · {ms(p.cpu_ms)} cpu</div>
-                      </button>
-                    </Tip>
+                    <button key={p.query_id} className="run" aria-pressed={p.query_id === state.queryId}
+                            onClick={() => pick(p.query_id)}>
+                      <div className="l1">{title(p)}</div>
+                      <div className="l2">{ms(p.wall_ms)} wall · {ms(p.cpu_ms)} cpu</div>
+                    </button>
                   ))}
                 </div>
               ))}
