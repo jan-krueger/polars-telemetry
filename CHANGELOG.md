@@ -72,6 +72,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - A `profile()` block opened before an `uninstall()` took down the installation
   of a block opened after it, which then collected nothing. Each block now
   releases only the installation it held.
+- uv itself escaped the 7-day rule: CI installed the newest uv on every run,
+  and the dev image named a 4-day-old uv by tag. Both now use uv 0.12.19, the
+  image by digest.
 - `uninstall()` left polars' engine affinity on `"streaming"`. It now puts back
   the affinity from before `install()`, engine objects such as `GPUEngine`
   included, unless the application chose another engine in the meantime.
