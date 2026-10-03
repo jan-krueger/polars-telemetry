@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import os
 import shutil
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import nox
@@ -113,6 +114,21 @@ def audit(session: nox.Session) -> None:
         session.run("npm", "ci", external=True)
         # Only what ships in the page; build tooling has its own advisories.
         session.run("npm", "audit", "--omit=dev", external=True)
+        session.run("node", "scripts/check-lock-age.mjs", external=True)
+    finally:
+        session.chdir(root)
+
+
+@nox.session(venv_backend="none", name="viewer-lock")
+def viewer_lock(session: nox.Session) -> None:
+    """Re-resolve the viewer's dependencies from releases at least 7 days old."""
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=7)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    root = Path.cwd()
+    session.chdir("viewer")
+    try:
+        (root / "viewer" / "package-lock.json").unlink(missing_ok=True)
+        shutil.rmtree(root / "viewer" / "node_modules", ignore_errors=True)
+        session.run("npm", "install", f"--before={cutoff}", external=True)
     finally:
         session.chdir(root)
 

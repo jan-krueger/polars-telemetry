@@ -23,6 +23,7 @@ uv run nox -s test         # the suite
 uv run nox -s lint         # ruff check + format --check
 uv run nox -s typecheck    # mypy, strict
 uv run nox -s viewer       # build the profile viewer into docs/viewer
+uv run nox -s viewer-lock  # re-lock the viewer from releases at least 7 days old
 uv run nox -s docs         # serve the documentation locally
 uv run nox -s docs-build   # build it the way CI does
 uv run nox -s matrix       # python x polars grid
