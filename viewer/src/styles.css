@@ -182,3 +182,7 @@ pre.snip b{color:var(--ink);font-weight:500}
   font-size:1.5em;font-weight:400;line-height:1;min-width:1.1em;text-align:center;
   display:inline-block}
 .ra--muted{opacity:.55}
+.qfail{margin:6px 0 2px;padding:6px 10px;border-radius:6px;font-size:12px;
+  background:color-mix(in srgb,var(--crit) 12%,transparent);color:var(--ink);
+  border:1px solid color-mix(in srgb,var(--crit) 40%,transparent)}
+.qfail b{color:var(--crit);margin-right:6px}

@@ -36,6 +36,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   uninstalled it on closing, even with another block still open.
 - `Config.resource_attributes` warns that it is deprecated. Nothing ever read
   it.
+- The viewer reads every profile through one reader per schema version into
+  its own typed model, and keeps the documents as written in browser storage,
+  reading them again on each load: sessions stored today keep opening when the
+  schema moves on, with no storage migration. A stored profile that no longer
+  reads is dropped on its own instead of taking the viewer down.
+- The viewer's state is one reducer, with selection by query id rather than by
+  position in a list, and each action resetting what it should in one place.
 - The viewer draws plan nodes in relational-algebra notation — σ selection,
   π projection, χ map, ⋈ join, ⋉ semi/anti join, γ aggregation, τ sort, δ
   distinct, ⊎ union — and names scans by the relation they read. Engine
@@ -73,6 +80,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   attribute and diagnostic that depended on it.
 
 ### Fixed
+- The viewer shows why a query failed. `failed` was written to every profile
+  and never displayed, so a query that failed before planning looked like an
+  empty plan.
 - `redact_literals` covers exporters an application writes. Only the bundled
   exporters redacted, so a custom exporter installed with
   `Config(redact_literals=True)` received every literal. Redaction is now a

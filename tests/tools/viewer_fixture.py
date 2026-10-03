@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 from uuid import UUID
 
-from polars_telemetry.adapter.build import build_metrics, build_plan
+from polars_telemetry.adapter.build import build_metrics, build_plan, enrich
 from polars_telemetry.adapter.dialect import _BY_KIND
 from polars_telemetry.export.profile import build_profile
 from polars_telemetry.model.types import CallSite, Query
@@ -30,10 +30,12 @@ def main() -> None:
         metrics=build_metrics(json.loads((fixture / "metrics.json").read_text())),
         call_site=CallSite("/srv/app/pipeline.py", 142, "build_report"),
         started_unix_ns=1_759_478_400_000_000_000,
+        # The captured payloads' own polars, as a real profile would record.
+        polars_version=fixture.name,
     )
     out = ROOT / "viewer" / "tests" / "fixtures" / "profile.json"
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps(build_profile(query), indent=1) + "\n")
+    out.write_text(json.dumps(build_profile(enrich(query)), indent=1) + "\n")
 
     # The viewer derives roles itself for profiles written before `role` existed;
     # its table must match this one, kind for kind.
