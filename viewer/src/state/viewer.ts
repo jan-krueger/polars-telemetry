@@ -27,6 +27,9 @@ export interface ViewerState {
   search: string;
   /** Orders the query list and overview; a view setting too. */
   sort: Sort;
+  /** Light only the nodes covering this percent of CPU time; null lights all.
+   *  A share rather than a count, so it means the same on every plan. */
+  focus: number | null;
 }
 
 export type SortKey = "name" | "runs" | "wall" | "cpu";
@@ -46,6 +49,7 @@ export type Action =
   | { type: "nodePicked"; node: NodeRef }
   | { type: "searched"; text: string }
   | { type: "sorted"; key: SortKey }
+  | { type: "focused"; focus: number | null }
   | { type: "navigated"; route: Route };
 
 export const initialState: ViewerState = {
@@ -57,6 +61,7 @@ export const initialState: ViewerState = {
   node: null,
   search: "",
   sort: { key: "wall", descending: true },
+  focus: null,
 };
 
 const nothingSelected = { queryId: null, compareId: null, node: null } as const;
@@ -108,6 +113,8 @@ export function reducer(state: ViewerState, action: Action): ViewerState {
         node: node || null,
       };
     }
+    case "focused":
+      return { ...state, focus: action.focus };
     case "sorted": {
       // The same column again flips it; a new one starts where it reads best:
       // names A to Z, numbers largest first.

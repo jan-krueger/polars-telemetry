@@ -112,7 +112,6 @@ pre.snip b{color:var(--ink);font-weight:500}
 .planbox .ph{padding:7px 11px;border-bottom:1px solid var(--border);display:flex;
   align-items:center;gap:8px}
 .planbox .ph .nm{font:600 11.5px system-ui}
-.planbox .ph .sub{font-size:10.5px;color:var(--muted);margin-left:auto}
 .planbox .body{flex:1;min-height:0}
 
 /* plan node */
@@ -240,3 +239,13 @@ button.zone:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 .sorth:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:2px}
 .sorth-mark{font-size:.75em;min-width:1em}
 .masked{color:var(--warn)}
+
+.focus{display:flex;align-items:center;gap:8px;margin-left:auto;font-size:10.5px;color:var(--muted)}
+.focus input{width:110px;accent-color:var(--accent)}
+/* A fixed width, so the slider stays put while the text changes. */
+.focus-val{width:29ch;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+.react-flow__node.faded,.react-flow__edge.faded,.react-flow__minimap-node.faded{opacity:.16}
+.react-flow__node,.react-flow__edge,.react-flow__minimap-node{transition:opacity .18s ease}
+@media (prefers-reduced-motion: reduce){.react-flow__node,.react-flow__edge,.react-flow__minimap-node{transition:none}}
+.planbox .ph{flex-wrap:wrap;row-gap:4px}

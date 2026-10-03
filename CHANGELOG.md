@@ -16,6 +16,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   detail. `redacted(exporter, None)` sends that exporter everything.
 - Profiles record what was masked in a `redacted` field, and the viewer shows
   it beside the query.
+- Viewer: a focus slider on the physical plan fades all but the most
+  expensive nodes, a step at a time, in the plan and the minimap alike. It is
+  kept as a share of CPU time, so it carries over between queries.
 
 ### Changed
 - Masking happens once, before a query is delivered, and nowhere else.

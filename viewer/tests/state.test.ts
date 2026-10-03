@@ -159,3 +159,12 @@ describe("sorting", () => {
     expect(names(sortShapes(rows, state.sort))[0]).toBe("tpch/q1");
   });
 });
+
+describe("focus", () => {
+  it("is a view setting that survives picking another query", () => {
+    expect(initialState.focus).toBeNull();
+    let state = reducer(initialState, { type: "focused", focus: 82 });
+    state = reducer(state, { type: "queryPicked", queryId: "x" });
+    expect(state.focus).toBe(82);
+  });
+});

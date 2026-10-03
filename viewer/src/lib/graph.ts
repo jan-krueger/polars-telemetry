@@ -61,14 +61,63 @@ export interface FlowData extends Record<string, unknown> {
 
 const cpuMs = (n: PlanNode): number => Number(n.metrics?.total_time_ns ?? 0) / 1e6;
 
+export interface FocusStep {
+  /** Nodes costing at least this much CPU time stay lit; 0 lights every node. */
+  thresholdMs: number;
+  /** Their share of the query's CPU time, in percent. */
+  coverage: number;
+  /** How many nodes that is. */
+  shown: number;
+}
+
+/**
+ * The focus slider's stops for one plan. The first lights every node; each
+ * one after it takes away the cheapest nodes still lit, so the last lights
+ * only the most expensive. Nodes that cost the same come and go together.
+ */
+export function focusSteps(plan: PlanNode[]): FocusStep[] {
+  const all: FocusStep = { thresholdMs: 0, coverage: 100, shown: plan.length };
+  const total = plan.reduce((sum, n) => sum + cpuMs(n), 0);
+  if (total <= 0) return [all];
+
+  const costs = [...new Set(plan.map(cpuMs).filter((ms) => ms > 0))].sort((a, b) => b - a);
+  const steps: FocusStep[] = [];
+  for (const thresholdMs of costs) {
+    const lit = plan.filter((n) => cpuMs(n) >= thresholdMs);
+    const covered = lit.reduce((sum, n) => sum + cpuMs(n), 0);
+    steps.push({ thresholdMs, coverage: (covered / total) * 100, shown: lit.length });
+  }
+  // Fewest lit last; the step lighting every costed node is "all" unless
+  // some nodes cost nothing at all.
+  steps.reverse();
+  return steps[0]!.shown === plan.length ? [all, ...steps.slice(1)] : [all, ...steps];
+}
+
+/**
+ * The step that keeps a focus when moving to another plan: the fewest nodes
+ * still covering at least as much of its CPU time. Null focus lights all.
+ */
+export function stepFor(steps: FocusStep[], coverage: number | null): number {
+  if (coverage === null) return 0;
+  let chosen = 0;
+  steps.forEach((step, index) => {
+    if (step.coverage >= coverage - 1e-9) chosen = index;
+  });
+  return chosen;
+}
+
 /** React Flow's nodes and edges for a laid-out plan. */
 export function toFlow(
   plan: PlanNode[],
   positions: Positions,
-  { logical, selectedId }: { logical: boolean; selectedId: number | null },
+  { logical, selectedId, thresholdMs = 0 }: { logical: boolean; selectedId: number | null; thresholdMs?: number },
 ): { nodes: Node<FlowData>[]; edges: Edge[] } {
   const total = plan.reduce((sum, n) => sum + cpuMs(n), 0) || 1;
   const byId = new Map(plan.map((n) => [n.id, n]));
+  // The logical plan has no times to focus on. The selected node stays lit,
+  // so the details beside the plan never describe a node that has faded.
+  const faded = (n: PlanNode): boolean =>
+    !logical && thresholdMs > 0 && n.id !== selectedId && cpuMs(n) < thresholdMs;
 
   const nodes = plan.map((n): Node<FlowData> => ({
     id: String(n.id),
@@ -77,6 +126,7 @@ export function toFlow(
     width: NODE_W,
     height: NODE_H,
     selected: selectedId === n.id,
+    className: faded(n) ? "faded" : undefined,
     data: { node: n, share: (cpuMs(n) / total) * 100, logical, label: n.label },
   }));
 
@@ -88,6 +138,8 @@ export function toFlow(
       const rows = logical ? undefined : upstream.metrics?.rows_sent;
       return [{
         id: `${input}-${n.id}`,
+        // An edge stays lit only between two lit nodes.
+        className: faded(upstream) || faded(n) ? "faded" : undefined,
         source: String(input),
         target: String(n.id),
         label: typeof rows === "number" ? `${formatRows(rows)} rows` : undefined,
