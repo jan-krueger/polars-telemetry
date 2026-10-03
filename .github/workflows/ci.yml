@@ -96,6 +96,7 @@ jobs:
       - run: uv run nox -s integration
         env:
           OTEL_EXPORTER_OTLP_ENDPOINT: http://localhost:4317
+          REQUIRE_COLLECTOR: "1"
       - if: always()
         run: docker compose -f docker/compose.yaml down -v
 
