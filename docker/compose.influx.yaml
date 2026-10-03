@@ -1,4 +1,4 @@
-# Alternative pipeline: app -> OTLP -> Telegraf -> InfluxDB -> Grafana.
+# Alternative pipeline: app -> OTLP or DogStatsD -> Telegraf -> InfluxDB -> Grafana.
 # Run alongside the default stack:
 #   docker compose -f docker/compose.yaml -f docker/compose.influx.yaml up -d --wait
 name: polars-telemetry
@@ -23,5 +23,6 @@ services:
     ports:
       # 4317 is taken by the OTel Collector in the default stack.
       - "4327:4317"
+      - "8125:8125/udp"  # DogStatsD
     depends_on:
       - influxdb
