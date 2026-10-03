@@ -324,3 +324,57 @@ def test_polars_cloud_keeps_its_workspace_and_stays_on_after_uninstall(polars_cl
     calls.clear()
     query.collect()
     assert calls == [("prod", "acme")], "polars-cloud monitoring is still on after uninstall"
+
+
+def _capabilities(**problems: Any) -> object:
+    from dataclasses import replace
+
+    from polars_telemetry.compat import Capabilities
+
+    healthy = Capabilities(
+        polars_version=polars.__version__,
+        has_monitoring_api=True,
+        observer_callbacks_ok=True,
+        plan_payload_ok=True,
+        ir_payload_ok=True,
+        metrics_snapshot_ok=True,
+    )
+    return replace(healthy, **problems)
+
+
+def test_an_unusable_polars_installs_nothing_and_undoes_itself(monkeypatch, caplog):
+    import polars_telemetry.activation as activation
+
+    monkeypatch.setattr(
+        activation, "probe", lambda binding: _capabilities(observer_callbacks_ok=False)
+    )
+    polars.Config.set_engine_affinity("in-memory")
+    try:
+        assert polars_telemetry.install(exporter=Collect()) is None
+        assert installed() is None
+        assert activation._engine_affinity() == "in-memory"
+        assert any("not installed" in r.getMessage() for r in caplog.records)
+    finally:
+        polars.Config.set_engine_affinity(None)
+
+
+@pytest.mark.parametrize("problem", ["metrics_snapshot_ok", "plan_payload_ok"])
+def test_unusable_payloads_fall_back_to_query_spans(monkeypatch, problem):
+    import polars_telemetry.activation as activation
+
+    monkeypatch.setattr(activation, "probe", lambda binding: _capabilities(**{problem: False}))
+    mine = Collect()
+    state = polars_telemetry.install(exporter=mine)
+    assert state is not None
+    assert state.config.node_metrics is False
+    polars.LazyFrame({"a": [1]}).collect()
+    assert mine.queries, "query spans still flow"
+    assert mine.queries[-1].metrics == {}
+
+
+def test_an_unexpected_ir_is_reported(monkeypatch, caplog):
+    import polars_telemetry.activation as activation
+
+    monkeypatch.setattr(activation, "probe", lambda binding: _capabilities(ir_payload_ok=False))
+    assert polars_telemetry.install(exporter=Collect()) is not None
+    assert any("unexpected IR plan" in r.getMessage() for r in caplog.records)
