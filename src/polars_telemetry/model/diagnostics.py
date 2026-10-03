@@ -95,33 +95,28 @@ def derive(query: Query) -> Diagnostics:
                 skew = ratio if skew is None else max(skew, ratio)
 
     # Read from the plan alone, so these survive Config(node_metrics=False) and
-    # any scan whose counters are missing.
+    # any scan whose counters are missing. Collapsed across scans with "any"
+    # semantics: one pushed-down predicate is worth reporting even if another
+    # scan has none.
     for node in query.plan.values():
-        if node.role is not NodeRole.SCAN:
+        scan = node.scan
+        if scan is None:
             continue
-        props = node.properties
-        read = props.get("projected_file_columns") or props.get("projection")
-        if isinstance(read, list):
-            columns_read += len(read)
-        # Collapsed across scans with "any" semantics: one pushed-down
-        # predicate is worth reporting even if another scan has none.
-        pushed = bool(pushed) or props.get("predicate") is not None
-        skip = props.get("predicate_file_skip_applied")
-        if isinstance(skip, bool):
-            skipped = bool(skipped) or skip
-        table_stats = props.get("has_table_statistics")
-        if isinstance(table_stats, bool):
-            stats = bool(stats) or table_stats
+        if scan.columns_read is not None:
+            columns_read += scan.columns_read
+        pushed = bool(pushed) or scan.predicate_pushed
+        if scan.row_groups_skipped is not None:
+            skipped = bool(skipped) or scan.row_groups_skipped
+        if scan.has_statistics is not None:
+            stats = bool(stats) or scan.has_statistics
 
     # The two halves of the ratio live on different plans: the physical scan
     # reports what was read, the IR scan what the file holds.
-    columns_available = 0
-    for node in query.logical.values():
-        if node.role is not NodeRole.SCAN:
-            continue
-        available = node.properties.get("file_columns")
-        if isinstance(available, list):
-            columns_available += len(available)
+    columns_available = sum(
+        node.scan.file_columns
+        for node in query.logical.values()
+        if node.scan is not None and node.scan.file_columns is not None
+    )
     if columns_available and columns_read:
         projection = columns_read / columns_available
 

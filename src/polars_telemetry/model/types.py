@@ -70,6 +70,40 @@ JOIN_ROLES: frozenset[NodeRole] = frozenset(
 
 
 @dataclass(frozen=True, slots=True)
+class ScanFacet:
+    """What a scan reads, the same whichever plan it came from."""
+
+    source: str | None = None
+    predicates: tuple[str, ...] = ()
+    """Pushed-down predicate text; the IR has a list, the physical plan one."""
+    predicate_pushed: bool = False
+    columns_read: int | None = None
+    """Only the physical plan says; the IR reports the file's width instead."""
+    file_columns: int | None = None
+    """Only the IR says."""
+    row_groups_skipped: bool | None = None
+    has_statistics: bool | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class JoinFacet:
+    how: str | None = None
+    left_keys: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class SortFacet:
+    columns: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class AggregationFacet:
+    keys: tuple[str, ...] = ()
+    grouped: bool = False
+    """False for a global reduction, which has no keys at all."""
+
+
+@dataclass(frozen=True, slots=True)
 class PlanNode:
     """One plan node."""
 
@@ -85,6 +119,13 @@ class PlanNode:
 
     role: NodeRole = NodeRole.UNKNOWN
     """What the node does. Read this, not `kind`."""
+
+    # Normalised by the adapter's dialect for the roles that have one; read
+    # these rather than `properties`, whose names are polars' to change.
+    scan: ScanFacet | None = None
+    join: JoinFacet | None = None
+    sort: SortFacet | None = None
+    aggregation: AggregationFacet | None = None
 
 
 @dataclass(frozen=True, slots=True)

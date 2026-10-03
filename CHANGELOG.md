@@ -21,6 +21,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   table, tested kind-for-kind against the Python dialect, for files written
   before roles existed. Its vocabulary and counter list each live in one typed
   module; the physical plan's group-by keys, which were never labelled, now are.
+- polars' plan property names are read in one place too. The dialect extracts
+  what attributes and diagnostics need — scan source, predicates and columns,
+  join type and keys, sort columns, group keys — into typed facets on each
+  node, reconciling where the IR and the physical plan disagree (a predicate
+  list against one string, `keys` against `key_per_input`). Downstream code no
+  longer reads raw properties.
 - polars' node vocabulary is translated in one place. Every plan node now
   carries a `role` — selection, projection, join, aggregation and so on, in
   relational-algebra terms — assigned by the adapter's dialect, and nothing

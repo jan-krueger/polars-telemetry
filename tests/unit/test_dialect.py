@@ -77,3 +77,51 @@ def test_downstream_reads_roles_not_kind_names():
     after = derive(Query(query_id=uuid4(), wall_ms=1.0, plan=renamed, metrics=metrics))
     assert before.join_amplification is not None
     assert after.join_amplification == before.join_amplification
+
+
+# --- facets -------------------------------------------------------------------
+
+
+def test_a_predicate_reads_the_same_from_either_plan():
+    """The IR lists predicates; the physical plan gives one string."""
+    from polars_telemetry.adapter.dialect import facets
+
+    ir = facets(NodeRole.SCAN, {"predicate": ['col("a") > 1']})["scan"]
+    physical = facets(NodeRole.SCAN, {"predicate": 'col("a") > 1'})["scan"]
+    assert ir.predicates == physical.predicates == ('col("a") > 1',)
+    assert ir.predicate_pushed
+    assert physical.predicate_pushed
+
+
+def test_group_keys_read_the_same_from_either_plan():
+    from polars_telemetry.adapter.dialect import facets
+
+    flat = facets(NodeRole.AGGREGATION, {"keys": ['col("g")']})["aggregation"]
+    nested = facets(NodeRole.AGGREGATION, {"key_per_input": [['col("g")']]})["aggregation"]
+    assert flat.keys == nested.keys == ('col("g")',)
+    assert flat.grouped
+    assert nested.grouped
+
+
+def test_a_global_reduction_is_not_a_group_by():
+    from polars_telemetry.adapter.dialect import facets
+
+    assert facets(NodeRole.AGGREGATION, {})["aggregation"].grouped is False
+
+
+def test_a_malformed_property_degrades_rather_than_raises():
+    """polars changing a value's shape must cost the facet field, not the plan."""
+    from polars_telemetry.adapter.dialect import facets
+
+    scan = facets(NodeRole.SCAN, {"first_source": 7, "file_columns": "many"})["scan"]
+    assert scan.source is None
+    assert scan.file_columns is None
+
+
+def test_nodes_without_a_facet_role_carry_none():
+    plan = build_plan(json.loads((FIXTURE / "physical.json").read_text()))
+    for node in plan.values():
+        if node.role is NodeRole.SCAN:
+            assert node.scan is not None
+        else:
+            assert node.scan is None
