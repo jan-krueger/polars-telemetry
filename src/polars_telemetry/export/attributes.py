@@ -106,9 +106,10 @@ def query_attributes(
     """
     attrs: dict[str, AttributeValue] = {
         semconv.QUERY_ID: str(query.query_id),
-        semconv.ENGINE: "streaming",
         semconv.NODE_COUNT: len(query.plan),
     }
+    if query.engine is not None:
+        attrs[semconv.ENGINE] = query.engine
     if query.label is not None:
         attrs[semconv.QUERY_LABEL] = query.label
     if query.call_site is not None:

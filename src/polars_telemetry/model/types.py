@@ -193,6 +193,9 @@ class Query:
     label: str | None = None
     """What the application called it, via `polars_telemetry.label()`."""
 
+    engine: str | None = None
+    """The polars engine that ran it; None when it failed before planning."""
+
     polars_version: str = ""
     """The polars that ran it. Carried here so nothing downstream imports polars."""
 

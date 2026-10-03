@@ -115,7 +115,7 @@ class OTelExporter:
         self._record_nodes(query)
 
     def _record_query(self, query: Query, diagnostics: Diagnostics, shape: str) -> None:
-        dims = {semconv.ENGINE: "streaming", semconv.PLAN_FINGERPRINT: shape}
+        dims = {semconv.ENGINE: query.engine or "unknown", semconv.PLAN_FINGERPRINT: shape}
         self._histograms[semconv.QUERY_DURATION].record(query.wall_ms, dims)
         if query.metrics:
             self._histograms[semconv.QUERY_CPU_TIME].record(query.cpu_ms, dims)
@@ -130,7 +130,7 @@ class OTelExporter:
             if node is None:
                 continue
             # Bounded dimensions only; plan literals would wreck cardinality.
-            dims = {semconv.NODE_KIND: node.kind, semconv.ENGINE: "streaming"}
+            dims = {semconv.NODE_KIND: node.kind, semconv.ENGINE: query.engine or "unknown"}
 
             self._histograms[semconv.NODE_CPU_TIME].record(metric.cpu_ms, dims)
             self._histograms[semconv.NODE_POLL_TIME].record(metric.total_poll_time_ns / 1e6, dims)

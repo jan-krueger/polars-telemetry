@@ -17,7 +17,7 @@ import polars
 
 from polars_telemetry._callsite import caller
 from polars_telemetry.adapter.build import build_metrics, build_plan, enrich
-from polars_telemetry.adapter.decode import decode_optional_plan, decode_plan
+from polars_telemetry.adapter.decode import decode_optional_plan, decode_plan, is_nil
 from polars_telemetry.adapter.handle import MetricsHandle
 from polars_telemetry.labels import current_label
 from polars_telemetry.model.types import CallSite, NodeRole, PlanNode, Query
@@ -62,6 +62,7 @@ class QueryRecorder:
         "_call_site",
         "_config",
         "_emit",
+        "_engine",
         "_handle",
         "_label",
         "_logical",
@@ -84,6 +85,7 @@ class QueryRecorder:
         self._logical: dict[int, PlanNode] = {}
         self._call_site: CallSite | None = None
         self._label: str | None = None
+        self._engine: str | None = None
         self._started = 0.0
         self._started_unix_ns = 0
 
@@ -98,6 +100,9 @@ class QueryRecorder:
 
     def planned(self, query_id: UUID, ir_plan: bytes, physical_plan: bytes, handle: Any) -> None:
         self._query_id = query_id
+        # Monitoring sets the affinity to streaming, but an explicit engine= or
+        # an eager operation overrides it, and polars then sends no physical plan.
+        self._engine = "in-memory" if is_nil(physical_plan) else "streaming"
         # Each payload on its own: an IR polars has reshaped must cost the IR,
         # not the physical plan, the counters or the span.
         physical = self._plan_from("physical plan", physical_plan, decode_optional_plan)
@@ -156,6 +161,7 @@ class QueryRecorder:
                     metrics=metrics,
                     call_site=self._call_site,
                     label=self._label,
+                    engine=self._engine,
                     polars_version=_POLARS_VERSION,
                     failed=failure,
                     started_unix_ns=self._started_unix_ns,

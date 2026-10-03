@@ -41,6 +41,14 @@ def decode_plan(payload: bytes) -> list[dict[str, Any]]:
     return _unpack(payload)
 
 
+_NIL: bytes = msgpack.packb(None)
+
+
+def is_nil(payload: bytes) -> bool:
+    """Whether polars sent no plan at all, as opposed to one we cannot read."""
+    return payload == _NIL
+
+
 def decode_optional_plan(payload: bytes) -> list[dict[str, Any]] | None:
     """Decode a plan payload, or return None when polars sent nil.
 

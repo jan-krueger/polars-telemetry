@@ -182,6 +182,7 @@ def test_eager_operations_do_not_disarm_the_observer():
 
         assert len(collected) == 7, "eager operations were dropped"
         assert all(q.plan == {} for q in collected), "eager runs have no physical plan"
+        assert all(q.engine == "in-memory" for q in collected)
         assert all(q.logical for q in collected), "the IR plan is still available"
 
         collected.clear()
@@ -189,6 +190,12 @@ def test_eager_operations_do_not_disarm_the_observer():
         assert collected, "a lazy query after eager work was not instrumented"
         assert collected[-1].plan, "the lazy query lost its physical plan"
         assert collected[-1].metrics, "the lazy query lost its node counters"
+        assert collected[-1].engine == "streaming"
+
+        collected.clear()
+        _query(polars).collect(engine="in-memory")
+        assert collected[-1].engine == "in-memory", "an explicit engine overrides the affinity"
+        assert collected[-1].plan == {}
     finally:
         polars_telemetry.uninstall()
 

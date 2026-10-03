@@ -103,6 +103,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   attribute and diagnostic that depended on it.
 
 ### Fixed
+- `polars.engine` named `streaming` for every query. Eager operations and
+  queries collected with `engine="in-memory"` now say `in-memory`; a query
+  that fails before planning has no engine on its span and `unknown` on its
+  metrics.
 - Long expressions in the viewer's details rail are set one method call per
   line, as they would be written, and a line still too wide scrolls rather than
   wrapping mid-token. An aggregation used to break inside its alias's string.

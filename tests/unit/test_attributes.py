@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import dataclasses
 import json
+from dataclasses import replace
 from pathlib import Path
 from uuid import uuid4
 
@@ -27,6 +28,7 @@ def query():
         plan=build_plan(json.loads((FIXTURE / "physical.json").read_text())),
         logical=build_plan(json.loads((FIXTURE / "ir.json").read_text())),
         metrics=build_metrics(json.loads((FIXTURE / "metrics.json").read_text())),
+        engine="streaming",
     )
 
 
@@ -80,6 +82,10 @@ def test_core_attributes_are_present(query):
     assert attrs[semconv.NODE_COUNT] == len(query.plan)
     assert _number(attrs, semconv.CPU_MS) > 0
     assert attrs[semconv.QUERY_ID]
+
+
+def test_engine_is_left_out_when_the_query_never_planned(query):
+    assert semconv.ENGINE not in query_attributes(replace(query, engine=None))
 
 
 def test_plan_shape_is_summarised(query):
