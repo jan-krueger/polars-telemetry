@@ -20,7 +20,7 @@ nox.options.default_venv_backend = "uv"
 nox.options.reuse_existing_virtualenvs = True
 nox.options.sessions = ["lint", "typecheck", "test"]
 
-PYTHONS = ["3.10", "3.11", "3.12", "3.13"]
+PYTHONS = ["3.10", "3.11", "3.12", "3.13", "3.14"]
 
 # The hook does not exist before 1.44.0, and 1.44.0's runtime is yanked.
 POLARS_VERSIONS = ["1.44.1", "1.44.2"]

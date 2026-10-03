@@ -9,6 +9,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 - Viewer: the hosted viewer loads a TPC-H example session with one click, so it
   can be tried without a workload of your own.
+- Python 3.14 is supported, and tested in CI in place of 3.13 as the newest
+  version.
 
 ## [0.3.1] - 2026-10-03
 
