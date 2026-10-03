@@ -88,7 +88,11 @@ export default function App() {
         rejected.push(`${f.name}: skipped ${n} line${n > 1 ? "s" : ""} (${read.rejected[0]})`);
       }
       const meta = { id: crypto.randomUUID(), name: f.name, importedAt: Date.now(), bytes: f.size };
-      await saveSession({ ...meta, profiles: read.raw });
+      try {
+        await saveSession({ ...meta, profiles: read.raw });
+      } catch (e) {
+        rejected.push(`${f.name}: open for this page only, not stored (${e?.message ?? e})`);
+      }
       added.push({ ...meta, profiles: read.profiles, raw: read.raw });
     }
     setRejectedFiles(rejected);
@@ -189,7 +193,11 @@ export default function App() {
                   <Tip content="Remove this session">
                   <button className="x" aria-label={`Remove ${s.name}`}
                           onClick={async () => {
-                            await dropSession(s.id);
+                            try {
+                              await dropSession(s.id);
+                            } catch (e) {
+                              setRejectedFiles([`${s.name}: removed from this page, but still stored (${e?.message ?? e})`]);
+                            }
                             dispatch({ type: "removed", sessionId: s.id });
                           }}>×</button>
                   </Tip>
@@ -200,7 +208,12 @@ export default function App() {
                   <span>Remove all {sessions.length} sessions?</span>
                   <span className="railfoot-actions">
                     <button className="link link--crit" onClick={async () => {
-                      await dropAll(); setConfirmingClear(false); dispatch({ type: "cleared" });
+                      try {
+                        await dropAll();
+                      } catch (e) {
+                        setRejectedFiles([`Sessions removed from this page, but still stored (${e?.message ?? e})`]);
+                      }
+                      setConfirmingClear(false); dispatch({ type: "cleared" });
                     }}>Remove</button>
                     <button className="link" onClick={() => setConfirmingClear(false)}>Keep</button>
                   </span>
@@ -242,7 +255,7 @@ export default function App() {
           {rejectedFiles.length > 0 && (
             <div className="notice" role="alert">
               <div className="notice-text">
-                <b>Not everything was imported</b>
+                <b>Not everything worked</b>
                 {rejectedFiles.map((r) => <div key={r}>{r}</div>)}
               </div>
               <button className="x" aria-label="Dismiss" onClick={() => setRejectedFiles([])}>×</button>

@@ -53,6 +53,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   an out-of-range start time, crashed the viewer on every load, and the only
   way out deleted every stored session. Such values are now dropped when read,
   and the error page offers to remove just the open session.
+- Viewer: one failed save, such as a session too big for the browser's
+  storage, switched storage off for the rest of the page, so sessions removed
+  afterwards came back on the next load. A failed save or removal is now
+  reported, and storage keeps working.
 - `uninstall()` left polars' engine affinity on `"streaming"`. It now puts back
   the affinity from before `install()`, engine objects such as `GPUEngine`
   included, unless the application chose another engine in the meantime.
