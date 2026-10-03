@@ -68,6 +68,10 @@ path = "src/polars_telemetry/_version.py"
 [tool.hatch.build.targets.wheel]
 packages = ["src/polars_telemetry"]
 
+[tool.hatch.build.targets.sdist]
+# Sample sessions for the viewer: repository content, not source.
+exclude = ["examples/*.jsonl"]
+
 # ---------------------------------------------------------------------------
 # uv
 # ---------------------------------------------------------------------------
