@@ -70,7 +70,7 @@ DIRECTION: Final = "polars.direction"
 # May contain file paths, column names or literal values. Documented so that
 # exporting to a third-party backend is an informed choice.
 CARRIES_USER_DATA: Final[frozenset[str]] = frozenset(
-    {SCAN_SOURCES, SCAN_PREDICATES, JOIN_KEYS, GROUPBY_KEYS}
+    {SCAN_SOURCES, SCAN_PREDICATES, JOIN_KEYS, GROUPBY_KEYS, SORT_COLUMNS}
 )
 
 # Metric attributes must come from a bounded set: plan literals are unbounded

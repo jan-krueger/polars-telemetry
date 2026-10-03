@@ -159,7 +159,7 @@ attributes: their values are unbounded and would destroy series cardinality.
 
 !!! danger "These contain query content"
     `polars.scan.sources` · `polars.scan.predicates` · `polars.join.keys` ·
-    `polars.groupby.keys`
+    `polars.groupby.keys` · `polars.sort.columns`
 
     `polars.plan` also contains plan detail, when enabled.
 

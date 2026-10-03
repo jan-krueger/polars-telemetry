@@ -134,6 +134,7 @@ def test_every_user_data_attribute_is_declared():
         semconv.SCAN_PREDICATES,
         semconv.JOIN_KEYS,
         semconv.GROUPBY_KEYS,
+        semconv.SORT_COLUMNS,
     }
     assert emitted == semconv.CARRIES_USER_DATA
 

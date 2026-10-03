@@ -23,6 +23,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   session unmasked queries whenever `config` did not repeat the redaction. A
   session now masks everything the installation masks, plus what its own
   config adds.
+- `polars.sort.columns` can carry literals, but was missing from
+  `CARRIES_USER_DATA` and the documented list of attributes that do.
 - `uninstall()` left polars' engine affinity on `"streaming"`. It now puts back
   the affinity from before `install()`, engine objects such as `GPUEngine`
   included, unless the application chose another engine in the meantime.
