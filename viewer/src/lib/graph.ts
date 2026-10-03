@@ -59,7 +59,8 @@ export interface FlowData extends Record<string, unknown> {
   label: string;
 }
 
-const cpuMs = (n: PlanNode): number => Number(n.metrics?.total_time_ns ?? 0) / 1e6;
+/** A node's own CPU time in milliseconds; 0 without counters. */
+export const cpuMs = (n: PlanNode): number => Number(n.metrics?.total_time_ns ?? 0) / 1e6;
 
 export interface FocusStep {
   /** Nodes costing at least this much CPU time stay lit; 0 lights every node. */

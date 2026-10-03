@@ -8,7 +8,6 @@ export const rows = (v) =>
   v >= 1e6 ? num(v / 1e6, 2) + "M" : v >= 1e3 ? num(v / 1e3, 1) + "k" : num(v, 0);
 export const bytes = (b) =>
   b >= 1048576 ? num(b / 1048576, 1) + " MiB" : num(b / 1024, 1) + " KiB";
-export const cpuMs = (n) => (n.metrics?.total_time_ns ?? 0) / 1e6;
 
 /** A name for a query without a label: the first table it reads. */
 export function shapeName(p) {
@@ -52,5 +51,3 @@ export function diagnostics(p) {
       "figures are a floor, not a total");
   return out;
 }
-
-/** A profile line per JSON object; a truncated last line is expected. */
