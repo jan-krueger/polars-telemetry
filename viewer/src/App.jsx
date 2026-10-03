@@ -26,6 +26,7 @@ export default function App() {
   // What did not import, per file; shown until dismissed or the next import.
   const [rejectedFiles, setRejectedFiles] = useState([]);
   const [confirmingClear, setConfirmingClear] = useState(false);
+  const queryList = useRef(null);
 
   useEffect(() => {
     (async () => {
@@ -101,6 +102,14 @@ export default function App() {
   }, [importFiles]);
 
   const pick = (queryId) => dispatch({ type: "queryPicked", queryId });
+
+  // A query picked anywhere -- the overview, a link, the back button -- is
+  // brought into view in the list with its other runs, ready to click.
+  useEffect(() => {
+    const run = queryList.current?.querySelector('.run[aria-pressed="true"]');
+    const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    run?.closest(".shape")?.scrollIntoView({ block: "nearest", behavior: still ? "auto" : "smooth" });
+  }, [state.queryId]);
   const overview = useMemo(() => visibleShapes(state),
     [state.sessions, state.sessionId, state.search, state.sort]);
   const widest = overview.reduce((a, r) => Math.max(a, r.wallMs), 0) || 1;
@@ -138,7 +147,7 @@ export default function App() {
       </header>
 
       <div className="shell">
-        <aside className="rail">
+        <aside className="rail" ref={queryList}>
           {sessions.length > 0 && (
             <>
               <h2>Sessions</h2>

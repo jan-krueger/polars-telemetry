@@ -61,7 +61,7 @@ h2{font:600 10.5px/1 ui-monospace,monospace;letter-spacing:.1em;text-transform:u
 .link{background:none;border:0;color:var(--accent);cursor:pointer;font-size:11px;padding:0}
 .link:hover{text-decoration:underline}
 
-.shape{margin-bottom:12px}
+.shape{margin-bottom:12px;scroll-margin:12px}
 .fp{font:11px ui-monospace,monospace;color:var(--muted);margin-bottom:5px;
   display:flex;justify-content:space-between}
 .run{display:block;width:100%;text-align:left;background:transparent;border:0;
