@@ -11,7 +11,7 @@ pytestmark = pytest.mark.e2e
 polars = pytest.importorskip("polars")
 
 import polars_telemetry  # noqa: E402
-from polars_telemetry import Config, profile  # noqa: E402
+from polars_telemetry import Config, Redaction, profile, redacted  # noqa: E402
 from polars_telemetry.activation import installed  # noqa: E402
 
 
@@ -64,7 +64,7 @@ def test_a_broken_exporter_disarms_itself_and_no_other():
 def test_installing_again_with_different_arguments_says_so(caplog):
     polars_telemetry.install(exporter=Collect())
     state = installed()
-    again = polars_telemetry.install(Config(redact_literals=True), exporter=Collect())
+    again = polars_telemetry.install(Config(redaction=Redaction()), exporter=Collect())
     assert again is state
     assert any("already installed" in r.getMessage() for r in caplog.records)
 
@@ -117,9 +117,9 @@ def test_resource_attributes_warns_that_it_does_nothing():
 
 
 def test_an_application_exporter_receives_redacted_queries():
-    """redact_literals used to cover only the bundled exporters."""
+    """Redaction used to cover only the bundled exporters."""
     mine = Collect()
-    polars_telemetry.install(Config(redact_literals=True), exporter=mine)
+    polars_telemetry.install(Config(redaction=Redaction()), exporter=mine)
     polars.LazyFrame({"e": ["a"]}).filter(polars.col("e") == "secret@corp.com").collect()
 
     text = repr(
@@ -127,3 +127,50 @@ def test_an_application_exporter_receives_redacted_queries():
     )
     assert mine.queries
     assert "secret@corp.com" not in text
+
+
+def _texts(queries) -> str:
+    return repr(
+        [
+            (n.properties, q.failed, q.call_site, q.label)
+            for q in queries
+            for n in [*q.plan.values(), *q.logical.values()]
+        ]
+    )
+
+
+def test_each_exporter_can_have_its_own_redaction():
+    """One anonymised copy for a shared backend, full detail kept locally."""
+    full, default, strict = Collect(), Collect(), Collect()
+    polars_telemetry.install(
+        Config(redaction=Redaction()),
+        exporter=[
+            redacted(full, None),
+            default,
+            redacted(strict, Redaction(paths=True, call_site=True, labels=True)),
+        ],
+    )
+    with polars_telemetry.label("nightly"):
+        polars.LazyFrame({"e": ["a"]}).filter(polars.col("e") == "secret@corp.com").collect()
+
+    assert "secret@corp.com" in _texts(full.queries)
+    assert "secret@corp.com" not in _texts(default.queries)
+    assert default.queries[-1].label == "nightly"
+    assert strict.queries[-1].label is None
+    assert strict.queries[-1].call_site is None
+
+
+def test_the_deprecated_config_flag_still_masks():
+    with pytest.warns(DeprecationWarning, match="redact_literals"):
+        config = Config(redact_literals=True)
+    assert config.redaction == Redaction()
+
+
+def test_an_otel_exporter_keeps_masking_by_its_own_config():
+    """Before 0.3 it masked by the config it was made with, whatever install() got."""
+    from polars_telemetry.activation import _redaction_for
+    from polars_telemetry.export.otel import OTelExporter
+
+    exporter = OTelExporter(Config(redaction=Redaction()))
+    assert _redaction_for(exporter, Config()) == (exporter, Redaction())
+    assert _redaction_for(redacted(exporter, None), Config()) == (exporter, None)

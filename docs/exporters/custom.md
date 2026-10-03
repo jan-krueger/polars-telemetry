@@ -41,8 +41,9 @@ profile document, if a dictionary is easier to ship.
 
 ## Options
 
-Whatever your exporter takes. `Config(redact_literals=True)` applies to yours
-too: queries are masked before any exporter receives them.
+Whatever your exporter takes. `Config(redaction=...)` applies to yours too:
+queries are masked before any exporter receives them, so `export()` never has
+to. `redacted(SlowQueries(500), ...)` gives it a setting of its own.
 
 ## Your data
 

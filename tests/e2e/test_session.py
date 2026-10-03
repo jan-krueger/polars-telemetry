@@ -11,7 +11,7 @@ pytestmark = pytest.mark.e2e
 polars = pytest.importorskip("polars")
 
 import polars_telemetry  # noqa: E402
-from polars_telemetry import Config, Session, profile  # noqa: E402
+from polars_telemetry import Config, Redaction, Session, profile  # noqa: E402
 from polars_telemetry.activation import installed  # noqa: E402
 from polars_telemetry.export.base import Exporter  # noqa: E402
 
@@ -164,7 +164,7 @@ def _filter_on_a_secret() -> object:
 
 
 def test_the_block_config_redacts_what_the_session_hands_out(tmp_path):
-    with profile(Config(redact_literals=True)) as session:
+    with profile(Config(redaction=Redaction())) as session:
         _filter_on_a_secret()
 
     assert "secret@corp.com" not in json.dumps(session.profiles())
@@ -173,7 +173,7 @@ def test_the_block_config_redacts_what_the_session_hands_out(tmp_path):
 
 def test_an_installed_config_redacts_a_block_that_names_none():
     """A session must not hand out literals the running config would mask."""
-    polars_telemetry.install(Config(redact_literals=True), exporter=_Nothing())
+    polars_telemetry.install(Config(redaction=Redaction()), exporter=_Nothing())
     with profile() as session:
         _filter_on_a_secret()
 

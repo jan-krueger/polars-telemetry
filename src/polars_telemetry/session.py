@@ -103,7 +103,7 @@ def profile(config: Config | None = None) -> Iterator[Session]:
     receiver = _dispatch.add(
         session.queries.append,
         "profile session",
-        redact=effective.redact_literals if effective else False,
+        redaction=effective.redaction if effective else None,
     )
     try:
         yield session

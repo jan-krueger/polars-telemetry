@@ -22,9 +22,11 @@ from polars_telemetry.adapter.hook import ObserverFactory
 from polars_telemetry.adapter.recorder import QueryRecorder
 from polars_telemetry.compat import SUPPORTED, Capabilities, probe
 from polars_telemetry.config import Config
+from polars_telemetry.export.base import Redacted
 
 if TYPE_CHECKING:
     from polars_telemetry.export.base import Exporter
+    from polars_telemetry.model.redaction import Redaction
 
 _log = logging.getLogger("polars_telemetry")
 
@@ -234,16 +236,26 @@ def _effective(config: Config, capabilities: Capabilities) -> Config:
 
 
 def _register(exporters: tuple[Exporter, ...], config: Config) -> tuple[_dispatch.Receiver, ...]:
-    # Redacted before delivery, so an exporter the application wrote is covered
-    # by the setting as much as the bundled ones are.
-    return tuple(
-        _dispatch.add(
-            exporter.export,
-            f"exporter {type(exporter).__name__}",
-            redact=config.redact_literals,
+    # Masked before delivery, so an exporter the application wrote is covered
+    # as much as the bundled ones are.
+    receivers = []
+    for exporter in exporters:
+        target, redaction = _redaction_for(exporter, config)
+        receivers.append(
+            _dispatch.add(target.export, f"exporter {type(target).__name__}", redaction=redaction)
         )
-        for exporter in exporters
-    )
+    return tuple(receivers)
+
+
+def _redaction_for(exporter: Exporter, config: Config) -> tuple[Exporter, Redaction | None]:
+    if isinstance(exporter, Redacted):
+        return exporter.exporter, exporter.redaction
+    # Before 0.3, OTelExporter masked by the config it was given, whatever
+    # install() was given; keep that rather than start sending literals.
+    own = getattr(exporter, "config", None)
+    if config.redaction is None and isinstance(own, Config) and own.redaction is not None:
+        return exporter, own.redaction
+    return exporter, config.redaction
 
 
 def _as_tuple(exporter: Exporter | Sequence[Exporter] | None) -> tuple[Exporter, ...]:

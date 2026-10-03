@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from pathlib import Path
 from uuid import uuid4
 
@@ -10,7 +11,7 @@ import pytest
 
 from polars_telemetry import _dispatch
 from polars_telemetry.adapter.build import build_plan, enrich
-from polars_telemetry.model.redaction import redact_query
+from polars_telemetry.model.redaction import Redaction, redact, redact_query
 from polars_telemetry.model.types import Query
 
 FIXTURE = Path(__file__).parents[1] / "fixtures" / "1.44.2"
@@ -73,7 +74,7 @@ def test_each_receiver_gets_its_own_setting(isolated, query):
     raw: list[Query] = []
     masked: list[Query] = []
     _dispatch.add(raw.append, "raw")
-    _dispatch.add(masked.append, "masked", redact=True)
+    _dispatch.add(masked.append, "masked", redaction=Redaction())
 
     _dispatch.dispatch(query)
 
@@ -82,13 +83,111 @@ def test_each_receiver_gets_its_own_setting(isolated, query):
 
 
 def test_a_failing_redaction_delivers_nothing_rather_than_raw(isolated, query, monkeypatch):
-    def broken(_: Query) -> Query:
+    def broken(_: Query, __: Redaction) -> Query:
         msg = "redaction bug"
         raise RuntimeError(msg)
 
     monkeypatch.setattr(_dispatch, "redact_query", broken)
     delivered: list[Query] = []
-    _dispatch.add(delivered.append, "masked", redact=True)
+    _dispatch.add(delivered.append, "masked", redaction=Redaction())
 
     _dispatch.dispatch(query)
     assert delivered == []
+
+
+# --- what each switch masks, on the text polars actually writes -------------------
+
+
+@pytest.mark.parametrize(
+    ("expression", "expected"),
+    [
+        ('col("email") == "a@b.c"', 'col("email") == "<str>"'),
+        ('col("s").str.contains(["^ab.*"])', 'col("s").str.contains(["<str>"])'),
+        ('col("x") > 1.0000e-9', 'col("x") > <num>'),
+        ('dyn float: 1.5.alias("x")', 'dyn float: <num>.alias("x")'),
+        ('2024-01-01.alias("d")', '<date>.alias("d")'),
+        ('2024-01-01 12:00:00.alias("t")', '<datetime>.alias("t")'),
+        ('12:30:00.alias("tm")', '<time>.alias("tm")'),
+        ('1d.alias("dur")', '<duration>.alias("dur")'),
+        ('(col("n") * 1000000).alias("big")', '(col("n") * <num>).alias("big")'),
+        ('col("d") >= 2023-05-06', 'col("d") >= <date>'),
+        ('col("t") < 2024-02-03 04:05:06', 'col("t") < <datetime>'),
+        ('col("t") < 2024-02-03 04:05:06.250', 'col("t") < <datetime>'),
+        ('col("tm") > 09:15:00', 'col("tm") > <time>'),
+        ('col("dur") > 5h', 'col("dur") > <duration>'),
+        ('col("dur") > 1d2h30m', 'col("dur") > <duration>'),
+        ('col("_POLARS_TMP_0").alias("n2")', 'col("_POLARS_TMP_0").alias("n2")'),
+    ],
+)
+def test_each_literal_form_is_masked_by_kind(expression, expected):
+    assert redact(expression) == expected
+
+
+@pytest.mark.parametrize(
+    ("redaction", "kept"),
+    [
+        (Redaction(strings=False), '"a@b.c"'),
+        (Redaction(numbers=False), "60.5"),
+        (Redaction(temporal=False), "2023-05-06"),
+    ],
+)
+def test_switching_one_kind_off_keeps_only_that_kind(redaction, kept):
+    expression = 'col("e") == "a@b.c" & col("n") > 60.5 & col("d") >= 2023-05-06'
+    masked = redact(expression, redaction)
+    assert kept in masked
+    assert masked.count("<") == 2
+
+
+def test_digits_inside_text_are_text_not_numbers():
+    assert redact('col("s") == "room 101"', Redaction(strings=False)) == 'col("s") == "room 101"'
+
+
+def test_a_custom_rule_runs_after_the_masks():
+    hide_columns = Redaction(custom=lambda text: text.replace('col("email")', 'col("<col>")'))
+    assert redact('col("email") == "a@b.c"', hide_columns) == 'col("<col>") == "<str>"'
+
+
+def test_paths_are_kept_whole_or_masked_whole(query):
+    def sources(q: Query) -> set[str]:
+        return {
+            str(n.properties["first_source"])
+            for n in q.logical.values()
+            if "first_source" in n.properties
+        }
+
+    kept = sources(redact_query(query))
+    assert kept
+    assert all("<" not in s for s in kept), "a path is not an expression"
+    assert sources(redact_query(query, Redaction(paths=True))) == {"<path>"}
+
+
+def test_call_site_and_label_are_dropped_only_when_asked(query):
+    from polars_telemetry.model.types import CallSite
+
+    placed = replace(query, call_site=CallSite("/srv/app.py", 3, "f"), label="nightly")
+    assert redact_query(placed).call_site is not None
+    assert redact_query(placed).label == "nightly"
+    gone = redact_query(placed, Redaction(call_site=True, labels=True))
+    assert gone.call_site is None
+    assert gone.label is None
+
+
+def test_a_query_records_what_was_masked(query):
+    assert query.redaction is None
+    assert redact_query(query, Redaction(paths=True)).redaction == Redaction(paths=True)
+    assert Redaction(paths=True).masks == ("strings", "numbers", "temporal", "paths")
+
+
+def test_receivers_with_different_redactions_each_get_their_own(isolated, query):
+    raw: list[Query] = []
+    literals: list[Query] = []
+    strict: list[Query] = []
+    _dispatch.add(raw.append, "raw")
+    _dispatch.add(literals.append, "literals", redaction=Redaction())
+    _dispatch.add(strict.append, "strict", redaction=Redaction(paths=True))
+
+    _dispatch.dispatch(query)
+
+    assert raw[0].redaction is None
+    assert literals[0].redaction == Redaction()
+    assert strict[0].redaction == Redaction(paths=True)

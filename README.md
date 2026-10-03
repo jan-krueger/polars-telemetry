@@ -114,7 +114,8 @@ polars_telemetry.install(Config(node_metrics=False))
 | `node_metrics` | `True` | Read per-node counters once at query end |
 | `include_plan` | `False` | Attach the full plan to the span as JSON |
 | `call_site` | `True` | Record the file, line and function that ran the query |
-| `redact_literals` | `False` | Mask literal values in plan expressions |
+| `redaction` | `None` | What to mask before exporters see a query; `Redaction()` masks literal values |
+| `redact_literals` | `False` | Deprecated: use `redaction=Redaction()` |
 | `resource_attributes` | `{}` | Deprecated: never applied; set them on your OpenTelemetry provider |
 
 ## Your data
@@ -123,7 +124,10 @@ Spans carry plan detail: scan paths, column names, join keys and **literal
 predicate values** — `col("email") == "..."` arrives verbatim, because knowing
 which predicate was slow is usually the point.
 
-- `Config(redact_literals=True)` masks literal values.
+- `Config(redaction=Redaction())` masks literal values: text, numbers, dates
+  and times. `Redaction(paths=True, call_site=True, labels=True)` masks more.
+- `redacted(exporter, ...)` gives one exporter its own setting, so a shared
+  backend can get a masked copy while a local file keeps full detail.
 - Literals are never used as metric attributes, at any setting.
 - Attributes that can carry user data are listed in
   `polars_telemetry.export.semconv.CARRIES_USER_DATA`.

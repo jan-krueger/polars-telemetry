@@ -20,7 +20,6 @@ from polars_telemetry._version import __version__
 from polars_telemetry.export import semconv
 from polars_telemetry.export.attributes import query_attributes
 from polars_telemetry.model.diagnostics import derive
-from polars_telemetry.model.redaction import redact
 
 if TYPE_CHECKING:
     from opentelemetry.metrics import Counter, Histogram
@@ -72,8 +71,9 @@ class OTelExporter:
     no-ops and nothing is sent.
 
     Args:
-        config: Shared with `install()`; `include_plan` and `redact_literals`
-            apply here.
+        config: Shared with `install()`; `node_metrics` and `include_plan`
+            apply here. Masking happens before the query arrives; see
+            `Config.redaction`.
     """
 
     __slots__ = ("_config", "_counters", "_histograms", "_meter", "_tracer")
@@ -92,6 +92,11 @@ class OTelExporter:
             for name, unit, desc in COUNTERS
         }
 
+    @property
+    def config(self) -> Config:
+        """The configuration this exporter was made with."""
+        return self._config
+
     def export(self, query: Query) -> None:
         # Attached on arrival; derived here only for a Query built by hand.
         diagnostics = query.diagnostics or derive(query)
@@ -106,16 +111,13 @@ class OTelExporter:
             start_time=start_ns,
             attributes=query_attributes(
                 query,
-                redact_literals=self._config.redact_literals,
                 diagnostics=diagnostics,
                 plan_fingerprint=shape,
                 include_plan=self._config.include_plan,
             ),
         )
         if query.failed:
-            # polars' failure text quotes the offending values.
-            message = redact(query.failed) if self._config.redact_literals else query.failed
-            span.set_status(Status(StatusCode.ERROR, message))
+            span.set_status(Status(StatusCode.ERROR, query.failed))
         else:
             span.set_status(Status(StatusCode.OK))
         span.end(end_time=end_ns)

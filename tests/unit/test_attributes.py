@@ -14,7 +14,7 @@ from polars_telemetry.adapter.build import build_metrics, build_plan
 from polars_telemetry.export import semconv
 from polars_telemetry.export.attributes import query_attributes
 from polars_telemetry.model.diagnostics import Diagnostics
-from polars_telemetry.model.redaction import redact
+from polars_telemetry.model.redaction import redact, redact_query
 from polars_telemetry.model.types import Query
 
 FIXTURE = sorted(p for p in (Path(__file__).parents[1] / "fixtures").iterdir() if p.is_dir())[-1]
@@ -119,9 +119,9 @@ def test_hottest_node_is_reported(query):
     assert 0 < _number(attrs, semconv.HOT_NODE_SHARE) <= 1
 
 
-def test_predicates_are_redacted_on_request(query):
-    plain = query_attributes(query, redact_literals=False)
-    masked = query_attributes(query, redact_literals=True)
+def test_predicates_on_a_masked_query_are_masked(query):
+    plain = query_attributes(query)
+    masked = query_attributes(redact_query(query))
 
     assert any("10" in p for p in _sequence(plain, semconv.SCAN_PREDICATES))
     assert all("<num>" in p for p in _sequence(masked, semconv.SCAN_PREDICATES))
@@ -157,7 +157,7 @@ def test_attribute_values_are_otlp_legal(query):
     produced it, so it is worth catching here.
     """
     scalars = (str, bool, int, float)
-    for key, value in query_attributes(query, redact_literals=True).items():
+    for key, value in query_attributes(redact_query(query)).items():
         if isinstance(value, tuple):
             assert value, f"{key}: empty sequence"
             types = {type(item) for item in value}

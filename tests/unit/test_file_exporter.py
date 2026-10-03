@@ -78,9 +78,10 @@ def test_rejects_a_nonsense_bound(tmp_path):
         FileExporter(tmp_path / "s.jsonl", max_bytes=0)
 
 
-def test_redaction_masks_plan_literals(tmp_path):
+def test_the_deprecated_redaction_flag_still_masks(tmp_path):
     plain = FileExporter(tmp_path / "plain.jsonl")
-    masked = FileExporter(tmp_path / "masked.jsonl", redact_literals=True)
+    with pytest.warns(DeprecationWarning, match="redact_literals"):
+        masked = FileExporter(tmp_path / "masked.jsonl", redact_literals=True)
     query = _query()
     plain.export(query)
     masked.export(query)
@@ -119,10 +120,12 @@ def test_concurrent_writes_do_not_interleave(tmp_path):
 
 def test_redaction_reaches_the_failure_message(tmp_path):
     """polars quotes the offending value in the text, not just in the plan."""
-    from polars_telemetry.export.profile import redact_profile
+    from dataclasses import replace
 
-    document: dict[str, object] = {
-        "failed": "conversion failed in column 'a' for 1 out of 1 values: [\"secret\"]",
-        "plan": {"physical": []},
-    }
-    assert "secret" not in str(redact_profile(document)["failed"])
+    from polars_telemetry.export.profile import build_profile
+    from polars_telemetry.model.redaction import redact_query
+
+    failed = replace(
+        _query(), failed="conversion failed in column 'a' for 1 out of 1 values: [\"secret\"]"
+    )
+    assert "secret" not in str(build_profile(redact_query(failed))["failed"])

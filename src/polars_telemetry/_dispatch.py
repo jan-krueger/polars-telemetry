@@ -12,7 +12,7 @@ import threading
 from typing import TYPE_CHECKING
 
 from polars_telemetry._safety import FailureTracker
-from polars_telemetry.model.redaction import redact_query
+from polars_telemetry.model.redaction import Redaction, redact_query
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -23,11 +23,13 @@ if TYPE_CHECKING:
 class Receiver:
     """A registered destination. Keep it: removal is by this object."""
 
-    __slots__ = ("receive", "redact", "tracker")
+    __slots__ = ("receive", "redaction", "tracker")
 
-    def __init__(self, receive: Callable[[Query], None], label: str, *, redact: bool) -> None:
+    def __init__(
+        self, receive: Callable[[Query], None], label: str, *, redaction: Redaction | None
+    ) -> None:
         self.receive = receive
-        self.redact = redact
+        self.redaction = redaction
         self.tracker = FailureTracker(label)
 
 
@@ -35,10 +37,12 @@ _lock = threading.Lock()
 _receivers: tuple[Receiver, ...] = ()
 
 
-def add(receive: Callable[[Query], None], label: str, *, redact: bool = False) -> Receiver:
-    """Register a destination. `redact`: it receives queries with literals masked."""
+def add(
+    receive: Callable[[Query], None], label: str, *, redaction: Redaction | None = None
+) -> Receiver:
+    """Register a destination, which receives queries masked by `redaction`."""
     global _receivers
-    receiver = Receiver(receive, label, redact=redact)
+    receiver = Receiver(receive, label, redaction=redaction)
     with _lock:
         _receivers = (*_receivers, receiver)
     return receiver
@@ -56,19 +60,19 @@ def dispatch(query: Query) -> None:
     The tuple is swapped whole under the lock, so iterating the reference read
     here needs none.
     """
-    redacted: Query | None = None
+    masked: dict[Redaction, Query] = {}
     for receiver in _receivers:
         if receiver.tracker.disarmed:
             continue
         try:
             delivered = query
-            if receiver.redact:
-                # Once per query, however many receivers asked for it. Should
-                # redaction raise, the receiver gets nothing rather than the
-                # unredacted query: this fails closed.
-                if redacted is None:
-                    redacted = redact_query(query)
-                delivered = redacted
+            if receiver.redaction is not None:
+                # Once per redaction per query, however many receivers share
+                # it. Should masking raise, the receiver gets nothing rather
+                # than the unmasked query: this fails closed.
+                if receiver.redaction not in masked:
+                    masked[receiver.redaction] = redact_query(query, receiver.redaction)
+                delivered = masked[receiver.redaction]
             receiver.receive(delivered)
         except Exception as exc:
             receiver.tracker.record(exc)

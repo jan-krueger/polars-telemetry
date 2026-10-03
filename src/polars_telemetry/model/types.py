@@ -9,6 +9,7 @@ from uuid import UUID
 
 if TYPE_CHECKING:
     from polars_telemetry.model.diagnostics import Diagnostics
+    from polars_telemetry.model.redaction import Redaction
 
 
 @dataclass(frozen=True, slots=True)
@@ -210,6 +211,8 @@ class Query:
 
     failed: str | None = None
     """polars' error message when the query failed, else None."""
+    redaction: Redaction | None = None
+    """What was masked before this reached the exporter, else None."""
     started_unix_ns: int = 0
     """When the query started, in nanoseconds since the Unix epoch."""
 

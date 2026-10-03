@@ -4,6 +4,37 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- `Redaction` chooses what is masked: `strings`, `numbers` and `temporal`
+  (dates, datetimes, times, durations) by default, and `paths`, `call_site`
+  and `labels` on request, plus a `custom` rule of your own. Set it with
+  `Config(redaction=Redaction(...))`.
+- `redacted(exporter, redaction)` gives one exporter its own setting, so a
+  shared backend can receive a masked copy while a local file keeps every
+  detail. `redacted(exporter, None)` sends that exporter everything.
+- Profiles record what was masked in a `redacted` field, and the viewer shows
+  it beside the query.
+
+### Changed
+- Masking happens once, before a query is delivered, and nowhere else.
+  `OTelExporter` and `FileExporter` no longer mask on their own. An
+  `OTelExporter` made with a masking config still masks when `install()` was
+  given none, as before.
+
+### Deprecated
+- `Config(redact_literals=True)`: use `Config(redaction=Redaction())`, which
+  it now sets.
+- `FileExporter(redact_literals=True)`: use
+  `redacted(FileExporter(...), Redaction())`.
+
+### Fixed
+- Masking left some literals readable: durations such as `5h`, the mantissa of
+  numbers like `1.0000e-9`, and any literal followed by a method call, such as
+  `1.5.alias("x")` or `2024-01-01.alias("d")`. Times came out as
+  `<num>:<num>:<num>`, and digits inside file paths were masked piecemeal.
+
 ## [0.2.0] - 2026-10-03
 
 ### Added

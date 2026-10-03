@@ -11,6 +11,12 @@ Generated from the docstrings. Everything here is importable from
 
 ::: polars_telemetry.Config
 
+## Masking
+
+::: polars_telemetry.Redaction
+
+::: polars_telemetry.redacted
+
 ## Labelling and scoping
 
 ::: polars_telemetry.label
