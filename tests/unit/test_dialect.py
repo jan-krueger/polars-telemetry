@@ -18,6 +18,77 @@ from tests.fixture_paths import latest_fixture
 FIXTURE = latest_fixture()
 
 
+# PhysNodeKind descriptions in polars-stream's to_description.rs at py-1.44.2,
+# py-2.0.0-rc.2 and main, without the Default and Other fallbacks.
+POLARS_PHYSICAL_KINDS = sorted(
+    {
+        "AsOfJoin",
+        "BackwardFill",
+        "CallbackSink",
+        "ColumnarFunction",
+        "CrossJoin",
+        "CumAgg",
+        "DynamicGroupBy",
+        "DynamicSlice",
+        "EquiJoin",
+        "Ewm",
+        "FileSink",
+        "Filter",
+        "ForwardFill",
+        "Gather",
+        "GatherEvery",
+        "GroupBy",
+        "InMemoryAsOfJoin",
+        "InMemoryIEJoin",
+        "InMemoryJoin",
+        "InMemoryMap",
+        "InMemorySink",
+        "InMemorySource",
+        "InputIndependentSelect",
+        "Interpolate",
+        "IsFirstDistinct",
+        "IsSorted",
+        "Map",
+        "MergeJoin",
+        "MergeSorted",
+        "MultiScan",
+        "Multiplexer",
+        "NegativeSlice",
+        "OrderedUnion",
+        "PartitionSink",
+        "PeakMax",
+        "PeakMin",
+        "PythonScan",
+        "RangeJoin",
+        "Reduce",
+        "Repeat",
+        "Rle",
+        "RleId",
+        "RollingFixedWindowFunction",
+        "RollingGroupBy",
+        "Select",
+        "SemiAntiJoin",
+        "Shift",
+        "SimpleProjection",
+        "SinkMultiple",
+        "Slice",
+        "Sort",
+        "SortedGroupBy",
+        "SortedUnique",
+        "StrptimeInfer",
+        "TopK",
+        "UnorderedUnion",
+        "Window",
+        "WithRowIndex",
+        "Zip",
+    }
+)
+
+
+def test_every_physical_kind_polars_emits_has_a_role():
+    assert unknown_kinds(POLARS_PHYSICAL_KINDS) == []
+
+
 @pytest.mark.parametrize(
     ("kind", "properties", "role"),
     [

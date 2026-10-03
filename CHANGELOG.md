@@ -26,6 +26,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   out, nodes draw as plain boxes without labels.
 
 ### Fixed
+- 30 node kinds polars' streaming engine can emit, among them `StrptimeInfer`,
+  `IsFirstDistinct`, `InMemoryJoin`, `SortedGroupBy`, `PythonScan` and the slice
+  nodes, were logged as unrecognised and carried no role. They now map onto
+  roles in both the exporter and the viewer.
 - Viewer: a logical plan's predicate shows its conditions joined by `&`, laid
   out like the physical plan's, instead of as separate unconnected lines.
 - Viewer: a join's inputs are drawn left to right in the order polars lists
