@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import "@xyflow/react/dist/style.css";
 import "./styles.css";
 import PlanPane from "./components/PlanPane";
@@ -22,6 +22,9 @@ export default function App() {
   const fileInput = useRef(null);
   const chooseFiles = () => fileInput.current?.click();
   const { booted, sessions } = state;
+  // What did not import, per file; shown until dismissed or the next import.
+  const [rejectedFiles, setRejectedFiles] = useState([]);
+  const [confirmingClear, setConfirmingClear] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -54,12 +57,16 @@ export default function App() {
         rejected.push(`${f.name}: ${read.rejected[0] || "no profiles found"}`);
         continue;
       }
+      if (read.rejected.length) {
+        const n = read.rejected.length;
+        rejected.push(`${f.name}: skipped ${n} line${n > 1 ? "s" : ""} (${read.rejected[0]})`);
+      }
       const meta = { id: crypto.randomUUID(), name: f.name, importedAt: Date.now(), bytes: f.size };
       await saveSession({ ...meta, profiles: read.raw });
       added.push({ ...meta, profiles: read.profiles, raw: read.raw });
     }
-    if (!added.length) { alert(rejected.join("\n") || "No polars-telemetry profiles found."); return; }
-    dispatch({ type: "imported", sessions: added });
+    setRejectedFiles(rejected);
+    if (added.length) dispatch({ type: "imported", sessions: added });
   }, []);
 
   useEffect(() => {
@@ -136,21 +143,30 @@ export default function App() {
                           }}>×</button>
                 </div>
               ))}
-              <div className="railfoot">
-                <span>{bytes(totalBytes)} stored{storageUnavailable() ? " (this session only)" : ""}</span>
-                <button className="link" onClick={async () => {
-                  if (!confirm("Remove every imported session from this browser?")) return;
-                  await dropAll(); dispatch({ type: "cleared" });
-                }}>Clear all</button>
-              </div>
+              {confirmingClear ? (
+                <div className="railfoot" role="alert">
+                  <span>Remove all {sessions.length} sessions?</span>
+                  <span className="railfoot-actions">
+                    <button className="link link--crit" onClick={async () => {
+                      await dropAll(); setConfirmingClear(false); dispatch({ type: "cleared" });
+                    }}>Remove</button>
+                    <button className="link" onClick={() => setConfirmingClear(false)}>Keep</button>
+                  </span>
+                </div>
+              ) : (
+                <div className="railfoot">
+                  <span>{bytes(totalBytes)} stored{storageUnavailable() ? " (this session only)" : ""}</span>
+                  <button className="link" onClick={() => setConfirmingClear(true)}>Clear all</button>
+                </div>
+              )}
             </>
           )}
           {current && (
             <>
               <h2>Queries</h2>
               <input id="query-search" className="search" type="search" value={state.search}
-                     placeholder="Search label, file or shape"
-                     aria-label="Search queries by label, file or shape"
+                     placeholder="Search label, file or table"
+                     aria-label="Search queries by label, file, table or fingerprint"
                      onChange={(e) => dispatch({ type: "searched", text: e.target.value })} />
               {!overview.length && <div className="nomatch">No query matches “{state.search}”.</div>}
               {overview.map((row) => (
@@ -171,6 +187,15 @@ export default function App() {
         </aside>
 
         <main>
+          {rejectedFiles.length > 0 && (
+            <div className="notice" role="alert">
+              <div className="notice-text">
+                <b>Not everything was imported</b>
+                {rejectedFiles.map((r) => <div key={r}>{r}</div>)}
+              </div>
+              <button className="x" aria-label="Dismiss" onClick={() => setRejectedFiles([])}>×</button>
+            </div>
+          )}
           {!current ? (
             <div className="blank">
               <h3>Nothing loaded</h3>

@@ -225,3 +225,11 @@ button.zone:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
   color:var(--ink);background:var(--surface-2);border:1px solid var(--border);border-radius:6px}
 .search:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .nomatch{font-size:12px;color:var(--muted);padding:4px 2px}
+
+.link--crit{color:var(--crit)}
+.railfoot-actions{display:flex;gap:10px}
+.notice{display:flex;align-items:flex-start;gap:8px;margin:0 0 12px;padding:8px 10px;border-radius:6px;
+  font-size:12px;background:color-mix(in srgb,var(--warn) 12%,transparent);color:var(--ink);
+  border:1px solid color-mix(in srgb,var(--warn) 40%,transparent)}
+.notice-text{flex:1;min-width:0;overflow-wrap:anywhere}
+.notice-text b{display:block;margin-bottom:2px}
