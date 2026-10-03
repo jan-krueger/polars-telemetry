@@ -206,3 +206,12 @@ def test_queries_outside_a_label_have_none():
     with profile() as session:
         _run()
     assert session[0].label is None
+
+
+def test_written_paths_are_masked_with_paths_on(tmp_path):
+    target = tmp_path / "alice_private" / "out.parquet"
+    target.parent.mkdir()
+    with profile(Config(redaction=Redaction(paths=True))) as session:
+        polars.LazyFrame({"a": [1]}).sink_parquet(target)
+    assert session.profiles(), "the sink ran as a query"
+    assert "alice_private" not in json.dumps(session.profiles())

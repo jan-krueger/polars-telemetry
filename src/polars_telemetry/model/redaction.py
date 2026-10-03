@@ -85,7 +85,7 @@ _TOKEN = re.compile(
 _NAME_CONTEXT = re.compile(r"(?:col|alias|name|nth|field|prefix|suffix)\($")
 
 # Plan properties holding a file path rather than an expression.
-_PATH_KEYS = frozenset({"first_source", "dest", "path", "paths", "sources"})
+_PATH_KEYS = frozenset({"first_source", "dest", "target", "path", "paths", "sources"})
 
 
 def redact(text: str, redaction: Redaction = LITERALS) -> str:
@@ -116,6 +116,8 @@ def _path_text(value: str, redaction: Redaction) -> str:
 def _path(value: object, redaction: Redaction) -> object:
     if isinstance(value, list):
         return [_path(item, redaction) for item in value]
+    if isinstance(value, dict):
+        return {key: _path(item, redaction) for key, item in value.items()}
     return _path_text(value, redaction) if isinstance(value, str) else value
 
 
