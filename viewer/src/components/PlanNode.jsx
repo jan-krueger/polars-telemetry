@@ -9,7 +9,7 @@ const bin = (p) => (p >= 50 ? 4 : p >= 10 ? 3 : p >= 1 ? 2 : 1);
 /** The logical plan has no counters, so it is drawn as an outline: filling a
  *  node by CPU share would imply a cost it does not have. */
 export default function PlanNode({ data, selected }) {
-  const { node, share, logical, label } = data;
+  const { node, share, logical, label, far } = data;
   const role = roleOf(node);
   const info = ROLES[role];
   // A relation is a leaf in the algebra: it is named, not given an operator.
@@ -19,6 +19,15 @@ export default function PlanNode({ data, selected }) {
   const style = logical
     ? {}
     : { background: `var(--sq${b})`, color: `var(--sq${b}-ink)`, borderColor: "transparent" };
+
+  if (far) {
+    return (
+      <div className={`pnode${logical ? " logical" : ""}${selected ? " pnode--sel" : ""}`} style={style}>
+        <Handle type="target" position={Position.Bottom} />
+        <Handle type="source" position={Position.Top} />
+      </div>
+    );
+  }
 
   return (
     <div className={`pnode${logical ? " logical" : ""}${selected ? " pnode--sel" : ""}`}

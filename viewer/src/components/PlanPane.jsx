@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef } from "react";
-import { ReactFlow, Background, MiniMap, Controls, useReactFlow } from "@xyflow/react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ReactFlow, Background, MiniMap, Controls, useReactFlow, useStore } from "@xyflow/react";
 import PlanNode from "./PlanNode";
-import { applyView, extent, focusSteps, layout, planGraph, shareView, stepFor, toFlow } from "../lib/graph";
+import { FAR_ZOOM, applyView, distant, extent, focusSteps, shareView, startsFar, stepFor, toFlow, withSelection } from "../lib/graph";
+import useLayout from "./useLayout";
 import { ms } from "../lib/format";
 import Tip from "./Tip";
 
@@ -9,22 +10,11 @@ const nodeTypes = { plan: PlanNode };
 
 export default function PlanPane({ title, plan, logical, selectedId, onSelect, focus = null, onFocus,
                                    alone, onAlone, linked, leads, onLink, channel }) {
-  // Layout depends on the plan alone, so selecting a node does not re-run it.
-  const positions = useMemo(() => layout(planGraph(plan)), [plan]);
+  const positions = useLayout(plan);
   const steps = useMemo(() => focusSteps(plan), [plan]);
   const step = logical ? 0 : stepFor(steps, focus);
   const thresholdMs = steps[step].thresholdMs;
-  const { nodes, edges } = useMemo(
-    () => toFlow(plan, positions, { logical, selectedId, thresholdMs }),
-    [plan, positions, logical, selectedId, thresholdMs],
-  );
-  const body = useRef(null);
-  const box = useMemo(() => extent(positions), [positions]);
-  const pane = logical ? "logical" : "physical";
-  const size = () => ({ width: body.current?.clientWidth ?? 0, height: body.current?.clientHeight ?? 0 });
-  const touched = useRef(false);
-  const following = useRef(false);
-  const touch = () => { touched.current = true; };
+  const view = { plan, positions, logical, selectedId, onSelect, thresholdMs, alone, linked, leads, channel };
 
   return (
     <div className={logical ? "planbox logical" : "planbox"}>
@@ -55,33 +45,59 @@ export default function PlanPane({ title, plan, logical, selectedId, onSelect, f
         </button>
         </Tip>
       </div>
-      <div className="body" ref={body} onPointerDownCapture={touch} onWheelCapture={touch} onKeyDownCapture={touch}>
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          nodeTypes={nodeTypes}
-          fitView
-          minZoom={0.05}
-          nodesDraggable={false}
-          nodesConnectable={false}
-          onMove={(_, viewport) => {
-            if (linked && touched.current && !following.current) {
-              channel.publish({ ...shareView(viewport, size(), box), from: pane });
-            }
-          }}
-          onNodesChange={(changes) => {
-            const picked = changes.find((c) => c.type === "select" && c.selected);
-            if (picked) onSelect(Number(picked.id));
-          }}
-        >
-          <Background variant="dots" gap={16} size={1} color="var(--axis)" />
-          <MiniMap pannable zoomable nodeClassName={(n) => n.className ?? ""}
-                   style={{ width: 112, height: 172, border: "1px solid var(--rule-2)", borderRadius: 5 }} />
-          <Controls showInteractive={false} />
-          <Refit when={alone} />
-          <Follow linked={linked} leads={leads} channel={channel} pane={pane} box={box} size={size} following={following} />
-        </ReactFlow>
-      </div>
+      {positions
+        ? <PlanView {...view} />
+        : <div className="body laying-out" role="status">Laying out {plan.length.toLocaleString("en-US")} nodes…</div>}
+    </div>
+  );
+}
+
+function PlanView({ plan, positions, logical, selectedId, onSelect, thresholdMs, alone, linked, leads, channel }) {
+  const flow = useMemo(
+    () => toFlow(plan, positions, { logical, selectedId: null, thresholdMs }),
+    [plan, positions, logical, thresholdMs],
+  );
+  const box = useMemo(() => extent(positions), [positions]);
+  const [far, setFar] = useState(() => startsFar(box));
+  const [fitted, setFitted] = useState(false);
+  const seen = useMemo(() => (far ? distant(flow) : flow), [flow, far]);
+  const { nodes, edges } = useMemo(() => withSelection(seen, selectedId), [seen, selectedId]);
+  const body = useRef(null);
+  const pane = logical ? "logical" : "physical";
+  const size = () => ({ width: body.current?.clientWidth ?? 0, height: body.current?.clientHeight ?? 0 });
+  const touched = useRef(false);
+  const following = useRef(false);
+  const touch = () => { touched.current = true; };
+
+  return (
+    <div className="body" ref={body} onPointerDownCapture={touch} onWheelCapture={touch} onKeyDownCapture={touch}>
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        nodeTypes={nodeTypes}
+        fitView
+        minZoom={0.01}
+        nodesDraggable={false}
+        nodesConnectable={false}
+        onlyRenderVisibleElements={fitted}
+        onMove={(_, viewport) => {
+          if (linked && touched.current && !following.current) {
+            channel.publish({ ...shareView(viewport, size(), box), from: pane });
+          }
+        }}
+        onNodesChange={(changes) => {
+          const picked = changes.find((c) => c.type === "select" && c.selected);
+          if (picked) onSelect(Number(picked.id));
+        }}
+      >
+        <Background variant="dots" gap={16} size={1} color="var(--axis)" />
+        <MiniMap pannable zoomable nodeClassName={(n) => n.className ?? ""}
+                 style={{ width: 112, height: 172, border: "1px solid var(--rule-2)", borderRadius: 5 }} />
+        <Controls showInteractive={false} />
+        <Refit when={alone} />
+        <Distance onChange={setFar} onFitted={setFitted} />
+        <Follow linked={linked} leads={leads} channel={channel} pane={pane} box={box} size={size} following={following} />
+      </ReactFlow>
     </div>
   );
 }
@@ -108,15 +124,25 @@ function Focus({ steps, step, onFocus }) {
 
 function Refit({ when }) {
   const { fitView } = useReactFlow();
+  const width = useStore((s) => s.width);
+  const height = useStore((s) => s.height);
   const first = useRef(true);
+  const pending = useRef(false);
+  const size = useRef({ width, height });
   useEffect(() => {
     if (first.current) {
       first.current = false;
       return;
     }
-    const frame = requestAnimationFrame(() => fitView({ duration: 200 }));
-    return () => cancelAnimationFrame(frame);
-  }, [when, fitView]);
+    pending.current = true;
+  }, [when]);
+  useEffect(() => {
+    const resized = size.current.width !== width || size.current.height !== height;
+    size.current = { width, height };
+    if (!resized || !pending.current) return;
+    pending.current = false;
+    fitView({ duration: 200 });
+  }, [width, height, fitView]);
   return null;
 }
 
@@ -142,5 +168,18 @@ function Follow({ linked, leads, channel, pane, box, size, following }) {
     const frame = requestAnimationFrame(() => channel.publish({ ...shareView(getViewport(), size(), box), from: pane }));
     return () => cancelAnimationFrame(frame);
   }, [linked]);
+  return null;
+}
+
+function Distance({ onChange, onFitted }) {
+  const far = useStore((s) => {
+    const [x, y, zoom] = s.transform;
+    return x === 0 && y === 0 && zoom === 1 ? null : zoom < FAR_ZOOM;
+  });
+  useEffect(() => {
+    if (far === null) return;
+    onChange(far);
+    onFitted(true);
+  }, [far, onChange, onFitted]);
   return null;
 }

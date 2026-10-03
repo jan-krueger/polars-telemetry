@@ -62,6 +62,39 @@ export function layout(graph: Graph): Positions {
   return positions;
 }
 
+/** Below this zoom node text is unreadable, so nodes draw as plain boxes and edges lose their labels. */
+export const FAR_ZOOM = 0.2;
+
+/** The flow as seen from far away: bare nodes, unlabelled edges. */
+export function distant(flow: { nodes: Node<FlowData>[]; edges: Edge[] }): { nodes: Node<FlowData>[]; edges: Edge[] } {
+  return {
+    nodes: flow.nodes.map((n) => ({ ...n, data: { ...n.data, far: true } })),
+    edges: flow.edges.map((e) => (e.label === undefined ? e : { ...e, label: undefined })),
+  };
+}
+
+/** Whether a plan this size, fitted into a pane this size, starts out far away. */
+export const startsFar = (plan: Box, pane = { width: 600, height: 700 }): boolean =>
+  Math.min(pane.width / plan.width, pane.height / plan.height) < FAR_ZOOM;
+
+/** The same flow with one node selected; every other node and edge keeps its identity. */
+export function withSelection(
+  flow: { nodes: Node<FlowData>[]; edges: Edge[] },
+  selectedId: number | null,
+): { nodes: Node<FlowData>[]; edges: Edge[] } {
+  if (selectedId === null) return flow;
+  const id = String(selectedId);
+  if (!flow.nodes.some((n) => n.id === id)) return flow;
+  const lit = new Set(flow.nodes.filter((n) => n.className !== "faded" || n.id === id).map((n) => n.id));
+  return {
+    nodes: flow.nodes.map((n) => (n.id === id ? { ...n, selected: true, className: undefined } : n)),
+    edges: flow.edges.map((e) =>
+      e.source === id || e.target === id
+        ? { ...e, className: lit.has(e.source) && lit.has(e.target) ? undefined : "faded" }
+        : e),
+  };
+}
+
 export interface Box { x: number; y: number; width: number; height: number }
 export interface Viewport { x: number; y: number; zoom: number }
 /** Where a pane looks, independent of the plan's size: its centre as a fraction of the plan's extent. */
@@ -97,6 +130,7 @@ export interface FlowData extends Record<string, unknown> {
   share: number;
   logical: boolean;
   label: string;
+  far?: boolean;
 }
 
 /** A node's own CPU time in milliseconds; 0 without counters. */

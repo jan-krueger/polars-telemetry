@@ -19,6 +19,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Viewer: a link button in the plans' headers pans and zooms both plans
   together, at the same zoom and at the same point along each plan.
 
+### Changed
+- Viewer: plans with hundreds of nodes lay out in the background, so the page
+  stays responsive while a large plan opens, and a plan opened before is shown
+  at once. Selecting a node no longer redraws the whole plan, and far zoomed
+  out, nodes draw as plain boxes without labels.
+
 ### Fixed
 - Viewer: a logical plan's predicate shows its conditions joined by `&`, laid
   out like the physical plan's, instead of as separate unconnected lines.
