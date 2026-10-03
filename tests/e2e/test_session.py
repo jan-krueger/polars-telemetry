@@ -14,6 +14,7 @@ import polars_telemetry  # noqa: E402
 from polars_telemetry import Config, Session, profile  # noqa: E402
 from polars_telemetry.activation import installed  # noqa: E402
 from polars_telemetry.export.base import Exporter  # noqa: E402
+from polars_telemetry.session import _Discard  # noqa: E402
 
 
 def _run(value: int = 1):
@@ -153,3 +154,36 @@ def test_an_empty_block_is_not_an_error(tmp_path):
     assert len(session) == 0
     assert session.slowest is None
     assert session.write(tmp_path / "empty.jsonl").read_text() == ""
+
+
+def _filter_on_a_secret() -> object:
+    return (
+        polars.LazyFrame({"email": ["a@b.c"]})
+        .filter(polars.col("email") == "secret@corp.com")
+        .collect()
+    )
+
+
+def test_the_block_config_redacts_what_the_session_hands_out(tmp_path):
+    with profile(Config(redact_literals=True)) as session:
+        _filter_on_a_secret()
+
+    assert "secret@corp.com" not in json.dumps(session.profiles())
+    assert "secret@corp.com" not in session.write(tmp_path / "s.jsonl").read_text()
+
+
+def test_an_installed_config_redacts_a_block_that_names_none():
+    """A session must not hand out literals the running config would mask."""
+    polars_telemetry.install(Config(redact_literals=True), exporter=_Discard())
+    with profile() as session:
+        _filter_on_a_secret()
+
+    assert "secret@corp.com" not in json.dumps(session.profiles())
+
+
+def test_literals_are_kept_by_default():
+    """Full fidelity is the default; redaction is opt-in."""
+    with profile() as session:
+        _filter_on_a_secret()
+
+    assert "secret@corp.com" in json.dumps(session.profiles())

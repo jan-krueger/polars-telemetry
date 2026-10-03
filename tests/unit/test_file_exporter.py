@@ -119,10 +119,10 @@ def test_concurrent_writes_do_not_interleave(tmp_path):
 
 def test_redaction_reaches_the_failure_message(tmp_path):
     """polars quotes the offending value in the text, not just in the plan."""
-    from polars_telemetry.export.file import _redact
+    from polars_telemetry.export.profile import redact_profile
 
     document: dict[str, object] = {
         "failed": "conversion failed in column 'a' for 1 out of 1 values: [\"secret\"]",
         "plan": {"physical": []},
     }
-    assert "secret" not in str(_redact(document)["failed"])
+    assert "secret" not in str(redact_profile(document)["failed"])

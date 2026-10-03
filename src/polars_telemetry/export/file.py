@@ -17,7 +17,7 @@ import threading
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from polars_telemetry.export.profile import build_profile
+from polars_telemetry.export.profile import build_profile, redact_profile
 
 if TYPE_CHECKING:
     from polars_telemetry.model.types import Query
@@ -69,7 +69,7 @@ class FileExporter:
         try:
             document = build_profile(query)
             if self._redact:
-                document = _redact(document)
+                document = redact_profile(document)
             line = json.dumps(document, separators=(",", ":"), default=str)
         except Exception as exc:
             self._record(exc, "building the profile")
@@ -106,27 +106,3 @@ class FileExporter:
     @property
     def errors(self) -> int:
         return self._errors
-
-
-def _redact(document: dict[str, object]) -> dict[str, object]:
-    """Mask literals in plan expressions, in place of the span-side redaction."""
-    from polars_telemetry.export.attributes import redact
-
-    def walk(value: object) -> object:
-        if isinstance(value, str):
-            return redact(value)
-        if isinstance(value, list):
-            return [walk(v) for v in value]
-        if isinstance(value, dict):
-            return {k: walk(v) for k, v in value.items()}
-        return value
-
-    plan = document.get("plan")
-    if isinstance(plan, dict):
-        document["plan"] = walk(plan)
-
-    # polars' failure text quotes the offending values.
-    failed = document.get("failed")
-    if isinstance(failed, str):
-        document["failed"] = redact(failed)
-    return document

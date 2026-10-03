@@ -7,6 +7,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Fixed
+- `profile()` honours `redact_literals`. `session.profiles()` and
+  `session.write()` handed out plan literals even inside
+  `profile(Config(redact_literals=True))`, or under an installed config that
+  asked for redaction. Profile redaction now has one definition, used by both
+  the file exporter and sessions.
+- `polars.node.poll_time`, `polars.node.state_update_time` and
+  `polars.node.max_state_update_time` are recorded. They were registered and
+  documented but no code path ever recorded them.
 - The viewer rejects a malformed profile at import instead of storing it and
   then throwing from render — which blanked the page permanently, since the bad
   session was already in browser storage and the control to clear it was inside

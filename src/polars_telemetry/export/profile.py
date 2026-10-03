@@ -127,3 +127,31 @@ def build_profile(query: Query, *, diagnostics: Diagnostics | None = None) -> di
     }
     document.update(_trace_context())
     return document
+
+
+def redact_profile(document: dict[str, Any]) -> dict[str, Any]:
+    """Mask literal values in a profile document: plan expressions and failure text.
+
+    Every route that hands out a profile -- the file exporter, a scoped
+    session -- goes through this, so redaction has one definition.
+    """
+    from polars_telemetry.export.attributes import redact
+
+    def walk(value: object) -> object:
+        if isinstance(value, str):
+            return redact(value)
+        if isinstance(value, list):
+            return [walk(v) for v in value]
+        if isinstance(value, dict):
+            return {k: walk(v) for k, v in value.items()}
+        return value
+
+    plan = document.get("plan")
+    if isinstance(plan, dict):
+        document["plan"] = walk(plan)
+
+    # polars' failure text quotes the offending values.
+    failed = document.get("failed")
+    if isinstance(failed, str):
+        document["failed"] = redact(failed)
+    return document
