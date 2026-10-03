@@ -57,6 +57,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   storage, switched storage off for the rest of the page, so sessions removed
   afterwards came back on the next load. A failed save or removal is now
   reported, and storage keeps working.
+- Viewer: removing the open session showed the empty start page while other
+  sessions were still stored. The next one opens now.
 - `uninstall()` left polars' engine affinity on `"streaming"`. It now puts back
   the affinity from before `install()`, engine objects such as `GPUEngine`
   included, unless the application chose another engine in the meantime.

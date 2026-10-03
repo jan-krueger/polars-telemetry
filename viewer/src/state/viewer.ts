@@ -83,7 +83,7 @@ export function reducer(state: ViewerState, action: Action): ViewerState {
     case "removed": {
       const sessions = state.sessions.filter((s) => s.id !== action.sessionId);
       if (state.sessionId !== action.sessionId) return { ...state, sessions };
-      return { ...state, ...nothingSelected, sessions, sessionId: null };
+      return { ...state, ...nothingSelected, sessions, sessionId: sessions[0]?.id ?? null };
     }
     case "cleared":
       return { ...state, ...nothingSelected, sessions: [], sessionId: null };
