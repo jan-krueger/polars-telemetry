@@ -32,8 +32,6 @@ if TYPE_CHECKING:
 
 _log = logging.getLogger("polars_telemetry")
 
-SUPPORTED_MESSAGE = f"polars {SUPPORTED}"
-
 
 @dataclass(frozen=True, slots=True)
 class Installation:
@@ -255,7 +253,7 @@ def _install(
             "polars-telemetry: polars %s has no query monitoring API (need %s); "
             "instrumentation not installed.",
             pl.__version__,
-            SUPPORTED_MESSAGE,
+            f"polars {SUPPORTED}",
         )
         mod.unbind(binding)
         return None
