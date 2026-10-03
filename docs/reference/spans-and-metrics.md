@@ -48,8 +48,11 @@ file above it is edited, which would restart every series on an unrelated edit.
 
 A hash of node kinds, topology and column identity — **not** literal values. So
 `amount > 10` and `amount > 90` produce the same fingerprint, while a different
-grouping column produces a different one. It is bounded by your code paths,
-which is what makes it safe as a metric dimension where `polars.query_id` is not.
+grouping column produces a different one. A scanned file counts by its name,
+with numbers and dates masked: `data-2024-01-01.parquet` and
+`data-2024-01-02.parquet` in any directory are the same shape, `orders.parquet`
+is another. It is bounded by your code paths, which is what makes it safe as a
+metric dimension where `polars.query_id` is not.
 
 ### Hot node
 

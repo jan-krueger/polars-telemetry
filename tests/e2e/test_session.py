@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -249,3 +251,43 @@ def test_a_block_config_can_mask_more_than_the_installation():
         _filter_on_a_secret()
     assert "secret@corp.com" not in json.dumps(session.profiles())
     assert session[0].call_site is None
+
+
+def _fingerprint(frame: Any) -> str:
+    with profile() as session:
+        frame.collect()
+    return session[-1].fingerprint
+
+
+def _write(path: Path) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    polars.DataFrame({"k": ["a"], "v": [1], "c": ["cust_1"]}).write_parquet(path)
+    return path
+
+
+@pytest.mark.parametrize(
+    "build",
+    [
+        lambda n: (
+            polars.LazyFrame({"k": ["a"], "v": [1], "c": [f"cust_{n}"]})
+            .group_by("k")
+            .agg(polars.col("v").filter(polars.col("c") == f"cust_{n}").sum())
+        ),
+        lambda n: polars.LazyFrame({"v": [1]}).group_by(polars.col("v") > n).len(),
+        lambda n: polars.LazyFrame({"v": [1]}).sort(polars.col("v") * n),
+    ],
+    ids=["literal in an aggregation", "literal in a key", "literal in a sort"],
+)
+def test_literals_do_not_change_the_fingerprint(build):
+    assert _fingerprint(build(123)) == _fingerprint(build(456))
+
+
+def test_dated_file_names_share_a_fingerprint_and_tables_do_not(tmp_path):
+    def scan(path: Path) -> Any:
+        return polars.scan_parquet(path).select("v")
+
+    monday = _write(tmp_path / "2024" / "data-2024-01-01.parquet")
+    tuesday = _write(tmp_path / "other" / "data-2024-01-02.parquet")
+    orders = _write(tmp_path / "orders.parquet")
+    assert _fingerprint(scan(monday)) == _fingerprint(scan(tuesday))
+    assert _fingerprint(scan(monday)) != _fingerprint(scan(orders))

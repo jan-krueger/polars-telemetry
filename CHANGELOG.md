@@ -12,6 +12,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Python 3.14 is supported, and tested in CI in place of 3.13 as the newest
   version.
 
+### Changed
+- The plan fingerprint no longer depends on literal values or on where a
+  scanned file lives: literals are masked before hashing, and a file counts by
+  its name with numbers and dates masked. Queries that differ only in a value
+  or a dated file name share a fingerprint, as the docs promised, instead of
+  starting a metric series each. **Fingerprints of plans with such literals or
+  paths change once on upgrade**, and so do the metric series keyed on them.
+
 ### Fixed
 - `Redaction(paths=True)` left the paths of written files readable: a sink's
   target in both plans. They are masked like scanned paths now.
