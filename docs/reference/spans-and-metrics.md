@@ -35,7 +35,9 @@ a backend that already understands them links a query to its source.
 | `code.function.name` | str | Enclosing function |
 
 Absent when the query came from code with no file on disk — `exec`, the REPL,
-or a notebook cell, whose temporary filename changes on every run.
+or a notebook cell, whose temporary filename changes on every run — and for
+`collect_async()` and `collect_batches()`, which polars reports from its own
+threads.
 
 This is the identity a person can act on. The fingerprint groups runs of the
 same plan but is a hash, and it changes whenever polars changes its optimiser;

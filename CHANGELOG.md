@@ -43,6 +43,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - With Polars Cloud monitoring on, `install()` sent its metrics to the default
   workspace instead of the chosen one, and `uninstall()` turned Polars Cloud
   monitoring off. Its workspace, organization and on/off state are now kept.
+- The docs promised labels per asyncio task, but queries run with
+  `collect_async()` or `collect_batches()` carry no label or call site: polars
+  reports them from its own threads. The docs now say so.
 - `uninstall()` left polars' engine affinity on `"streaming"`. It now puts back
   the affinity from before `install()`, engine objects such as `GPUEngine`
   included, unless the application chose another engine in the meantime.
