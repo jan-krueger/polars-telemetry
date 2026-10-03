@@ -10,10 +10,11 @@ from __future__ import annotations
 import os
 import sys
 import tempfile
-from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import polars
+
+from polars_telemetry.model.types import CallSite
 
 if TYPE_CHECKING:
     from types import FrameType
@@ -30,15 +31,6 @@ _SKIP: tuple[str, ...] = (
 # ipykernel writes each cell to the system temp directory under a name that
 # changes every run. Neither names something a reader could open.
 _SYNTHETIC: tuple[str, ...] = ("<", os.path.join(tempfile.gettempdir(), "ipykernel_"))
-
-
-@dataclass(frozen=True, slots=True)
-class CallSite:
-    """The innermost frame outside polars and this package."""
-
-    filepath: str
-    lineno: int
-    function: str
 
 
 def _is_synthetic(path: str) -> bool:

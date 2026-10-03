@@ -6,7 +6,14 @@ from dataclasses import dataclass, field, fields
 from enum import Enum
 from uuid import UUID
 
-from polars_telemetry._callsite import CallSite
+
+@dataclass(frozen=True, slots=True)
+class CallSite:
+    """The innermost frame outside polars and this package."""
+
+    filepath: str
+    lineno: int
+    function: str
 
 
 class NodeRole(str, Enum):
@@ -137,6 +144,9 @@ class Query:
     metrics: dict[int, NodeMetrics] = field(default_factory=dict)
     call_site: CallSite | None = None
     """Where in the caller's code the query ran."""
+
+    polars_version: str = ""
+    """The polars that ran it. Carried here so nothing downstream imports polars."""
 
     failed: str | None = None
     started_unix_ns: int = 0

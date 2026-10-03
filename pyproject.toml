@@ -62,7 +62,7 @@ docs = [
 ]
 
 [tool.hatch.version]
-path = "src/polars_telemetry/__init__.py"
+path = "src/polars_telemetry/_version.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/polars_telemetry"]

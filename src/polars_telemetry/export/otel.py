@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Final
 from opentelemetry import metrics, trace
 from opentelemetry.trace import SpanKind, Status, StatusCode
 
-from polars_telemetry import __version__
+from polars_telemetry._version import __version__
 from polars_telemetry.export import semconv
 from polars_telemetry.export.attributes import query_attributes, redact
 from polars_telemetry.model.diagnostics import derive

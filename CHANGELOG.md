@@ -15,6 +15,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The per-node counter list is defined once, by `NodeMetrics`; decoding, model
   construction and the profile document derive from it instead of each keeping
   a copy.
+- The model and exporters no longer import polars or the package root: the
+  polars version travels on `Query`, `CallSite` is a model type, and the
+  version lives in `_version.py`. A test enforces the dependency direction.
 - A plan node kind the dialect does not recognise is logged once at runtime and
   fails the golden and live contract tests, instead of silently emptying every
   attribute and diagnostic that depended on it.

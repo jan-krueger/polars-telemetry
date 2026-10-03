@@ -22,13 +22,15 @@ import time
 from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
+import polars
+
 from polars_telemetry import _sinks
-from polars_telemetry._callsite import CallSite, caller
+from polars_telemetry._callsite import caller
 from polars_telemetry._safety import FailureTracker
 from polars_telemetry.adapter.build import build_metrics, build_plan
 from polars_telemetry.adapter.decode import decode_optional_plan, decode_plan
 from polars_telemetry.adapter.handle import MetricsHandle
-from polars_telemetry.model.types import NodeRole, PlanNode, Query
+from polars_telemetry.model.types import CallSite, NodeRole, PlanNode, Query
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -37,6 +39,10 @@ if TYPE_CHECKING:
     from polars_telemetry.export.base import Exporter
 
 _log = logging.getLogger("polars_telemetry")
+
+# The adapter is the layer that knows polars; everything downstream reads the
+# version off the Query.
+_POLARS_VERSION: str = str(getattr(polars, "__version__", "unknown"))
 
 
 _reported_kinds: set[str] = set()

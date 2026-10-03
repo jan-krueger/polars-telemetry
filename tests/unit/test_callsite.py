@@ -7,11 +7,11 @@ from uuid import uuid4
 
 import polars
 
-from polars_telemetry._callsite import _SKIP, CallSite, caller
+from polars_telemetry._callsite import _SKIP, caller
 from polars_telemetry.export import semconv
 from polars_telemetry.export.attributes import query_attributes
 from polars_telemetry.export.profile import build_profile
-from polars_telemetry.model.types import Query
+from polars_telemetry.model.types import CallSite, Query
 
 
 def test_the_calling_frame_is_reported():

@@ -81,13 +81,13 @@ There is no API token in the repository or its secrets.
 
 ```bash
 # 1. Move the Unreleased section of CHANGELOG.md under the new version
-# 2. Bump __version__ in src/polars_telemetry/__init__.py
+# 2. Bump __version__ in src/polars_telemetry/_version.py
 git commit -am "chore: release X.Y.Z"
 git tag vX.Y.Z
 git push origin main --tags
 ```
 
-hatchling reads the version from `src/polars_telemetry/__init__.py`, so that
+hatchling reads the version from `src/polars_telemetry/_version.py`, so that
 file and the tag must agree. Pushing `main` deploys the docs and viewer;
 pushing the tag runs the release pipeline. The two are independent.
 

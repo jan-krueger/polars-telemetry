@@ -11,10 +11,9 @@ import sys
 from pathlib import Path
 from uuid import uuid4
 
-from polars_telemetry._callsite import CallSite
 from polars_telemetry.adapter.build import build_metrics, build_plan
 from polars_telemetry.export.profile import build_profile
-from polars_telemetry.model.types import Query
+from polars_telemetry.model.types import CallSite, Query
 
 ROOT = Path(__file__).parents[2]
 

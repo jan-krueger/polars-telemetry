@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from polars_telemetry import __version__
+from polars_telemetry._version import __version__
 from polars_telemetry.model.diagnostics import Diagnostics, derive
 from polars_telemetry.model.fingerprint import fingerprint
 from polars_telemetry.model.types import COUNTER_NAMES
@@ -23,15 +23,6 @@ if TYPE_CHECKING:
     from polars_telemetry.model.types import NodeMetrics, PlanNode, Query
 
 SCHEMA = "polars-telemetry/profile@1"
-
-
-def _polars_version() -> str:
-    try:
-        import polars
-
-        return str(polars.__version__)
-    except Exception:  # pragma: no cover - polars is a hard dependency
-        return "unknown"
 
 
 def _trace_context() -> dict[str, str]:
@@ -76,7 +67,7 @@ def build_profile(query: Query, *, diagnostics: Diagnostics | None = None) -> di
 
     document: dict[str, Any] = {
         "schema": SCHEMA,
-        "polars_version": _polars_version(),
+        "polars_version": query.polars_version or "unknown",
         "polars_telemetry_version": __version__,
         "query_id": str(query.query_id),
         "fingerprint": fingerprint(plan),
