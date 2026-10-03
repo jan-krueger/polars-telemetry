@@ -37,6 +37,14 @@ if TYPE_CHECKING:
 _log = logging.getLogger("polars_telemetry")
 
 
+def _message(args: tuple[Any, ...]) -> str:
+    """The failure text polars passed, whatever position it arrived in."""
+    for arg in args:
+        if isinstance(arg, str) and arg:
+            return arg
+    return "unknown"
+
+
 class ObserverFactory:
     """Called by polars once per query."""
 
@@ -111,6 +119,8 @@ class QueryObserver:
             try:
                 self._query_id = query_id
                 self._call_site = caller() if self._config.call_site else None
+                self._started = time.perf_counter()
+                self._started_unix_ns = time.time_ns()
             except Exception as exc:
                 self._tracker.record(exc)
         self._forward("on_query_started", query_id)
@@ -130,8 +140,6 @@ class QueryObserver:
                 # plan there is nothing to attribute them to.
                 collect_metrics = self._config.node_metrics and physical is not None
                 self._handle = MetricsHandle(handle) if collect_metrics else None
-                self._started = time.perf_counter()
-                self._started_unix_ns = time.time_ns()
             except Exception as exc:
                 self._tracker.record(exc)
                 self._handle = None
@@ -141,7 +149,7 @@ class QueryObserver:
     def on_query_failed(self, *args: Any) -> None:
         if not self._tracker.disarmed:
             try:
-                self._finish(failure=repr(args) if args else "unknown")
+                self._finish(failure=_message(args))
             except Exception as exc:
                 self._tracker.record(exc)
         self._forward("on_query_failed", *args)

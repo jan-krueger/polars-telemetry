@@ -7,6 +7,7 @@ observer callbacks, sampling, model construction and export.
 from __future__ import annotations
 
 import io
+from typing import Any
 
 import pytest
 
@@ -233,3 +234,51 @@ def test_the_call_site_can_be_turned_off():
         polars_telemetry.uninstall()
 
     assert collected[-1].call_site is None
+
+
+def _collecting() -> tuple[list[Any], Exporter]:
+    collected = []
+
+    class Collect(Exporter):
+        def export(self, query):
+            collected.append(query)
+
+        def shutdown(self) -> None:
+            pass
+
+    return collected, Collect()
+
+
+def test_a_query_that_fails_before_planning_still_reports():
+    """A missing column never reaches on_query_planned."""
+    collected, exporter = _collecting()
+    state = polars_telemetry.install(exporter=exporter)
+    assert state is not None
+    try:
+        with pytest.raises(Exception, match="nope"):
+            polars.LazyFrame({"a": [1]}).select(polars.col("nope")).collect()
+    finally:
+        polars_telemetry.uninstall()
+
+    assert len(collected) == 1, "the failure produced no telemetry at all"
+    query = collected[0]
+    assert query.failed
+    assert query.plan == {}, "nothing was planned, so there is no plan"
+    assert query.wall_ms > 0
+
+
+def test_the_failure_is_the_message_not_a_callback_repr():
+    collected, exporter = _collecting()
+    state = polars_telemetry.install(exporter=exporter)
+    assert state is not None
+    try:
+        with pytest.raises(Exception, match="conversion"):
+            polars.LazyFrame({"a": ["x"]}).select(polars.col("a").cast(polars.Int64)).collect()
+    finally:
+        polars_telemetry.uninstall()
+
+    failed = collected[-1].failed
+    assert failed is not None
+    assert "conversion" in failed
+    assert not failed.startswith("("), "a tuple repr leaks the callback signature"
+    assert "UUID(" not in failed

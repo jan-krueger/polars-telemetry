@@ -124,4 +124,9 @@ def _redact(document: dict[str, object]) -> dict[str, object]:
     plan = document.get("plan")
     if isinstance(plan, dict):
         document["plan"] = walk(plan)
+
+    # polars' failure text quotes the offending values.
+    failed = document.get("failed")
+    if isinstance(failed, str):
+        document["failed"] = redact(failed)
     return document

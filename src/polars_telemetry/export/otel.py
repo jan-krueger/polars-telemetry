@@ -18,7 +18,7 @@ from opentelemetry.trace import SpanKind, Status, StatusCode
 
 from polars_telemetry import __version__
 from polars_telemetry.export import semconv
-from polars_telemetry.export.attributes import query_attributes
+from polars_telemetry.export.attributes import query_attributes, redact
 from polars_telemetry.model.diagnostics import derive
 from polars_telemetry.model.fingerprint import fingerprint
 
@@ -95,7 +95,9 @@ class OTelExporter:
             ),
         )
         if query.failed:
-            span.set_status(Status(StatusCode.ERROR, query.failed))
+            # polars' failure text quotes the offending values.
+            message = redact(query.failed) if self._config.redact_literals else query.failed
+            span.set_status(Status(StatusCode.ERROR, message))
         else:
             span.set_status(Status(StatusCode.OK))
         span.end(end_time=end_ns)

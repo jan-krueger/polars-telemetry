@@ -6,6 +6,20 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+- A query that fails before planning — a missing column, most commonly — now
+  produces a span. The clock started in `on_query_planned`, which polars never
+  calls for that class of failure, so the whole query went unreported. Losing
+  the plan no longer loses the span either.
+- `Query.failed` is the failure text polars passed, not a `repr` of the whole
+  callback argument tuple, and it is redacted with everything else when
+  `redact_literals` is set. The message quotes the offending values, so it
+  carried user data past redaction on both the span and the profile.
+- Call-site attribution skipped the package's parent directory, which resolves
+  to `site-packages` in an installed wheel — so a query issued from inside any
+  installed library was misattributed. Only the two package directories are
+  skipped now, matched as directories rather than string prefixes.
+
 ### Added
 - `profile()`: a context manager collecting the queries run inside a block,
   with `slowest`, `wall_ms`, `profiles()` and `write()` for a viewer-ready
