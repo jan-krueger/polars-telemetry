@@ -28,6 +28,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   attribute and diagnostic that depended on it.
 
 ### Fixed
+- Profiles record the polars version that ran the query again. A refactor in
+  this release dropped it, so every profile said `unknown`; the test that
+  should have caught it only checked that the field was present.
 - `include_plan` JSON carries `largest_morsel_out`; the sent-side largest
   morsel was the one counter it left out.
 - An IR plan polars has reshaped now costs only the IR. One shared guard

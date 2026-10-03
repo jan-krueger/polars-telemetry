@@ -226,6 +226,7 @@ class QueryObserver:
             logical=self._logical,
             metrics=metrics,
             call_site=self._call_site,
+            polars_version=_POLARS_VERSION,
             failed=failure,
             started_unix_ns=self._started_unix_ns,
         )

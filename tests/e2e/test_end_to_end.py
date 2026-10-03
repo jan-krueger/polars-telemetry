@@ -334,3 +334,19 @@ def test_an_unrecognised_kind_is_warned_about_once(monkeypatch, caplog):
     warnings = [r for r in caplog.records if "'GroupBy'" in r.getMessage()]
     assert len(warnings) == 1, "warned once, not per query"
     assert len(collected) == 2, "an unknown kind costs nothing but the warning"
+
+
+def test_a_profile_records_the_polars_that_ran_it():
+    """Asserting the field is merely present let `"unknown"` pass for a release."""
+    from polars_telemetry.export.profile import build_profile
+
+    collected, exporter = _collecting()
+    state = polars_telemetry.install(exporter=exporter)
+    assert state is not None
+    try:
+        _query(polars).collect()
+    finally:
+        polars_telemetry.uninstall()
+
+    assert collected[-1].polars_version == polars.__version__
+    assert build_profile(collected[-1])["polars_version"] == polars.__version__
