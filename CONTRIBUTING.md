@@ -29,7 +29,13 @@ uv run nox -s matrix       # python x polars grid
 uv run nox -s canary       # live contract against the newest polars
 uv run nox -s dev          # the stack + a sample workload through it
 uv run nox -s up / down    # just the stack
+uv run nox -s influx       # add Telegraf and InfluxDB to it
 ```
+
+With `influx` running, Telegraf takes OTLP on `localhost:4327` and DogStatsD on
+`localhost:8125/udp`, and the Grafana dashboard `polars-statsd` charts what
+arrives over DogStatsD. Send it histograms, which Telegraf summarises:
+`DogStatsdExporter(DogStatsd(port=8125, ...), distributions=False)`.
 
 Sessions declared `venv_backend="none"` run in the environment nox was started
 from, which is why they are invoked through `uv run`. Only `matrix`, `canary`
