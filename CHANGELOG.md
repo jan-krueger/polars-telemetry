@@ -4,7 +4,7 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.4.0] - 2026-10-03
 
 ### Added
 - Viewer: the hosted viewer loads a TPC-H example session with one click, so it
@@ -411,6 +411,7 @@ All three are removed in 0.4.0.
   and collapsed most nodes onto identical windows. The same counters read once
   at query end are exact and cost nothing measurable.
 
+[0.4.0]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.4.0
 [0.3.1]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.3.1
 [0.3.0]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.3.0
 [0.2.0]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.2.0
