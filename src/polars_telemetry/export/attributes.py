@@ -125,6 +125,10 @@ def query_attributes(
         semconv.ENGINE: "streaming",
         semconv.NODE_COUNT: len(query.plan),
     }
+    if query.call_site is not None:
+        attrs[semconv.CODE_FILE_PATH] = query.call_site.filepath
+        attrs[semconv.CODE_LINE_NUMBER] = query.call_site.lineno
+        attrs[semconv.CODE_FUNCTION_NAME] = query.call_site.function
     if query.metrics:
         attrs[semconv.CPU_MS] = round(query.cpu_ms, 3)
         attrs[semconv.PARALLELISM] = round(query.parallelism, 3)

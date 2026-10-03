@@ -48,6 +48,8 @@ A `polars.collect` span per query, on whatever trace context was active:
 - the hottest node and its share of total CPU
 - diagnostics — parallel efficiency, filter selectivity, join amplification,
   projection efficiency, morsel skew, predicate pushdown, row-group skipping
+- the file, line and function that ran the query, as OpenTelemetry's
+  `code.*` attributes
 
 Per-node counters — rows, morsels, polls, work-stealing, poll latency, state
 updates, IO time and bytes — as 15 metric instruments dimensioned by node kind.

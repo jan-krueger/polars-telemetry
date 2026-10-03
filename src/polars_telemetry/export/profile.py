@@ -103,6 +103,15 @@ def build_profile(query: Query, *, diagnostics: Diagnostics | None = None) -> di
         "wall_ms": round(query.wall_ms, 4),
         "cpu_ms": round(query.cpu_ms, 4),
         "result_rows": query.result_rows,
+        "call_site": (
+            None
+            if query.call_site is None
+            else {
+                "filepath": query.call_site.filepath,
+                "lineno": query.call_site.lineno,
+                "function": query.call_site.function,
+            }
+        ),
         "failed": query.failed,
         "diagnostics": {
             field: getattr(diagnostics, field)

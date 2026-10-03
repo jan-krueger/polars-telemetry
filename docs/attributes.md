@@ -20,6 +20,27 @@ The span is named `polars.collect`.
 | `polars.node_count` | int | Physical plan nodes |
 | `polars.result.rows` | int | Rows reaching the sink, when reported |
 
+### Call site
+
+Where in your code the query ran, under OpenTelemetry's own code attributes, so
+a backend that already understands them links a query to its source.
+
+| Attribute | Type | Notes |
+| --- | --- | --- |
+| `code.file.path` | str | Absolute path of the innermost frame outside polars |
+| `code.line.number` | int | Line that ran the query |
+| `code.function.name` | str | Enclosing function |
+
+Absent when the query came from code with no file on disk — `exec`, the REPL,
+or a notebook cell, whose temporary filename changes on every run.
+
+This is the identity a person can act on. The fingerprint groups runs of the
+same plan but is a hash, and it changes whenever polars changes its optimiser;
+`pipeline.py:142` does not. Disable with `Config(call_site=False)`.
+
+None of the three is a metric dimension: a line number changes whenever the
+file above it is edited, which would restart every series on an unrelated edit.
+
 ### The fingerprint
 
 A hash of node kinds, topology and column identity — **not** literal values. So

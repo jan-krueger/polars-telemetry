@@ -190,3 +190,46 @@ def test_eager_operations_do_not_disarm_the_observer():
         assert collected[-1].metrics, "the lazy query lost its node counters"
     finally:
         polars_telemetry.uninstall()
+
+
+def test_a_real_query_is_attributed_to_this_file():
+    collected = []
+
+    class Collect(Exporter):
+        def export(self, query):
+            collected.append(query)
+
+        def shutdown(self) -> None:
+            pass
+
+    state = polars_telemetry.install(exporter=Collect())
+    assert state is not None
+    try:
+        _query(polars).collect()
+    finally:
+        polars_telemetry.uninstall()
+
+    site = collected[-1].call_site
+    assert site is not None
+    assert site.filepath == __file__
+    assert site.function == "test_a_real_query_is_attributed_to_this_file"
+
+
+def test_the_call_site_can_be_turned_off():
+    collected = []
+
+    class Collect(Exporter):
+        def export(self, query):
+            collected.append(query)
+
+        def shutdown(self) -> None:
+            pass
+
+    state = polars_telemetry.install(Config(call_site=False), exporter=Collect())
+    assert state is not None
+    try:
+        _query(polars).collect()
+    finally:
+        polars_telemetry.uninstall()
+
+    assert collected[-1].call_site is None

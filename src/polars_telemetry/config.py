@@ -23,6 +23,13 @@ class Config:
     shape. Turn it on when you want the topology, which nothing else carries.
     """
 
+    call_site: bool = True
+    """Record the file, line and function that ran the query.
+
+    Costs well under a microsecond. Turn it off to keep source paths out of
+    telemetry you do not control.
+    """
+
     redact_literals: bool = False
     """Mask literal values in plan expressions. Does not affect metric
     attributes, which never carry literals (see export.semconv)."""

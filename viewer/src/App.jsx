@@ -200,6 +200,12 @@ polars_telemetry.install(exporter=FileExporter("profiles/session.jsonl"))`}</pre
                   <span className="qname">{shapeName(profile)}</span>
                   <span className="qmeta">{profile.fingerprint} ·{" "}
                     {new Date(profile.started_unix_ns / 1e6).toLocaleTimeString()}</span>
+                  {profile.call_site && (
+                    <span className="qsite" title={profile.call_site.filepath}>
+                      {profile.call_site.filepath.split("/").pop()}:{profile.call_site.lineno}
+                      {" in "}{profile.call_site.function}()
+                    </span>
+                  )}
                   {profiles.some((q, i) => q.fingerprint === profile.fingerprint && i !== sel) && (
                     <select className="sel" style={{ marginLeft: "auto" }}
                             value={compareWith ?? ""}

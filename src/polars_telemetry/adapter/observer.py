@@ -22,6 +22,7 @@ import time
 from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
+from polars_telemetry._callsite import CallSite, caller
 from polars_telemetry._safety import FailureTracker
 from polars_telemetry.adapter.decode import decode_optional_plan, decode_plan
 from polars_telemetry.adapter.handle import MetricsHandle
@@ -72,6 +73,7 @@ class QueryObserver:
     """One query's callbacks. Each method is failure-isolated."""
 
     __slots__ = (
+        "_call_site",
         "_config",
         "_delegate",
         "_exporter",
@@ -99,6 +101,7 @@ class QueryObserver:
         self._handle: MetricsHandle | None = None
         self._plan: dict[int, Any] = {}
         self._logical: dict[int, Any] = {}
+        self._call_site: CallSite | None = None
         self._started = 0.0
         self._started_unix_ns = 0
 
@@ -106,6 +109,7 @@ class QueryObserver:
         if not self._tracker.disarmed:
             try:
                 self._query_id = query_id
+                self._call_site = caller() if self._config.call_site else None
             except Exception as exc:
                 self._tracker.record(exc)
         self._forward("on_query_started", query_id)
@@ -166,6 +170,7 @@ class QueryObserver:
                 plan=self._plan,
                 logical=self._logical,
                 metrics=metrics,
+                call_site=self._call_site,
                 failed=failure,
                 started_unix_ns=self._started_unix_ns,
             )

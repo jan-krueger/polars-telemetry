@@ -4,6 +4,16 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Call-site attribution: every query carries the file, line and function that
+  ran it, as OpenTelemetry's `code.file.path`, `code.line.number` and
+  `code.function.name`, and in the profile and the viewer. Walking out to the
+  first frame beyond polars costs well under a microsecond. Code with no file
+  on disk — `exec`, the REPL, a notebook cell — reports nothing rather than a
+  temporary name. Disable with `Config(call_site=False)`.
+
 ## [0.1.1] - 2026-10-03
 
 ### Fixed

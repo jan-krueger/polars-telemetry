@@ -14,6 +14,12 @@ from typing import Final
 
 QUERY_SPAN: Final = "polars.collect"
 
+# OpenTelemetry's own code attributes, so a backend that already understands
+# them links a query to its source without knowing anything about polars.
+CODE_FILE_PATH: Final = "code.file.path"
+CODE_LINE_NUMBER: Final = "code.line.number"
+CODE_FUNCTION_NAME: Final = "code.function.name"
+
 QUERY_ID: Final = "polars.query_id"
 ENGINE: Final = "polars.engine"
 CPU_MS: Final = "polars.cpu_ms"

@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from uuid import UUID
 
+from polars_telemetry._callsite import CallSite
+
 
 @dataclass(frozen=True, slots=True)
 class PlanNode:
@@ -70,6 +72,9 @@ class Query:
     group-by keys and aggregations to _POLARS_TMP_N."""
 
     metrics: dict[int, NodeMetrics] = field(default_factory=dict)
+    call_site: CallSite | None = None
+    """Where in the caller's code the query ran."""
+
     failed: str | None = None
     started_unix_ns: int = 0
 

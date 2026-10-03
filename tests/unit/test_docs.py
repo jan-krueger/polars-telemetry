@@ -16,10 +16,11 @@ REFERENCE = Path(__file__).parents[2] / "docs" / "attributes.md"
 
 
 def _declared_names() -> dict[str, str]:
+    """Every attribute, instrument and span name the package can emit."""
     return {
         name: value
         for name, value in vars(semconv).items()
-        if name.isupper() and isinstance(value, str) and value.startswith("polars.")
+        if name.isupper() and isinstance(value, str) and "." in value
     }
 
 

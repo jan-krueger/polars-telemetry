@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import sys
 from typing import TYPE_CHECKING, TextIO
 
@@ -37,6 +38,11 @@ class ConsoleExporter:
         if query.result_rows is not None:
             header += f" rows_out={query.result_rows:,}"
         lines = [header]
+        if query.call_site is not None:
+            site = query.call_site
+            lines.append(
+                f"  at {os.path.basename(site.filepath)}:{site.lineno} in {site.function}()"
+            )
 
         ranked = sorted(query.metrics.values(), key=lambda node: node.total_time_ns, reverse=True)
         for node in ranked[:_MAX_ROWS]:
