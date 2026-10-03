@@ -18,7 +18,8 @@ from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 
 from polars_telemetry import Config
 from polars_telemetry.adapter.build import build_plan
-from polars_telemetry.export.otel import COUNTERS, HISTOGRAMS, OTelExporter
+from polars_telemetry.export.measurements import COUNTERS, HISTOGRAMS
+from polars_telemetry.export.otel import OTelExporter
 from polars_telemetry.model.types import NodeMetrics, Query
 
 
