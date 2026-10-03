@@ -205,28 +205,34 @@ def _close_at_exit() -> None:
         _close(state.exporters)
 
 
-def acquire_scoped(config: Config | None) -> bool:
+def acquire_scoped(config: Config | None) -> Installation | None:
     """For a profile() block: make sure something is installed.
 
-    Returns True when the block holds a scoped installation and must call
-    `release_scoped()` when it closes.
+    Returns the scoped installation the block now holds, to hand back to
+    `release_scoped()` when it closes, or None when it holds none.
     """
     global _scoped_holders
     with _lock:
         state = _install(config, (), scoped=True)
         if state is None or not state.scoped:
-            return False
+            return None
         _scoped_holders += 1
-        return True
+        return state
 
 
-def release_scoped() -> None:
+def release_scoped(held: Installation) -> None:
+    """Let go of `held`; the last block holding it takes it down.
+
+    An installation already taken down, and replaced since, is not the one
+    the block held, so its release leaves the current one alone.
+    """
     global _scoped_holders
     detached: tuple[Exporter, ...] = ()
     with _lock:
+        if _state is not held:
+            return
         _scoped_holders = max(_scoped_holders - 1, 0)
-        # An application may have adopted the installation meanwhile.
-        if _scoped_holders == 0 and _state is not None and _state.scoped:
+        if _scoped_holders == 0 and _state.scoped:
             detached = _detach()
     _close(detached)
 

@@ -291,3 +291,15 @@ def test_dated_file_names_share_a_fingerprint_and_tables_do_not(tmp_path):
     orders = _write(tmp_path / "orders.parquet")
     assert _fingerprint(scan(monday)) == _fingerprint(scan(tuesday))
     assert _fingerprint(scan(monday)) != _fingerprint(scan(orders))
+
+
+def test_an_older_block_leaves_a_newer_blocks_installation_alone():
+    first = profile()
+    first.__enter__()
+    polars_telemetry.uninstall()
+    with profile() as second:
+        first.__exit__(None, None, None)
+        assert installed() is not None, "the older block took down the newer one's installation"
+        _filter_on_a_secret()
+    assert len(second) == 1
+    assert installed() is None

@@ -111,5 +111,5 @@ def profile(config: Config | None = None) -> Iterator[Session]:
         yield session
     finally:
         _dispatch.remove(receiver)
-        if held:
-            release_scoped()
+        if held is not None:
+            release_scoped(held)
