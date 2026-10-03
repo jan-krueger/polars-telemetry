@@ -88,6 +88,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   attribute and diagnostic that depended on it.
 
 ### Fixed
+- The viewer's drop zone opens the file picker when clicked; only the header
+  button did. The setup snippet beside it is complete — it never imported
+  `polars_telemetry` — and highlighted again, with the same highlighter as the
+  expressions in the details rail. A long line in it scrolls rather than
+  pushing the empty state wider than its column.
 - The viewer shows why a query failed. `failed` was written to every profile
   and never displayed, so a query that failed before planning looked like an
   empty plan.

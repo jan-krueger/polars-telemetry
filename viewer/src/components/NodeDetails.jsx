@@ -3,19 +3,14 @@ import { visibleCounters } from "../lib/counters";
 import { ROLES, roleOf } from "../lib/polars";
 import { ms, num } from "../lib/format";
 import Help from "./Help";
+import Code from "./Code";
 
 const looksExpr = (v) => typeof v === "string" && /[()"]/.test(v);
 
 function Expr({ lines }) {
   return (
-    <div className="expr">
-      {lines.map((l, i) => (
-        <div key={i}>
-          {String(l).split(/(".*?")/).map((part, j) =>
-            part.startsWith('"') ? <span className="s" key={j}>{part}</span> : <span key={j}>{part}</span>
-          )}
-        </div>
-      ))}
+    <div className="expr code">
+      {lines.map((l, i) => <div key={i}><Code code={String(l)} /></div>)}
     </div>
   );
 }
@@ -97,7 +92,7 @@ export default function NodeDetails({ node, compareNode }) {
             );
           })}
         </div>
-      ) : <div className="empty">Logical plan nodes carry structure only.</div>}
+      ) : null}
     </>
   );
 }

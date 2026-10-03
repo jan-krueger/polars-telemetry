@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useReducer } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
 import "@xyflow/react/dist/style.css";
 import "./styles.css";
 import PlanPane from "./components/PlanPane";
 import NodeDetails from "./components/NodeDetails";
 import Help from "./components/Help";
+import Code from "./components/Code";
 import { allSessions, dropAll, dropSession, saveSession, storageUnavailable } from "./lib/storage";
 import { bytes, diagnostics, ms, num, shapeName } from "./lib/format";
 import { readJsonl, readSession } from "./model/read";
@@ -15,6 +16,9 @@ const VERDICT = { good: "var(--good)", warn: "var(--warn)", crit: "var(--crit)",
 
 export default function App() {
   const [state, dispatch] = useReducer(reducer, initialState);
+  // One file input, opened by the header button and by the drop zone alike.
+  const fileInput = useRef(null);
+  const chooseFiles = () => fileInput.current?.click();
   const { booted, sessions } = state;
 
   useEffect(() => {
@@ -96,10 +100,9 @@ export default function App() {
               ? `${sessions.length} session${sessions.length > 1 ? "s" : ""} stored`
               : storageUnavailable() ? "storage unavailable" : "nothing loaded"}
           </span>
-          <label className="btn">Open .jsonl
-            <input type="file" accept=".jsonl,.json" multiple hidden
-                   onChange={(e) => { if (e.target.files.length) importFiles([...e.target.files]); e.target.value = ""; }} />
-          </label>
+          <button className="btn" onClick={chooseFiles}>Open .jsonl</button>
+          <input ref={fileInput} type="file" accept=".jsonl,.json" multiple hidden
+                 onChange={(e) => { if (e.target.files.length) importFiles([...e.target.files]); e.target.value = ""; }} />
         </div>
       </header>
 
@@ -156,13 +159,14 @@ export default function App() {
             <div className="blank">
               <h3>Nothing loaded</h3>
               <p>Profiles stay in this browser. Nothing is uploaded, and no request leaves the page.</p>
-              <div className="zone">
-                <div className="big">Drop a <code>.jsonl</code> session here</div>
-                <div className="small">or use <b>Open .jsonl</b> above · several files at once is fine</div>
-              </div>
-              <pre className="snip">{`from polars_telemetry.export.file import FileExporter
+              <button className="zone" onClick={chooseFiles}>
+                <div className="big">Drop a <code>.jsonl</code> session here, or click to choose one</div>
+                <div className="small">several files at once is fine</div>
+              </button>
+              <Code block code={`import polars_telemetry
+from polars_telemetry.export.file import FileExporter
 
-polars_telemetry.install(exporter=FileExporter("profiles/session.jsonl"))`}</pre>
+polars_telemetry.install(exporter=FileExporter("profiles/session.jsonl"))`} />
             </div>
           ) : !profile ? (
             <>
@@ -249,7 +253,6 @@ polars_telemetry.install(exporter=FileExporter("profiles/session.jsonl"))`}</pre
         </main>
 
         <aside className="rail right">
-          <h2>Node details</h2>
           <NodeDetails node={selectedNode} compareNode={compareNode} />
         </aside>
       </div>
