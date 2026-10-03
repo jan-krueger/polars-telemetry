@@ -20,6 +20,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   together, at the same zoom and at the same point along each plan.
 
 ### Fixed
+- Viewer: a logical plan's predicate shows its conditions joined by `&`, laid
+  out like the physical plan's, instead of as separate unconnected lines.
 - Viewer: a join's inputs are drawn left to right in the order polars lists
   them, so the logical and physical plans are laid out alike instead of as
   mirror images.

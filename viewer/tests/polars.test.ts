@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { basename, chainLines, exprLines, derivedRole, exprColumn, nodeLabel, relationName, roleOf, type RawNode } from "../src/lib/polars";
+import { basename, chainLines, conjunction, exprLines, derivedRole, exprColumn, nodeLabel, relationName, roleOf, type RawNode } from "../src/lib/polars";
 
 const profile = JSON.parse(
   readFileSync(new URL("./fixtures/profile.json", import.meta.url), "utf8"),
@@ -172,5 +172,27 @@ describe("basename", () => {
     expect(basename("/srv/data/orders.parquet")).toBe("orders.parquet");
     expect(basename("C:\\data\\orders.parquet")).toBe("orders.parquet");
     expect(relationName({ first_source: "C:\\data\\orders.parquet" })).toBe("orders.parquet");
+  });
+});
+
+describe("predicates", () => {
+  it("lay out the logical plan's separate conditions as the physical plan's single predicate", () => {
+    const examples = readFileSync(new URL("../../examples/tpch-sf1.jsonl", import.meta.url), "utf8")
+      .split("\n").filter(Boolean).map((line) => JSON.parse(line));
+    let compared = 0;
+    for (const document of examples) {
+      for (const scan of document.plan.logical.filter((n: RawNode) => n.kind === "Scan" && n.properties?.predicate)) {
+        const twin = document.plan.physical.find((n: RawNode) =>
+          n.kind === "MultiScan" && n.properties?.predicate && n.properties.first_source === scan.properties.first_source);
+        if (!twin) continue;
+        expect(exprLines(conjunction(scan.properties.predicate))).toEqual(exprLines(twin.properties.predicate));
+        compared++;
+      }
+    }
+    expect(compared).toBeGreaterThan(90);
+  });
+
+  it("leave a single condition as it is", () => {
+    expect(conjunction(['col("a") | col("b")'])).toBe('col("a") | col("b")');
   });
 });
