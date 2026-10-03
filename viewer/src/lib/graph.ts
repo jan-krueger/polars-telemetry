@@ -87,8 +87,7 @@ export function focusSteps(plan: PlanNode[]): FocusStep[] {
     const covered = lit.reduce((sum, n) => sum + cpuMs(n), 0);
     steps.push({ thresholdMs, coverage: (covered / total) * 100, shown: lit.length });
   }
-  // Fewest lit last; the step lighting every costed node is "all" unless
-  // some nodes cost nothing at all.
+  if (!steps.length) return [all];
   steps.reverse();
   return steps[0]!.shown === plan.length ? [all, ...steps.slice(1)] : [all, ...steps];
 }

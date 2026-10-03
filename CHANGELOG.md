@@ -49,6 +49,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Had polars passed an observer callback a new argument, the callback would
   have raised before its own error handling ran. Callbacks now accept any
   arguments and unpack them inside it.
+- Viewer: a profile with a malformed number, such as a counter given as text or
+  an out-of-range start time, crashed the viewer on every load, and the only
+  way out deleted every stored session. Such values are now dropped when read,
+  and the error page offers to remove just the open session.
 - `uninstall()` left polars' engine affinity on `"streaming"`. It now puts back
   the affinity from before `install()`, engine objects such as `GPUEngine`
   included, unless the application chose another engine in the meantime.

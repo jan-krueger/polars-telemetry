@@ -96,3 +96,29 @@ describe("redacted", () => {
     expect(plain.profile.redacted).toBeNull();
   });
 });
+
+describe("malformed numbers", () => {
+  const read = (over: Record<string, unknown>) => {
+    const result = readProfile(minimal(over));
+    if (!("profile" in result)) throw new Error(result.problem);
+    return result.profile;
+  };
+
+  it("keeps only finite numbers and booleans in metrics and diagnostics", () => {
+    const profile = read({
+      plan: {
+        physical: [{ id: 0, kind: "Filter", inputs: [], metrics: { total_time_ns: "n/a", rows_sent: 5, done: true } }],
+        logical: [],
+      },
+      diagnostics: { incomplete_nodes: {}, cpu_count: 8 },
+    });
+    expect(profile.plan.physical[0]!.metrics).toEqual({ rows_sent: 5, done: true });
+    expect(profile.diagnostics).toEqual({ cpu_count: 8 });
+  });
+
+  it("drops a start time no date can hold, and an infinite row count", () => {
+    const profile = read({ started_unix_ns: 1e22, result_rows: JSON.parse("1e400") });
+    expect(profile.started_unix_ns).toBe(0);
+    expect(profile.result_rows).toBeNull();
+  });
+});

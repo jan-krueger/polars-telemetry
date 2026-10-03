@@ -31,6 +31,16 @@ export function readProfile(raw: unknown): Read {
   return readV1(raw, schema);
 }
 
+const MAX_DATE_NS = 8.64e21;
+
+function scalars(record: Record<string, unknown>): Record<string, number | boolean> {
+  const kept: Record<string, number | boolean> = {};
+  for (const [key, value] of Object.entries(record)) {
+    if (typeof value === "boolean" || Number.isFinite(value)) kept[key] = value as number | boolean;
+  }
+  return kept;
+}
+
 function readNodes(value: unknown, side: string): PlanNode[] | string {
   if (!Array.isArray(value)) return `plan.${side} is not an array`;
   const nodes: PlanNode[] = [];
@@ -50,7 +60,7 @@ function readNodes(value: unknown, side: string): PlanNode[] | string {
       role: roleOf(node),
       label: nodeLabel(node),
       properties: node.properties ?? {},
-      metrics: isObject(entry.metrics) ? (entry.metrics as Metrics) : null,
+      metrics: isObject(entry.metrics) ? (scalars(entry.metrics) as Metrics) : null,
     });
   }
   return nodes;
@@ -72,15 +82,15 @@ function readV1(raw: Record<string, unknown>, schema: string): Read {
       schema,
       polars_version: str(raw.polars_version, "unknown"),
       fingerprint: str(raw.fingerprint),
-      started_unix_ns: num(raw.started_unix_ns),
+      started_unix_ns: Math.abs(num(raw.started_unix_ns)) <= MAX_DATE_NS ? num(raw.started_unix_ns) : 0,
       wall_ms: num(raw.wall_ms),
       cpu_ms: num(raw.cpu_ms),
-      result_rows: typeof raw.result_rows === "number" ? raw.result_rows : null,
+      result_rows: Number.isFinite(raw.result_rows) ? (raw.result_rows as number) : null,
       call_site: site
         ? { filepath: str(site.filepath), lineno: num(site.lineno), function: str(site.function) }
         : null,
       failed: typeof raw.failed === "string" ? raw.failed : null,
-      diagnostics: isObject(raw.diagnostics) ? raw.diagnostics : {},
+      diagnostics: isObject(raw.diagnostics) ? scalars(raw.diagnostics) : {},
       plan: { physical, logical },
     },
   };
