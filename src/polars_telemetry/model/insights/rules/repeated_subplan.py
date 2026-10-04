@@ -41,5 +41,5 @@ class RepeatedSubplan(Rule[Repeats]):
     def describe(self, evidence: Repeats) -> Text:
         return Text(
             f"Same {evidence.nodes}-node subplan runs {evidence.copies}x",
-            "reuse one LazyFrame so polars can share it, or `collect()` it once",
+            "`.cache()` the LazyFrame, or `collect()` it once",
         )

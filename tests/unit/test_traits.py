@@ -15,7 +15,7 @@ def calls(kind: str, *expressions: str, field: str = "string_calls") -> dict[tup
 def test_counts_each_string_function_per_column_across_chains():
     found = calls(
         "Select",
-        'col("name").str.replace(["a"], ["b"]).str.replace(["c"], ["d"]).alias("x")',
+        'col("name").str.replace(["a", "b"]).str.replace(["c", "d"]).alias("x")',
         'col("name").str.contains(["e"]) | col("other").str.contains(["f"])',
     )
     assert found == {
@@ -81,3 +81,19 @@ def test_a_node_that_only_removes_duplicates():
 def test_an_expression_asking_for_unique_values():
     assert traits("Select", {"exprs": ['col("k").unique()']}).asks_unique
     assert not traits("Select", {"exprs": ['col("k").n_unique()']}).asks_unique
+
+
+def test_a_replace_chain_reports_how_far_it_merges_and_never_its_literals():
+    chain = "".join(
+        f'.str.replace(["{p}", "{r}"])'
+        for p, r in [("straße", "str."), ("ß", "ss"), ("ü", "ue"), (" ", ""), ("-", "")]
+    )
+    found = traits("Select", {"selectors": [f'col("street").str.to_lowercase(){chain}']})
+    assert [(r.calls, r.groups) for r in found.replace_runs] == [(5, 2)]
+    assert "straße" not in repr(found)
+
+
+def test_a_chain_with_an_expression_argument_merges_unknown():
+    text = 'col("s").str.replace(["a", "b"]).str.replace([col("p"), "x"])'
+    (run,) = traits("Select", {"selectors": [text]}).replace_runs
+    assert run.groups is None

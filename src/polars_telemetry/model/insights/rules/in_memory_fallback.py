@@ -34,5 +34,5 @@ class InMemoryFallback(Rule[Fallback]):
     def describe(self, evidence: Fallback) -> Text:
         return Text(
             "In-memory fallback: all input rows in one call",
-            "use a streaming-native expression, or reduce rows before this node",
+            "rewrite it with operations the streaming engine runs natively",
         )

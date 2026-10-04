@@ -120,6 +120,17 @@ class CallCount:
 
 
 @dataclass(frozen=True, slots=True)
+class ReplaceRun:
+    """Consecutive `str.replace` calls on one input, read as literal `replace_all`."""
+
+    target: str
+    calls: int
+    groups: int | None
+    """The fewest `str.replace_many` calls with the same result; None when a
+    pattern or replacement is not a plain string."""
+
+
+@dataclass(frozen=True, slots=True)
 class NodeTraits:
     """How a node executes, read from polars' vocabulary by the adapter.
 
@@ -138,6 +149,7 @@ class NodeTraits:
     """An expression of the node asks for unique values."""
     string_calls: tuple[CallCount, ...] = ()
     plugin_calls: tuple[CallCount, ...] = ()
+    replace_runs: tuple[ReplaceRun, ...] = ()
     """Keyed by the whole call, input and arguments included: a count above one is
     the same computation repeated."""
 

@@ -9,7 +9,7 @@ $ polars-telemetry insights nightly.jsonl
 nightly.jsonl · etl/orders  (212.4 s wall, 1,904.0 s CPU, 148 nodes)
   warn   31% wall  In-memory fallback: all input rows in one call  [in_memory_fallback, InMemoryMap #41]
                    rows_in 12M · longest_step 1.1 min
-                   fix: use a streaming-native expression, or reduce rows before this node
+                   fix: rewrite it with operations the streaming engine runs natively
   warn   22% CPU   8x `str.replace` on one column, one pass each  [repeated_string_scan, Select #17]
                    calls 8 · columns 1
                    fix: merge into one `str.replace_many`; chained replacements can depend on order
@@ -79,8 +79,18 @@ is a broadcast and not reported.
 ### `repeated_string_scan`
 
 The same `str.*` function called on one column four or more times within a
-node, each call another pass over the data. `str.replace_many`,
-`str.contains_any` or one regular expression can do the work in one pass.
+node, each call another pass over the data. `str.contains_any` or one regular
+expression can do the work of many `contains` in one pass.
+
+A chain of replacements merges into `str.replace_many` only where that gives
+the same result. `replace_many` scans once: a replacement never feeds a later
+pattern (`straße → str.` then `. → ""`), and of two patterns that overlap
+(`straße` and `ß`) only one can match. The finding splits the chain, in order,
+into the fewest groups free of both, and its fix names how many
+`replace_many` calls that takes. polars does not record `literal=True` or
+`replace` against `replace_all` in the plan, so the fix holds for literal
+`replace_all` calls; patterns that only escape punctuation (`\.`) count as
+literal.
 
 ### `redundant_aggregation`
 
