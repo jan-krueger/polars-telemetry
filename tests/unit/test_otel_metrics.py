@@ -20,6 +20,8 @@ from polars_telemetry import Config
 from polars_telemetry.adapter.build import build_plan
 from polars_telemetry.export.measurements import COUNTERS, HISTOGRAMS
 from polars_telemetry.export.otel import OTelExporter
+from polars_telemetry.model.insights import Finding
+from polars_telemetry.model.insights.finding import Impact
 from polars_telemetry.model.types import NodeMetrics, Query
 
 
@@ -31,6 +33,19 @@ def reader(monkeypatch):
     return reader
 
 
+_FINDING = Finding(
+    rule="in_memory_fallback",
+    kind="problem",
+    level="warn",
+    node_id=0,
+    node_kind="GroupBy",
+    impact=Impact(cpu_share=1.0, blocked_share=0.5),
+    title="t",
+    detail="d",
+    evidence={},
+)
+
+
 def _busy_query() -> Query:
     """One node with every counter non-zero, so no instrument is skipped as empty."""
     fields: dict[str, Any] = {f.name: 7 for f in dataclasses.fields(NodeMetrics)}
@@ -40,6 +55,7 @@ def _busy_query() -> Query:
         wall_ms=12.0,
         plan=build_plan([{"id": 0, "input_ids": [], "properties": {"type": "GroupBy"}}]),
         metrics={0: NodeMetrics(**fields)},
+        insights=(_FINDING,),
     )
 
 

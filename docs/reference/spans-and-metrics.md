@@ -123,6 +123,23 @@ shape. Enable with `Config(include_plan=True)` when you want the topology,
 which nothing else carries. Contains both the physical and IR node lists with
 `id`, `kind` and `inputs`, plus every per-node counter.
 
+### Insights
+
+With `Config(insights=True)`, the default, the span carries one
+`polars.insight` event per [finding](../insights.md), most important first,
+timed at the end of the query.
+
+| Attribute | Type | Notes |
+| --- | --- | --- |
+| `polars.insights.warnings` | int | Findings at warning level, on the span itself |
+| `polars.insight.rule` | str | Rule id, e.g. `exploding_join` |
+| `polars.insight.level` | str | `warn`, `info` or `applied` |
+| `polars.node.kind` | str | The node the finding concerns |
+| `polars.insight.title` | str | One line; numbers and node kinds only |
+| `polars.insight.detail` | str | What it means and what helps |
+| `polars.insight.cpu_share` | float | Share of query CPU it concerns, 0–1 |
+| `polars.insight.blocked_share` | float | Share of wall time one of its steps held, 0–1 |
+
 ## Metrics
 
 Query-level, dimensioned by `polars.plan.fingerprint` and `polars.engine`:
@@ -152,6 +169,13 @@ Node-level, dimensioned by `polars.node.kind` and `polars.engine`:
 | `polars.node.polls` | counter | {poll} |
 | `polars.node.state_updates` | counter | {update} |
 | `polars.node.io_bytes` | counter | By |
+
+Query-level, dimensioned by `polars.plan.fingerprint`, `polars.insight.rule` and
+`polars.insight.level`, all bounded:
+
+| Instrument | Type | Unit |
+| --- | --- | --- |
+| `polars.query.insights` | counter | {finding} |
 
 `polars.node.io_bytes` and `polars.node.largest_morsel` carry one extra
 dimension, `polars.direction`. For bytes its values are `requested`,

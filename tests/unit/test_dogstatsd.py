@@ -12,9 +12,24 @@ import pytest
 from polars_telemetry.adapter.build import build_plan, enrich
 from polars_telemetry.export.dogstatsd import DogStatsdExporter
 from polars_telemetry.export.measurements import COUNTERS, HISTOGRAMS
+from polars_telemetry.model.insights import Finding
+from polars_telemetry.model.insights.finding import Impact
 from polars_telemetry.model.types import NodeMetrics, Query
 
 datadog = pytest.importorskip("datadog")
+
+
+_FINDING = Finding(
+    rule="in_memory_fallback",
+    kind="problem",
+    level="warn",
+    node_id=0,
+    node_kind="GroupBy",
+    impact=Impact(cpu_share=1.0, blocked_share=0.5),
+    title="t",
+    detail="d",
+    evidence={},
+)
 
 
 def _busy_query(label: str | None = None) -> Query:
@@ -27,6 +42,7 @@ def _busy_query(label: str | None = None) -> Query:
             wall_ms=12.0,
             plan=build_plan([{"id": 0, "input_ids": [], "properties": {"type": "GroupBy"}}]),
             metrics={0: NodeMetrics(**fields)},
+            insights=(_FINDING,),
             label=label,
             engine="streaming",
         )
@@ -99,7 +115,7 @@ def test_metrics_can_be_renamed_by_a_rule():
 def test_tag_keys_can_be_renamed_or_left_out():
     client = _send(tag_names={"node_kind": "kind", "fingerprint": None})
     tags = {tag.split(":")[0] for _, _, _, tags in client.sent for tag in tags}
-    assert tags == {"engine", "kind", "direction"}
+    assert tags == {"engine", "kind", "direction", "rule", "level"}
 
 
 def test_labels_become_a_tag_only_when_asked():

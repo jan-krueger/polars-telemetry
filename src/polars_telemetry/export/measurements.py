@@ -46,6 +46,7 @@ COUNTERS: Final[tuple[tuple[str, str, str], ...]] = (
     (semconv.NODE_POLLS, "{poll}", "Times a node was polled"),
     (semconv.NODE_STATE_UPDATES, "{update}", "State updates on a node"),
     (semconv.NODE_IO_BYTES, "By", "Bytes moved by a node"),
+    (semconv.QUERY_INSIGHTS, "{finding}", "Findings about query plans, by rule and level"),
 )
 
 
@@ -126,6 +127,18 @@ def measurements(query: Query, diagnostics: Diagnostics) -> Iterator[Measurement
         ):
             if value:
                 counter(semconv.NODE_IO_BYTES, value, {**dims, semconv.DIRECTION: direction})
+
+    for finding in query.insights or ():
+        if finding.kind == "problem":
+            counter(
+                semconv.QUERY_INSIGHTS,
+                1,
+                {
+                    semconv.PLAN_FINGERPRINT: query.fingerprint,
+                    semconv.INSIGHT_RULE: finding.rule,
+                    semconv.INSIGHT_LEVEL: finding.level,
+                },
+            )
 
     for (name, tags), total in totals.items():
         yield Measurement(name, "counter", total, dict(tags))

@@ -17,6 +17,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   computed after its wall time is measured, and written to profiles as an
   `insights` field. A few milliseconds even for a plan of a thousand nodes;
   `Config(insights=False)` turns it off.
+- Exporters carry the findings: a `polars.insight` event per finding and a
+  `polars.insights.warnings` count on the query span, a `polars.query.insights`
+  counter by rule and level (also over DogStatsD, tagged `rule` and `level`),
+  and the warnings under each query on the console.
 - Viewer: a profile's findings appear on the plan. **N warnings** in the query
   header jumps to each in turn; flagged nodes get a badge and an outline that
   shows even far zoomed out, also on the minimap; the node's details open with

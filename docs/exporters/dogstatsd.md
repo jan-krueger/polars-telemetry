@@ -82,6 +82,7 @@ polars.node.rows_out:2696064|c|#node_kind:GroupBy,engine:streaming
 | `fingerprint` | query metrics | one per query shape |
 | `node_kind` | node metrics | polars' node kinds, such as `GroupBy` |
 | `direction` | `io_bytes`, `largest_morsel` | `requested`, `received`, `sent` |
+| `rule`, `level` | `polars.query.insights` | an [insight rule](../insights.md) id; `warn` or `info` |
 | `label` | every metric, if `tag_labels=True` | your [labels](../labels.md) |
 
 There are no spans: StatsD carries metrics only. For traces, use the

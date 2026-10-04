@@ -59,5 +59,12 @@ class ConsoleExporter:
         if len(ranked) > _MAX_ROWS:
             lines.append(f"  ... {len(ranked) - _MAX_ROWS} more nodes")
 
+        findings = query.insights or ()
+        for finding in (f for f in findings if f.level == "warn"):
+            lines.append(f"  warning: {finding.title} [{finding.rule}, {finding.node_kind}]")
+        quiet = sum(f.level == "info" for f in findings)
+        if quiet:
+            lines.append(f"  {quiet} more findings as information; see polars-telemetry insights")
+
         self._stream.write("\n".join(lines) + "\n")
         self._stream.flush()

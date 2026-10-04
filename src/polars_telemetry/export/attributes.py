@@ -122,6 +122,8 @@ def query_attributes(
 
     if plan_fingerprint is not None:
         attrs[semconv.PLAN_FINGERPRINT] = plan_fingerprint
+    if query.insights is not None:
+        attrs[semconv.INSIGHTS_WARNINGS] = sum(f.level == "warn" for f in query.insights)
     if diagnostics is not None:
         _add_diagnostics(attrs, diagnostics)
     if include_plan:

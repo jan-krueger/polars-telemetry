@@ -25,6 +25,8 @@ DEFAULT_TAGS: Mapping[str, str] = {
     semconv.PLAN_FINGERPRINT: "fingerprint",
     semconv.NODE_KIND: "node_kind",
     semconv.DIRECTION: "direction",
+    semconv.INSIGHT_RULE: "rule",
+    semconv.INSIGHT_LEVEL: "level",
 }
 
 
