@@ -1,6 +1,6 @@
 import { Handle, Position } from "@xyflow/react";
 import { ROLES, relationName, roleOf } from "../lib/polars";
-import { ms, num } from "../lib/format";
+import { num, span } from "../lib/format";
 import { cpuMs } from "../lib/graph";
 import Tip, { TipText } from "./Tip";
 
@@ -42,7 +42,7 @@ export default function PlanNode({ data, selected }) {
       {label ? <div className="t2">{label}</div> : null}
       {node.metrics ? (
         <div className="t3">
-          {share >= 0.1 ? `${num(share, 1)}% · ` : ""}{ms(cpuMs(node))}
+          {share >= 0.1 ? `${num(share, 1)}% · ` : ""}{span(cpuMs(node))}
         </div>
       ) : null}
       {finding ? (

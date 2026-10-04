@@ -40,7 +40,7 @@ describe("busy", () => {
 
 describe("human units", () => {
   it("scales durations and counts", () => {
-    expect([span(5.25), span(940), span(88_906.5), span(456_000), span(781_494)]).toEqual(["5.3 ms", "940 ms", "88.9 s", "456 s", "13.0 min"]);
+    expect([span(0.04), span(5.25), span(940), span(88_906.5), span(456_000), span(781_494)]).toEqual(["40 µs", "5.3 ms", "940 ms", "88.9 s", "456 s", "13.0 min"]);
     expect([compact(940), compact(12_345), compact(301_000), compact(57_718_060)]).toEqual(["940", "12,345", "301K", "57.7M"]);
   });
 });

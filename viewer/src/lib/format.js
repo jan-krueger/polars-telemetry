@@ -4,8 +4,6 @@ export const num = (v, d = 0) =>
   (v ?? 0).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
 export const ms = (v) =>
   v >= 10 ? num(v, 1) + " ms" : v >= 0.1 ? num(v, 2) + " ms" : num(v * 1000, 0) + " µs";
-export const rows = (v) =>
-  v >= 1e6 ? num(v / 1e6, 2) + "M" : v >= 1e3 ? num(v / 1e3, 1) + "k" : num(v, 0);
 export const bytes = (b) =>
   b >= 1048576 ? num(b / 1048576, 1) + " MiB" : num(b / 1024, 1) + " KiB";
 
@@ -18,8 +16,9 @@ export function tableName(p) {
 /** A name for a query without a label: the first table it reads. */
 export const shapeName = (p) => tableName(p) ?? `${p.plan.physical.length} nodes`;
 
-/** A duration at the scale a reader thinks in: 940 ms, 88.9 s, 456 s, 13.0 min. */
+/** A duration at the scale a reader thinks in: 40 µs, 5.3 ms, 88.9 s, 456 s, 13.0 min. */
 export function span(v) {
+  if (v < 1) return `${num(v * 1_000, 0)} µs`;
   if (v < 1_000) return `${num(v, v < 10 ? 1 : 0)} ms`;
   if (v < 600_000) return `${num(v / 1_000, v < 100_000 ? 1 : 0)} s`;
   return `${num(v / 60_000, 1)} min`;
@@ -96,3 +95,5 @@ export function diagnostics(p) {
       "figures are a floor, not a total");
   return out;
 }
+
+export const rows = compact;

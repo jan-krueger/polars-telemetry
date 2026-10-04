@@ -9,7 +9,7 @@ import ShareDialog from "./components/ShareDialog";
 import { byNode, warned } from "./lib/insights";
 import Tip, { TipText } from "./components/Tip";
 import { allSessions, dropAll, dropSession, saveSession, storageUnavailable } from "./lib/storage";
-import { busy, bytes, compact, diagnostics, ms, num, shapeName, span, tableName } from "./lib/format";
+import { busy, bytes, compact, diagnostics, num, shapeName, span, tableName } from "./lib/format";
 import { basename } from "./lib/polars";
 import { clock, instant, iso, ranBetween, spansDays } from "./lib/time";
 import { readJsonl, readSession, toJsonl } from "./model/read";
@@ -374,7 +374,7 @@ export default function App() {
                     <button key={p.query_id} className="run" aria-pressed={p.query_id === state.queryId}
                             onClick={() => pick(p.query_id)}>
                       <div className="l1">{title(p)}</div>
-                      <div className="l2">{ms(p.wall_ms)} wall · {ms(p.cpu_ms)} cpu</div>
+                      <div className="l2">{span(p.wall_ms)} wall{p.cpu_ms > 0 ? ` · ${span(p.cpu_ms)} cpu` : ""}</div>
                     </button>
                   ))}
                 </div>
@@ -433,8 +433,8 @@ polars_telemetry.install(exporter=FileExporter("profiles/session.jsonl"))`} />
                       <td><div style={{ fontWeight: 500 }}>{title(r.runs[0])}</div>
                         <div style={{ font: "10.5px ui-monospace,monospace", color: "var(--muted)" }}>
                           {r.runs[0].label && tableName(r.runs[0]) ? `${tableName(r.runs[0])} · ` : ""}{r.fingerprint}</div></td>
-                      <td>{r.runs.length}</td><td>{ms(r.wallMs)}</td>
-                      <td>{num((r.wallMs / totalWall) * 100, 1)}%</td><td>{ms(r.cpuMs / r.runs.length)}</td>
+                      <td>{r.runs.length}</td><td>{span(r.wallMs)}</td>
+                      <td>{num((r.wallMs / totalWall) * 100, 1)}%</td><td>{r.cpuMs > 0 ? span(r.cpuMs / r.runs.length) : "—"}</td>
                       <td style={{ width: 140 }}>
                         <div className="bar" style={{ width: `${(r.wallMs / widest) * 100}%` }} /></td>
                     </tr>
@@ -467,7 +467,7 @@ polars_telemetry.install(exporter=FileExporter("profiles/session.jsonl"))`} />
                       <option value="">compare with…</option>
                       {siblings.map((q) => (
                         <option value={q.query_id} key={q.query_id}>
-                          {clock(q.started_unix_ns, withDates)} · {ms(q.wall_ms)}
+                          {clock(q.started_unix_ns, withDates)} · {span(q.wall_ms)}
                         </option>))}
                     </select>
                   )}
