@@ -15,6 +15,14 @@ below, information. Neither is ever dropped."""
 SCHEMA = "insights@1"
 
 
+def share(fraction: float) -> str:
+    """A fraction as a percentage with two significant digits: 0.0016%, 2.5%, 46%."""
+    percent = fraction * 100
+    if percent == 0:
+        return "0%"
+    return f"{percent:.2g}%" if percent < 10 else f"{percent:.0f}%"
+
+
 @dataclass(frozen=True, slots=True)
 class Text:
     title: str

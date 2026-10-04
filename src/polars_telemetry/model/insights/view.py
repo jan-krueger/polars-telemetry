@@ -25,6 +25,17 @@ class PlanView:
                 consumers.setdefault(input_id, []).append(node.node_id)
         return {node_id: tuple(ids) for node_id, ids in consumers.items()}
 
+    @cached_property
+    def asks_for_deduplication(self) -> bool:
+        """The query's own plan asks to remove duplicates somewhere.
+
+        polars also deduplicates internally, for n_unique for one; on the physical
+        plan the two look alike.
+        """
+        return any(
+            n.traits.deduplicates or n.traits.asks_unique for n in self.query.logical.values()
+        )
+
     def inputs(self, node: PlanNode) -> tuple[PlanNode, ...]:
         return tuple(self.query.plan[i] for i in node.inputs if i in self.query.plan)
 
@@ -48,6 +59,19 @@ class PlanView:
             rows for i in self.inputs(node) if (rows := self.rows_delivered(i)) is not None
         ]
         return max(delivered) if delivered else None
+
+    def carriers(self, node: PlanNode, rows: float) -> tuple[PlanNode, ...]:
+        """Nodes downstream that receive at least `rows`, up to the first that shrinks them."""
+        found: dict[int, PlanNode] = {}
+        frontier = [node]
+        while frontier:
+            for consumer in self.consumers(frontier.pop()):
+                if consumer.node_id in found:
+                    continue
+                found[consumer.node_id] = consumer
+                if (self.rows_sent(consumer) or 0) >= rows:
+                    frontier.append(consumer)
+        return tuple(found.values())
 
     def cpu_share(self, *nodes: PlanNode) -> float:
         if not self._total_ns:
