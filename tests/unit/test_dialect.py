@@ -146,8 +146,8 @@ def test_downstream_reads_roles_not_kind_names():
 
     before = derive(Query(query_id=uuid4(), wall_ms=1.0, plan=plan, metrics=metrics))
     after = derive(Query(query_id=uuid4(), wall_ms=1.0, plan=renamed, metrics=metrics))
-    assert before.join_amplification is not None
-    assert after.join_amplification == before.join_amplification
+    assert before.join_growth is not None
+    assert after.join_growth == before.join_growth
 
 
 # --- facets -------------------------------------------------------------------

@@ -78,7 +78,6 @@ the relevant kind.
 | `polars.filter.selectivity` | float | Rows surviving the filter, 0–1 |
 | `polars.filter.rows_dropped` | int | Rows removed before the rest of the plan |
 | `polars.join.growth` | float | The largest join's rows out over its larger input; above 2 means many-to-many keys |
-| `polars.join.amplification` | float | **Deprecated**, removed in 0.6.0: use `polars.join.growth`. Rows out over the first input's rows |
 | `polars.projection.efficiency` | float | Columns read over columns in the file |
 | `polars.morsel.skew` | float | Largest morsel over the mean; above 1 is uneven |
 | `polars.scan.predicate_pushed` | bool | True if **any** scan filters inside the scan |

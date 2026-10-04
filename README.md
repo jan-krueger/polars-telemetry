@@ -48,7 +48,7 @@ A `polars.collect` span per query, on whatever trace context was active:
   group-by keys
 - `polars.cpu_ms`, `polars.parallelism`, result rows
 - the hottest node and its share of total CPU
-- diagnostics — parallel efficiency, filter selectivity, join amplification,
+- diagnostics — parallel efficiency, filter selectivity, join growth,
   projection efficiency, morsel skew, predicate pushdown, row-group skipping
 - the file, line and function that ran the query, as OpenTelemetry's
   `code.*` attributes
