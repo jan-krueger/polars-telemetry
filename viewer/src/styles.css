@@ -3,6 +3,7 @@
   --plane:#f4f5f4; --surface:#fcfcfb; --surface-2:#eceeec;
   --ink:#0b0b0b; --ink-2:#52514e; --muted:#898781;
   --grid:#e1e0d9; --axis:#c3c2b7; --rule-2:#d2d6d3; --border:rgba(11,11,11,.11);
+  --lnode:#fcfcfb; --lnode-line:#c3c8c4;
   --accent:#2a78d6;
   --sq1:#86b6ef; --sq1-ink:#0b0b0b; --sq2:#256abf; --sq2-ink:#fff;
   --sq3:#184f95; --sq3-ink:#fff;  --sq4:#0d366b; --sq4-ink:#fff;
@@ -14,6 +15,7 @@
   --plane:#0c0c0c; --surface:#171716; --surface-2:#201f1e;
   --ink:#fff; --ink-2:#c3c2b7; --muted:#8c8a84;
   --grid:#2c2c2a; --axis:#3a3a37; --rule-2:#393934; --border:rgba(255,255,255,.12);
+  --lnode:#2a2a27; --lnode-line:#6a6963;
   --accent:#3987e5;
   --sq1:#184f95; --sq1-ink:#fff; --sq2:#2a78d6; --sq2-ink:#fff;
   --sq3:#6da7ec; --sq3-ink:#0b0b0b; --sq4:#b7d3f6; --sq4-ink:#0b0b0b;
@@ -135,7 +137,7 @@ pre.snip b{color:var(--ink);font-weight:500}
 /* plan node */
 .pnode{width:196px;height:56px;border-radius:6px;padding:6px 9px;overflow:hidden;
   border:1px solid var(--border);cursor:pointer}
-.pnode.logical{background:var(--surface);border-color:var(--rule-2)}
+.pnode.logical{background:var(--lnode);border-color:var(--lnode-line)}
 .pnode--sel{outline:2px solid var(--accent);outline-offset:1px}
 .pnode .t1{font:600 11px ui-monospace,monospace;display:flex;align-items:center;gap:5px}
 .pnode .t2{font:9.5px system-ui;opacity:.76;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -224,7 +226,7 @@ pre.snip b{color:var(--ink);font-weight:500}
   --xy-edge-label-background-color:var(--surface);
   --xy-attribution-background-color:transparent;
 }
-.planbox.logical{--xy-minimap-node-background-color:var(--axis)}
+.planbox.logical{--xy-minimap-node-background-color:var(--lnode-line)}
 
 /* No variable exists for these, so they still reach into React Flow's own
    classes. Keep any such rule here, where an upgrade can check them at once. */
