@@ -252,6 +252,11 @@ class Query:
     """When the query started, in nanoseconds since the Unix epoch."""
     insights: tuple[Finding, ...] | None = None
     """Findings about the plan, most important first; None when not computed."""
+    planning_ms: float | None = None
+    """From the start to polars handing over the plan to run: optimisation and
+    lowering. None when the query failed before planning."""
+    telemetry_ms: float | None = None
+    """polars-telemetry's own work before execution, within wall time."""
 
     @property
     def cpu_ms(self) -> float:

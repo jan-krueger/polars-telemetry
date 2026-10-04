@@ -68,6 +68,8 @@ def read_profile(document: Mapping[str, Any]) -> Query:
         failed=document.get("failed"),
         started_unix_ns=int(document.get("started_unix_ns") or 0),
         insights=_insights(document.get("insights")),
+        planning_ms=_optional_ms(document.get("planning_ms")),
+        telemetry_ms=_optional_ms(document.get("telemetry_ms")),
     )
 
 
@@ -94,6 +96,10 @@ def _insights(written: object) -> tuple[Finding, ...] | None:
     if not isinstance(written, dict) or written.get("schema") != INSIGHTS_SCHEMA:
         return None
     return tuple(Finding.from_dict(f) for f in written.get("findings") or [])
+
+
+def _optional_ms(value: object) -> float | None:
+    return None if value is None else float(value)  # type: ignore[arg-type]
 
 
 def _diagnostics(values: Mapping[str, Any]) -> Diagnostics:

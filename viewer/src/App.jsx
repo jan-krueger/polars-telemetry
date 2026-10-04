@@ -463,6 +463,14 @@ polars_telemetry.install(exporter=FileExporter("profiles/session.jsonl"))`} />
                 )}
                 <div className="qstats">
                   <b>{num(profile.wall_ms, 1)} ms</b> wall{delta(profile.wall_ms, compare?.wall_ms)} ·{" "}
+                  {profile.planning_ms != null && (
+                    <>
+                      <Tip content={<TipText term="Planning">From collect() until the plan starts running: polars optimising and lowering it.{profile.telemetry_ms != null ? ` polars-telemetry then took ${num(profile.telemetry_ms, 1)} ms before execution.` : ""}</TipText>}>
+                        <span tabIndex={0}><b>{num(profile.planning_ms, 1)} ms</b> planning</span>
+                      </Tip>
+                      {delta(profile.planning_ms, compare?.planning_ms)} ·{" "}
+                    </>
+                  )}
                   <b>{num(profile.cpu_ms, 1)} ms</b> cpu{delta(profile.cpu_ms, compare?.cpu_ms)} ·{" "}
                   <b>{profile.plan.physical.length}</b> nodes ·{" "}
                   <b>{num(profile.result_rows ?? 0)}</b> rows out · polars {profile.polars_version}

@@ -17,6 +17,8 @@ The span is named `polars.collect`.
 | `polars.plan.fingerprint` | str | Hash of the plan *shape* — see below |
 | `polars.engine` | str | `streaming`, or `in-memory` for eager operations and an explicit `engine="in-memory"`. Absent when the query failed before planning |
 | `polars.cpu_ms` | float | Summed node self time; exceeds wall time when parallel |
+| `polars.planning_ms` | float | Start to execution: polars optimising and lowering the plan |
+| `polars.telemetry_ms` | float | polars-telemetry's own work before execution |
 | `polars.parallelism` | float | `cpu_ms / wall_ms` |
 | `polars.parallel_efficiency` | float | `cpu_ms / wall_ms / cpu_count`, 0–1 |
 | `polars.cpu_count` | int | Threads polars can use: its pool size, which honours CPU affinity, a container or systemd CPU quota, and `POLARS_MAX_THREADS` |
@@ -147,6 +149,7 @@ Query-level, dimensioned by `polars.plan.fingerprint` and `polars.engine`:
 | --- | --- | --- |
 | `polars.query.duration` | histogram | ms |
 | `polars.query.cpu_time` | histogram | ms |
+| `polars.query.planning_time` | histogram | ms |
 | `polars.query.parallel_efficiency` | histogram | 1 |
 
 Node-level, dimensioned by `polars.node.kind` and `polars.engine`:

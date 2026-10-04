@@ -86,6 +86,8 @@ function readV1(raw: Record<string, unknown>, schema: string, position?: number)
       fingerprint: str(raw.fingerprint),
       started_unix_ns: Math.abs(num(raw.started_unix_ns)) <= MAX_DATE_NS ? num(raw.started_unix_ns) : 0,
       wall_ms: num(raw.wall_ms),
+      planning_ms: Number.isFinite(raw.planning_ms) ? (raw.planning_ms as number) : null,
+      telemetry_ms: Number.isFinite(raw.telemetry_ms) ? (raw.telemetry_ms as number) : null,
       cpu_ms: num(raw.cpu_ms),
       result_rows: Number.isFinite(raw.result_rows) ? (raw.result_rows as number) : null,
       call_site: site

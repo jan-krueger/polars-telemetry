@@ -56,6 +56,7 @@ def _busy_query() -> Query:
         plan=build_plan([{"id": 0, "input_ids": [], "properties": {"type": "GroupBy"}}]),
         metrics={0: NodeMetrics(**fields)},
         insights=(_FINDING,),
+        planning_ms=3.0,
     )
 
 

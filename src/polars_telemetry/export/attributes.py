@@ -114,6 +114,10 @@ def query_attributes(
         attrs[semconv.CODE_FILE_PATH] = query.call_site.filepath
         attrs[semconv.CODE_LINE_NUMBER] = query.call_site.lineno
         attrs[semconv.CODE_FUNCTION_NAME] = query.call_site.function
+    if query.planning_ms is not None:
+        attrs[semconv.PLANNING_MS] = round(query.planning_ms, 3)
+    if query.telemetry_ms is not None:
+        attrs[semconv.TELEMETRY_MS] = round(query.telemetry_ms, 3)
     if query.metrics:
         attrs[semconv.CPU_MS] = round(query.cpu_ms, 3)
         attrs[semconv.PARALLELISM] = round(query.parallelism, 3)

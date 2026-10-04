@@ -43,6 +43,7 @@ def _busy_query(label: str | None = None) -> Query:
             plan=build_plan([{"id": 0, "input_ids": [], "properties": {"type": "GroupBy"}}]),
             metrics={0: NodeMetrics(**fields)},
             insights=(_FINDING,),
+            planning_ms=3.0,
             label=label,
             engine="streaming",
         )

@@ -67,9 +67,11 @@ class QueryRecorder:
         "_label",
         "_logical",
         "_plan",
+        "_planning_ms",
         "_query_id",
         "_started",
         "_started_unix_ns",
+        "_telemetry_ms",
         "_tracker",
     )
 
@@ -88,6 +90,8 @@ class QueryRecorder:
         self._engine: str | None = None
         self._started = 0.0
         self._started_unix_ns = 0
+        self._planning_ms: float | None = None
+        self._telemetry_ms: float | None = None
 
     def started(self, query_id: UUID) -> None:
         # The clock starts here so a query that fails before planning -- a
@@ -97,8 +101,18 @@ class QueryRecorder:
         self._label = current_label()
         self._started = time.perf_counter()
         self._started_unix_ns = time.time_ns()
+        self._planning_ms = self._telemetry_ms = None
 
     def planned(self, query_id: UUID, ir_plan: bytes, physical_plan: bytes, handle: Any) -> None:
+        arrived = time.perf_counter()
+        if self._started:
+            self._planning_ms = (arrived - self._started) * 1000
+        try:
+            self._planned(query_id, ir_plan, physical_plan, handle)
+        finally:
+            self._telemetry_ms = (time.perf_counter() - arrived) * 1000
+
+    def _planned(self, query_id: UUID, ir_plan: bytes, physical_plan: bytes, handle: Any) -> None:
         self._query_id = query_id
         # Monitoring sets the affinity to streaming, but an explicit engine= or
         # an eager operation overrides it, and polars then sends no physical plan.
@@ -165,6 +179,8 @@ class QueryRecorder:
                     polars_version=_POLARS_VERSION,
                     failed=failure,
                     started_unix_ns=self._started_unix_ns,
+                    planning_ms=self._planning_ms,
+                    telemetry_ms=self._telemetry_ms,
                 ),
                 insights=self._config.insights,
             )

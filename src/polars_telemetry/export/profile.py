@@ -77,6 +77,8 @@ def build_profile(query: Query, *, diagnostics: Diagnostics | None = None) -> di
         "fingerprint": query.fingerprint,
         "started_unix_ns": query.started_unix_ns,
         "wall_ms": round(query.wall_ms, 4),
+        "planning_ms": None if query.planning_ms is None else round(query.planning_ms, 4),
+        "telemetry_ms": None if query.telemetry_ms is None else round(query.telemetry_ms, 4),
         "cpu_ms": round(query.cpu_ms, 4),
         "result_rows": query.result_rows,
         "call_site": (

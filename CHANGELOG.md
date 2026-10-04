@@ -17,6 +17,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   computed after its wall time is measured, and written to profiles as an
   `insights` field. About 10 ms for a plan of a thousand nodes;
   `Config(insights=False)` turns it off.
+- Planning time, apart from execution: `polars.planning_ms` on the span, a
+  `polars.query.planning_time` histogram, `planning_ms` in profiles, the
+  console and the viewer. `polars.telemetry_ms` is this package's own work
+  before execution.
 - Insight rules `python_udf`, `datetime_format_inferred`, `repeated_subplan`
   and `repeated_plugin_call`.
 - Exporters carry the findings: a `polars.insight` event per finding and a

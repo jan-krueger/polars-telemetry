@@ -64,6 +64,10 @@ export interface Profile {
   fingerprint: string;
   started_unix_ns: number;
   wall_ms: number;
+  /** Start to execution: polars optimising and lowering the plan; null before 0.6. */
+  planning_ms: number | null;
+  /** polars-telemetry's own work before execution, within wall time. */
+  telemetry_ms: number | null;
   cpu_ms: number;
   result_rows: number | null;
   call_site: CallSite | null;
