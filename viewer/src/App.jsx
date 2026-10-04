@@ -225,9 +225,7 @@ export default function App() {
   const findings = useMemo(() => byNode(profile), [profile]);
   const warnings = useMemo(() => warned(profile), [profile]);
   const [reveal, setReveal] = useState(null);
-  const nextWarning = () => {
-    const at = state.node?.plan === "physical" ? warnings.indexOf(state.node.id) : -1;
-    const id = warnings[(at + 1) % warnings.length];
+  const showWarning = (id) => {
     dispatch({ type: "nodePicked", node: { plan: "physical", id } });
     setReveal({ id });
   };
@@ -474,16 +472,6 @@ polars_telemetry.install(exporter=FileExporter("profiles/session.jsonl"))`} />
                         {" "}· masked: {profile.redacted.join(", ").replace("_", " ")}</span>
                     </Tip>
                   ) : null}
-                  {warnings.length > 0 && (
-                    <>
-                      {" · "}
-                      <Tip content={warnings.length > 1 ? "Show the next warning in the plan" : "Show the warning in the plan"}>
-                      <button className="warnings" onClick={nextWarning}>
-                        {warnings.length} warning{warnings.length > 1 ? "s" : ""}
-                      </button>
-                      </Tip>
-                    </>
-                  )}
                 </div>
                 {profile.failed && (
                   <div className="qfail" role="alert"><b>Failed</b> {profile.failed}</div>
@@ -510,7 +498,7 @@ polars_telemetry.install(exporter=FileExporter("profiles/session.jsonl"))`} />
                           plan={profile.plan.physical} logical={false}
                           alone={alone === "physical"} onAlone={() => toggleAlone("physical")}
                           linked={!!linked} leads={linked === "physical"} onLink={() => toggleLinked("physical")} channel={views}
-                          findings={findings} reveal={reveal}
+                          findings={findings} reveal={reveal} warnings={warnings} onWarning={showWarning}
                           focus={state.focus} onFocus={(focus) => dispatch({ type: "focused", focus })}
                           selectedId={state.node?.plan === "physical" ? state.node.id : null}
                           onSelect={(id) => dispatch({ type: "nodePicked", node: { plan: "physical", id } })} />

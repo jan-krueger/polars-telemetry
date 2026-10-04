@@ -63,8 +63,8 @@ setting carries over to the next query as that share, not as a node count.
 ## Findings
 
 Profiles written with [insights](insights.md), the default, carry what slows
-each query down. The query header counts its warnings: click **N warnings** to
-jump to each in turn, zoomed in close enough to read. A node with a warning
+each query down. The physical plan's header counts its warnings; its arrows
+step through them, zoomed in close enough to read. A node with a warning
 gets a badge, and an outline that still shows when a large plan is zoomed far
 out; the minimap marks it too. The node's details open with each finding: its
 evidence, what it costs, a fix and a link to the rule.

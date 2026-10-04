@@ -23,10 +23,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `polars.insights.warnings` count on the query span, a `polars.query.insights`
   counter by rule and level (also over DogStatsD, tagged `rule` and `level`),
   and the warnings under each query on the console.
-- Viewer: a profile's findings appear on the plan. **N warnings** in the query
-  header jumps to each in turn; flagged nodes get a badge and an outline that
-  shows even far zoomed out, also on the minimap; the node's details open with
-  each finding and what it costs.
+- Viewer: a profile's findings appear on the plan. Arrows in the physical
+  plan's header step through its warnings; flagged nodes get a badge and an
+  outline that shows even far zoomed out, also on the minimap; the node's
+  details open with each finding: its evidence, cost, fix and rule.
 
 ### Fixed
 - A plugin's library path relative to the environment, which
