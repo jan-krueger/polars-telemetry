@@ -10,7 +10,7 @@ the page, or use **Open .jsonl**.
 requests of its own, except to fetch an example from this site when you ask for
 one.
 
-![Both plans, per-node counters and diagnostics for one query](assets/viewer.png)
+![Both plans of a TPC-H query, its figures and diagnostics, and a finding on the selected node](assets/viewer.png)
 
 ## Try it
 

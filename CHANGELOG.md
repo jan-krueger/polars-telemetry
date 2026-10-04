@@ -4,7 +4,15 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.6.1] - 2026-10-04
+
+### Changed
+- Viewer: the query header takes two lines. Wall time reads in seconds or
+  minutes, a bar shows how many of polars' threads were busy on average (it
+  replaces the parallel efficiency chip), and the diagnostics sit beside it.
+  Times and row counts use the same units everywhere; a shared label prefix
+  shows once above the query list; opening a file that is already loaded
+  switches to it; logical plan nodes are easier to see in the dark theme.
 
 ### Fixed
 - `repeated_string_scan` no longer suggests one `str.replace_many` for a chain
@@ -544,6 +552,7 @@ All three are removed in 0.4.0.
   and collapsed most nodes onto identical windows. The same counters read once
   at query end are exact and cost nothing measurable.
 
+[0.6.1]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.6.1
 [0.6.0]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.6.0
 [0.5.1]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.5.1
 [0.5.0]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.5.0
