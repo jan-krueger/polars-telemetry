@@ -22,8 +22,9 @@ from polars_telemetry.adapter.dialect import (
     INFERS_DATETIME_FORMAT,
     PYTHON_FORMAT,
 )
+from polars_telemetry.adapter.replacements import groups, literal_step
 from polars_telemetry.model.redaction import PLUGIN_PATH
-from polars_telemetry.model.types import CallCount, NodeTraits
+from polars_telemetry.model.types import CallCount, NodeTraits, ReplaceRun
 
 if TYPE_CHECKING:
     from collections.abc import Iterator, Mapping
@@ -56,10 +57,12 @@ def traits(kind: str, properties: Mapping[str, object]) -> NodeTraits:
     texts = [text for text in _texts(properties) if "(" in text]
     strings: Counter[tuple[str, str]] = Counter()
     plugins: Counter[tuple[str, str]] = Counter()
+    runs: list[ReplaceRun] = []
     for text in texts:
         for column, steps in _chains(text):
             target = token(column)
-            for step, call in steps:
+            runs.extend(_replace_runs(target, steps))
+            for step, call, _ in steps:
                 if step.startswith("plugin:"):
                     plugins[(step.removeprefix("plugin:"), token(call))] += 1
                 elif step.startswith("str."):
@@ -74,7 +77,22 @@ def traits(kind: str, properties: Mapping[str, object]) -> NodeTraits:
         asks_unique=any(_UNIQUE.search(text) for text in texts),
         string_calls=_counts(strings),
         plugin_calls=_counts(plugins),
+        replace_runs=tuple(runs),
     )
+
+
+def _replace_runs(target: str, steps: list[tuple[str, str, str]]) -> Iterator[ReplaceRun]:
+    """Each run of consecutive `str.replace` calls, with how far it merges if literal."""
+    run: list[str] = []
+    for name, _, arguments in [*steps, ("", "", "")]:
+        if name == "str.replace":
+            run.append(arguments)
+            continue
+        if len(run) > 1:
+            parsed = [literal_step(a) for a in run]
+            known = [p for p in parsed if p is not None]
+            yield ReplaceRun(target, len(run), groups(known) if len(known) == len(run) else None)
+        run = []
 
 
 def _only_picks(properties: Mapping[str, object]) -> bool:
@@ -82,7 +100,7 @@ def _only_picks(properties: Mapping[str, object]) -> bool:
     aggregations = list(_texts(properties.get("aggs_per_input", properties.get("aggs", []))))
     for expression in aggregations:
         chains = list(_chains(expression))
-        if len(chains) != 1 or not {name for name, _ in chains[0][1]} <= _KEEPS_VALUE:
+        if len(chains) != 1 or not {step[0] for step in chains[0][1]} <= _KEEPS_VALUE:
             return False
         if not expression.startswith("col("):
             return False
@@ -111,10 +129,10 @@ def _texts(value: object) -> Iterator[str]:
             yield from _texts(item)
 
 
-def _chains(text: str) -> Iterator[tuple[str, list[tuple[str, str]]]]:
-    """Each `col("…")` with the methods called on it, in order, and the chain up to each."""
+def _chains(text: str) -> Iterator[tuple[str, list[tuple[str, str, str]]]]:
+    """Each `col("…")` with the methods called on it, in order: name, chain so far, arguments."""
     for match in _COLUMN.finditer(text):
-        steps: list[tuple[str, str]] = []
+        steps: list[tuple[str, str, str]] = []
         position = match.end()
         while position < len(text) and text[position] == ".":
             rest = position + 1
@@ -131,8 +149,8 @@ def _chains(text: str) -> Iterator[tuple[str, list[tuple[str, str]]]]:
                 name, position = called.group(0), called.end()
             if position >= len(text) or text[position] != "(":
                 break
-            position = _after_arguments(text, position)
-            steps.append((name, text[match.start() : position]))
+            opening, position = position, _after_arguments(text, position)
+            steps.append((name, text[match.start() : position], text[opening:position]))
         yield match.group(1), steps
 
 

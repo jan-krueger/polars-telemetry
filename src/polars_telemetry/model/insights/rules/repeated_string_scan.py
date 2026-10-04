@@ -16,10 +16,9 @@ REPEATED_AT = 4
 """TPC-H never calls one string function on one column more than once per node."""
 
 _SINGLE_PASS = {
-    "replace": "merge into one `str.replace_many`; chained replacements can depend on order",
-    "replace_all": "merge into one `str.replace_many`; chained replacements can depend on order",
     "contains": "merge into one `str.contains_any`, or one regex",
 }
+_LITERAL = "if these are literal `replace_all`"
 
 
 @dataclass(frozen=True, slots=True)
@@ -27,6 +26,7 @@ class Scans:
     function: str
     calls: int = unit("count")
     columns: int = unit("count")
+    replace_many_calls: int | None = unit("count")
 
 
 class RepeatedStringScan(Rule[Scans]):
@@ -38,11 +38,27 @@ class RepeatedStringScan(Rule[Scans]):
             return None
         top = max(repeated, key=lambda c: c.count)
         same = sum(1 for c in repeated if c.function == top.function)
-        return Scans(top.function, top.count, same)
+        runs = [r for r in node.traits.replace_runs if r.target == top.target]
+        longest = max(runs, key=lambda r: r.calls, default=None)
+        merged = longest.groups if top.function == "replace" and longest else None
+        return Scans(top.function, top.count, same, merged)
 
     def describe(self, evidence: Scans) -> Text:
         where = "one column" if evidence.columns == 1 else f"each of {evidence.columns} columns"
         return Text(
             f"{evidence.calls}x `str.{evidence.function}` on {where}, one pass each",
-            _SINGLE_PASS.get(evidence.function, "merge them into one call"),
+            _fix(evidence),
         )
+
+
+def _fix(evidence: Scans) -> str:
+    if evidence.function != "replace":
+        return _SINGLE_PASS.get(evidence.function, "merge them into one call")
+    merged = evidence.replace_many_calls
+    if merged is None:
+        return "merge literal `replace_all` steps that cannot interact into `str.replace_many`"
+    if merged == 1:
+        return f"{_LITERAL}: merge into one `str.replace_many`"
+    if merged < evidence.calls:
+        return f"{_LITERAL}: merge into {merged} `str.replace_many` calls, in order"
+    return "keep the chain: its steps interact, so `str.replace_many` would change the result"

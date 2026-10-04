@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- `repeated_string_scan` no longer suggests one `str.replace_many` for a chain
+  it would change: a replacement a later pattern matches, or overlapping
+  patterns. The fix now names the fewest `replace_many` calls that keep the
+  result, or says to keep the chain.
+
 ## [0.6.0] - 2026-10-04
 
 ### Added

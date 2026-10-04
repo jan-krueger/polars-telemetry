@@ -88,16 +88,32 @@ class TestCrossJoin:
 
 
 class TestRepeatedStringScan:
-    def test_counts_calls_on_one_column_and_suggests_one_pass(self):
-        chain = "".join(f'.str.replace(["{i}"], ["x"])' for i in range(13))
+    def chain(self, steps: list[tuple[str, str]]) -> Finding:
+        text = "".join(f'.str.replace(["{p}", "{r}"])' for p, r in steps)
         plan = (
             Plan()
             .node(1, "MultiScan", rows=10)
-            .node(2, "Select", (1,), selectors=[f'col("s"){chain}'])
+            .node(2, "Select", (1,), selectors=[f'col("s"){text}'])
         )
         (finding,) = found(plan, "repeated_string_scan")
+        return finding
+
+    def test_independent_steps_merge_into_one_pass(self):
+        finding = self.chain([(chr(ord("a") + i), "X") for i in range(13)])
         assert finding.title == "13x `str.replace` on one column, one pass each"
-        assert "`str.replace_many`" in finding.fix
+        assert (
+            finding.fix == "if these are literal `replace_all`: merge into one `str.replace_many`"
+        )
+
+    def test_steps_that_interact_merge_only_into_safe_groups(self):
+        steps = [("straße", "str."), ("ß", "ss"), ("ü", "ue"), (" ", ""), (".", "")]
+        finding = self.chain(steps)
+        assert numbers(finding)["replace_many_calls"] == 2
+        assert finding.fix.endswith("merge into 2 `str.replace_many` calls, in order")
+
+    def test_a_chain_where_every_step_depends_on_the_last_stays_a_chain(self):
+        finding = self.chain([("a", "b"), ("b", "c"), ("c", "d"), ("d", "e")])
+        assert finding.fix.startswith("keep the chain")
 
     def test_three_calls_are_not_enough(self):
         expressions = [f'col("s").str.contains(["{i}"])' for i in range(3)]
