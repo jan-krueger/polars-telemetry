@@ -36,7 +36,7 @@ class ConsoleExporter:
         status = f"FAILED {query.failed}" if query.failed else "ok"
         header = (
             f"polars query {query.label or str(query.query_id)[:8]} {status} "
-            f"wall={_ms(query.wall_ms)} cpu={_ms(query.cpu_ms)} "
+            f"wall={_ms(query.wall_ms)}{_planning(query)} cpu={_ms(query.cpu_ms)} "
             f"parallelism={query.parallelism:.2f}x nodes={len(query.plan)}"
         )
         if query.result_rows is not None:
@@ -59,5 +59,20 @@ class ConsoleExporter:
         if len(ranked) > _MAX_ROWS:
             lines.append(f"  ... {len(ranked) - _MAX_ROWS} more nodes")
 
+        findings = query.insights or ()
+        for finding in (f for f in findings if f.level == "warn"):
+            lines.append(
+                f"  warn  {finding.title}  [{finding.rule}, {finding.node_kind} #{finding.node_id}]"
+            )
+            lines.append(f"        {' · '.join(map(str, finding.evidence))}")
+            lines.append(f"        fix: {finding.fix}")
+        quiet = sum(f.level == "info" for f in findings)
+        if quiet:
+            lines.append(f"  info  {quiet} more; `polars-telemetry insights --all` lists them")
+
         self._stream.write("\n".join(lines) + "\n")
         self._stream.flush()
+
+
+def _planning(query: Query) -> str:
+    return "" if query.planning_ms is None else f" planning={_ms(query.planning_ms)}"

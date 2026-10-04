@@ -7,6 +7,8 @@
  "fingerprint": "94b7e38a9c1e",
  "started_unix_ns": 1759478400000000000,
  "wall_ms": 48.1,
+ "planning_ms": null,
+ "telemetry_ms": null,
  "cpu_ms": 3.5974,
  "result_rows": 2,
  "call_site": {
@@ -19,7 +21,6 @@
  "diagnostics": {
   "parallel_efficiency": 0.009348825363825364,
   "cpu_count": 8,
-  "join_amplification": 1.0,
   "join_growth": 1.0,
   "projection_efficiency": 1.0,
   "morsel_skew": 1.7899945024738866,
@@ -657,5 +658,9 @@
     }
    }
   ]
+ },
+ "insights": {
+  "schema": "insights@1",
+  "findings": []
  }
 }

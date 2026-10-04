@@ -74,7 +74,6 @@ def _add_diagnostics(attrs: dict[str, AttributeValue], diagnostics: Diagnostics)
         (semconv.CPU_COUNT, diagnostics.cpu_count),
         (semconv.FILTER_SELECTIVITY, diagnostics.filter_selectivity),
         (semconv.FILTER_ROWS_DROPPED, diagnostics.filter_rows_dropped),
-        (semconv.JOIN_AMPLIFICATION, diagnostics.join_amplification),
         (semconv.JOIN_GROWTH, diagnostics.join_growth),
         (semconv.PROJECTION_EFFICIENCY, diagnostics.projection_efficiency),
         (semconv.MORSEL_SKEW, diagnostics.morsel_skew),
@@ -114,6 +113,10 @@ def query_attributes(
         attrs[semconv.CODE_FILE_PATH] = query.call_site.filepath
         attrs[semconv.CODE_LINE_NUMBER] = query.call_site.lineno
         attrs[semconv.CODE_FUNCTION_NAME] = query.call_site.function
+    if query.planning_ms is not None:
+        attrs[semconv.PLANNING_MS] = round(query.planning_ms, 3)
+    if query.telemetry_ms is not None:
+        attrs[semconv.TELEMETRY_MS] = round(query.telemetry_ms, 3)
     if query.metrics:
         attrs[semconv.CPU_MS] = round(query.cpu_ms, 3)
         attrs[semconv.PARALLELISM] = round(query.parallelism, 3)
@@ -122,6 +125,8 @@ def query_attributes(
 
     if plan_fingerprint is not None:
         attrs[semconv.PLAN_FINGERPRINT] = plan_fingerprint
+    if query.insights is not None:
+        attrs[semconv.INSIGHTS_WARNINGS] = sum(f.level == "warn" for f in query.insights)
     if diagnostics is not None:
         _add_diagnostics(attrs, diagnostics)
     if include_plan:

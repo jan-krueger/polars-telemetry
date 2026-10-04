@@ -25,6 +25,8 @@ QUERY_LABEL: Final = "polars.query.label"
 """Set by the application with `label()`. Free-form, so never a metric dimension."""
 ENGINE: Final = "polars.engine"
 CPU_MS: Final = "polars.cpu_ms"
+PLANNING_MS: Final = "polars.planning_ms"
+TELEMETRY_MS: Final = "polars.telemetry_ms"
 PARALLELISM: Final = "polars.parallelism"
 NODE_COUNT: Final = "polars.node_count"
 RESULT_ROWS: Final = "polars.result.rows"
@@ -52,8 +54,6 @@ PARALLEL_EFFICIENCY: Final = "polars.parallel_efficiency"
 CPU_COUNT: Final = "polars.cpu_count"
 FILTER_SELECTIVITY: Final = "polars.filter.selectivity"
 FILTER_ROWS_DROPPED: Final = "polars.filter.rows_dropped"
-JOIN_AMPLIFICATION: Final = "polars.join.amplification"
-"""Deprecated: use JOIN_GROWTH. Removed in 0.6.0."""
 JOIN_GROWTH: Final = "polars.join.growth"
 PROJECTION_EFFICIENCY: Final = "polars.projection.efficiency"
 MORSEL_SKEW: Final = "polars.morsel.skew"
@@ -69,6 +69,16 @@ METRICS_INCOMPLETE_NODES: Final = "polars.metrics.incomplete_nodes"
 NODE_KIND: Final = "polars.node.kind"
 DIRECTION: Final = "polars.direction"
 
+INSIGHTS_WARNINGS: Final = "polars.insights.warnings"
+INSIGHT_EVENT: Final = "polars.insight"
+INSIGHT_RULE: Final = "polars.insight.rule"
+INSIGHT_LEVEL: Final = "polars.insight.level"
+INSIGHT_TITLE: Final = "polars.insight.title"
+INSIGHT_FIX: Final = "polars.insight.fix"
+INSIGHT_EVIDENCE: Final = "polars.insight.evidence"
+INSIGHT_CPU_SHARE: Final = "polars.insight.cpu_share"
+INSIGHT_BLOCKED_SHARE: Final = "polars.insight.blocked_share"
+
 # May contain file paths, column names or literal values. Documented so that
 # exporting to a third-party backend is an informed choice.
 CARRIES_USER_DATA: Final[frozenset[str]] = frozenset(
@@ -78,7 +88,7 @@ CARRIES_USER_DATA: Final[frozenset[str]] = frozenset(
 # Metric attributes must come from a bounded set: plan literals are unbounded
 # and would blow up series cardinality.
 METRIC_DIMENSIONS: Final[frozenset[str]] = frozenset(
-    {NODE_KIND, ENGINE, PLAN_FINGERPRINT, DIRECTION}
+    {NODE_KIND, ENGINE, PLAN_FINGERPRINT, DIRECTION, INSIGHT_RULE, INSIGHT_LEVEL}
 )
 """Every one is bounded: node kinds and io directions are closed sets, and a
 plan fingerprint is bounded by the application's code paths."""
@@ -86,6 +96,7 @@ plan fingerprint is bounded by the application's code paths."""
 # Instrument names. Public API in the same way attribute names are.
 QUERY_DURATION: Final = "polars.query.duration"
 QUERY_CPU_TIME: Final = "polars.query.cpu_time"
+QUERY_PLANNING_TIME: Final = "polars.query.planning_time"
 QUERY_PARALLEL_EFFICIENCY: Final = "polars.query.parallel_efficiency"
 NODE_CPU_TIME: Final = "polars.node.cpu_time"
 NODE_ROWS_IN: Final = "polars.node.rows_in"
@@ -102,3 +113,4 @@ NODE_MAX_STATE_UPDATE_TIME: Final = "polars.node.max_state_update_time"
 NODE_STATE_UPDATES: Final = "polars.node.state_updates"
 NODE_IO_TIME: Final = "polars.node.io_time"
 NODE_IO_BYTES: Final = "polars.node.io_bytes"
+QUERY_INSIGHTS: Final = "polars.query.insights"

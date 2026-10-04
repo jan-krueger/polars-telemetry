@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ReactFlow, Background, MiniMap, Controls, useReactFlow, useStore } from "@xyflow/react";
 import PlanNode from "./PlanNode";
-import { FAR_ZOOM, applyView, distant, extent, focusSteps, shareView, startsFar, stepFor, toFlow, withSelection } from "../lib/graph";
+import { FAR_ZOOM, NODE_H, NODE_W, applyView, distant, extent, focusSteps, shareView, startsFar, stepFor, toFlow, withSelection } from "../lib/graph";
 import useLayout from "./useLayout";
 import { ms } from "../lib/format";
 import Tip from "./Tip";
@@ -9,17 +9,19 @@ import Tip from "./Tip";
 const nodeTypes = { plan: PlanNode };
 
 export default function PlanPane({ title, plan, logical, selectedId, onSelect, focus = null, onFocus,
-                                   alone, onAlone, linked, leads, onLink, channel }) {
+                                   alone, onAlone, linked, leads, onLink, channel, findings, reveal,
+                                   warnings = [], onWarning }) {
   const positions = useLayout(plan);
   const steps = useMemo(() => focusSteps(plan), [plan]);
   const step = logical ? 0 : stepFor(steps, focus);
   const thresholdMs = steps[step].thresholdMs;
-  const view = { plan, positions, logical, selectedId, onSelect, thresholdMs, alone, linked, leads, channel };
+  const view = { plan, positions, logical, selectedId, onSelect, thresholdMs, alone, linked, leads, channel, findings, reveal };
 
   return (
     <div className={logical ? "planbox logical" : "planbox"}>
       <div className="ph">
         <span className="nm">{title}</span>
+        {warnings.length ? <Warnings ids={warnings} selectedId={selectedId} onPick={onWarning} /> : null}
         {onFocus && steps.length > 1 ? <Focus steps={steps} step={step} onFocus={onFocus} /> : null}
         {!alone && (
           <Tip content={linked ? "Move this plan on its own" : "Pan and zoom both plans together"}>
@@ -52,10 +54,11 @@ export default function PlanPane({ title, plan, logical, selectedId, onSelect, f
   );
 }
 
-function PlanView({ plan, positions, logical, selectedId, onSelect, thresholdMs, alone, linked, leads, channel }) {
+function PlanView({ plan, positions, logical, selectedId, onSelect, thresholdMs, alone, linked, leads, channel,
+                    findings, reveal }) {
   const flow = useMemo(
-    () => toFlow(plan, positions, { logical, selectedId: null, thresholdMs }),
-    [plan, positions, logical, thresholdMs],
+    () => toFlow(plan, positions, { logical, selectedId: null, thresholdMs, findings }),
+    [plan, positions, logical, thresholdMs, findings],
   );
   const box = useMemo(() => extent(positions), [positions]);
   const [far, setFar] = useState(() => startsFar(box));
@@ -96,8 +99,39 @@ function PlanView({ plan, positions, logical, selectedId, onSelect, thresholdMs,
         <Controls showInteractive={false} />
         <Refit when={alone} />
         <Distance onChange={setFar} onFitted={setFitted} />
+        <Reveal request={reveal} positions={positions} />
         <Follow linked={linked} leads={leads} channel={channel} pane={pane} box={box} size={size} following={following} />
       </ReactFlow>
+    </div>
+  );
+}
+
+function Warnings({ ids, selectedId, onPick }) {
+  const at = ids.indexOf(selectedId);
+  const go = (by) => {
+    const from = at >= 0 ? at : by > 0 ? -1 : 0;
+    onPick(ids[(from + by + ids.length) % ids.length]);
+  };
+  const label = at >= 0 ? `Warning ${at + 1} of ${ids.length}` : `${ids.length} warning${ids.length > 1 ? "s" : ""}`;
+  const chevron = (d) => (
+    <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true" fill="none"
+         stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d={d} /></svg>
+  );
+  return (
+    <div className="warn-nav" role="group" aria-label="Warnings">
+      <Tip content="Previous warning">
+        <button className="pane-btn" onClick={() => go(-1)} aria-label="Previous warning">{chevron("M10 3.5L5.5 8l4.5 4.5")}</button>
+      </Tip>
+      <Tip content={label}>
+        <span className="warn-count" aria-live="polite" aria-label={label} tabIndex={0}>
+          <svg viewBox="0 0 16 16" width="11" height="11" aria-hidden="true" fill="none" stroke="currentColor"
+               strokeWidth="1.6" strokeLinejoin="round"><path d="M8 2.5l6 10.5H2z M8 6.5v3 M8 11v.5" /></svg>
+          {at >= 0 ? `${at + 1}/${ids.length}` : ids.length}
+        </span>
+      </Tip>
+      <Tip content="Next warning">
+        <button className="pane-btn" onClick={() => go(1)} aria-label="Next warning">{chevron("M6 3.5L10.5 8 6 12.5")}</button>
+      </Tip>
     </div>
   );
 }
@@ -181,5 +215,17 @@ function Distance({ onChange, onFitted }) {
     onChange(far);
     onFitted(true);
   }, [far, onChange, onFitted]);
+  return null;
+}
+
+/** Centre a node the header asked to see, close enough to read it. */
+function Reveal({ request, positions }) {
+  const { getZoom, setCenter } = useReactFlow();
+  useEffect(() => {
+    const at = request && positions[String(request.id)];
+    if (!at) return;
+    const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    setCenter(at.x + NODE_W / 2, at.y + NODE_H / 2, { zoom: Math.max(getZoom(), 0.7), duration: still ? 0 : 400 });
+  }, [request]);
   return null;
 }

@@ -1,10 +1,14 @@
 import { PROP_LABELS, GLOSSARY } from "../lib/glossary";
 import { visibleCounters } from "../lib/counters";
 import { ROLES, conjunction, exprLines, roleOf } from "../lib/polars";
+import { impact, measured, ruleDocs } from "../lib/insights";
 import { bytes, ms, num } from "../lib/format";
 import Help from "./Help";
 import Tip, { TipText } from "./Tip";
 import Code from "./Code";
+
+const Ticks = ({ text }) =>
+  text.split("`").map((part, i) => (i % 2 ? <code key={i}>{part}</code> : part));
 
 const looksExpr = (v) => typeof v === "string" && /[()"]/.test(v);
 
@@ -58,7 +62,7 @@ function Field({ name, value: raw }) {
   return <div className="field"><div className="lbl">{label}</div><Expr lines={lines} /></div>;
 }
 
-export default function NodeDetails({ node, compareNode }) {
+export default function NodeDetails({ node, compareNode, findings }) {
   if (!node) return <div className="empty">Select a node in a plan.</div>;
   const m = node.metrics, other = compareNode?.metrics;
   const props = Object.entries(node.properties || {})
@@ -79,6 +83,27 @@ export default function NodeDetails({ node, compareNode }) {
             #{node.id}
           </span>
         </div>
+        {findings?.length ? (
+          <div className="reasons">
+            {findings.map((f) => (
+              <div className={`reason reason--${f.level}`} key={f.rule}>
+                <b><Ticks text={f.title} /></b>
+                {f.evidence.length ? (
+                  <dl className="evidence">
+                    {f.evidence.map((m) => (
+                      <div key={m.name}><dt>{m.name}</dt><dd>{measured(m)}</dd></div>
+                    ))}
+                  </dl>
+                ) : null}
+                {f.fix ? <div className="fix">fix: <Ticks text={f.fix} /></div> : null}
+                <span className="impact">
+                  {f.kind === "problem" ? `${impact(f)} · ` : ""}
+                  <a href={ruleDocs(f.rule)} target="_blank" rel="noreferrer">{f.rule}</a>
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : null}
         {props.length
           ? props.map(([k, v]) => <Field key={k} name={k} value={v} />)
           : <div className="field"><span className="lbl">No properties on this node.</span></div>}

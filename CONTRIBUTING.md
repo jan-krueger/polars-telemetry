@@ -63,6 +63,31 @@ uv run nox -s capture -- 1.44.2
 The attribute reference is test-guarded: `tests/unit/test_docs.py` fails if a
 declared attribute is missing from `docs/reference/spans-and-metrics.md`.
 
+## Insight rules
+
+Rules live in `src/polars_telemetry/model/insights/rules/`, one module each,
+listed in `rules/__init__.py`. They read `NodeTraits` and the `PlanView`,
+never polars' kind names or expression text: that knowledge belongs in
+`adapter/dialect.py` and `adapter/traits.py`, whose live contract test runs on
+every polars version.
+
+To add one:
+
+1. Write `rules/<id>.py`: a `Rule` with `check` (facts only, no data-size
+   thresholds) returning evidence whose reported fields use `unit()`, and
+   `describe` returning a title (the fact, one line) and a fix (imperative,
+   one line, API names in backticks, no hedging, no why: that goes in the
+   docs).
+2. Add it to `RULES`.
+3. Add a test pair to `tests/insights/test_rules.py`: a plan that shows the
+   pattern, and the closest healthy one that must stay quiet.
+4. Update `EXPECTED` in `tests/insights/test_corpus.py` if it fires on TPC-H,
+   and say why in the comment beside it.
+5. Document it under its id in `docs/insights.md`.
+
+A new fact about nodes goes into `NodeTraits`, read in `adapter/traits.py`
+with a case in `tests/contract/test_live.py`.
+
 ## The viewer
 
 `viewer/` is a Vite + React app built to a single HTML file. `docs/viewer/` is

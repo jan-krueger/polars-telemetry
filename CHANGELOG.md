@@ -4,6 +4,48 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Insights, experimental: rule ids, titles, fixes and evidence may change in
+  a minor release.
+- `polars-telemetry insights FILE…`: reads profile files and reports what
+  slows their queries, ranked by the share of CPU or wall time each finding
+  concerns. The first rules: `in_memory_fallback`, `exploding_join`,
+  `cross_join`, `repeated_string_scan` and `redundant_aggregation`.
+  `--format json`, `--fail-on` for CI, and `--write` to keep the findings in
+  the profiles. See the new Insights page.
+- `Config(insights=True)`: the same findings for every query as it runs,
+  computed after its wall time is measured, and written to profiles as an
+  `insights` field. About 10 ms for a plan of a thousand nodes;
+  `Config(insights=False)` turns it off.
+- Planning time, apart from execution: `polars.planning_ms` on the span, a
+  `polars.query.planning_time` histogram, `planning_ms` in profiles, the
+  console and the viewer. `polars.telemetry_ms` is this package's own work
+  before execution.
+- Insight rules `python_udf`, `datetime_format_inferred`, `repeated_subplan`
+  and `repeated_plugin_call`.
+- Exporters carry the findings: a `polars.insight` event per finding and a
+  `polars.insights.warnings` count on the query span, a `polars.query.insights`
+  counter by rule and level (also over DogStatsD, tagged `rule` and `level`),
+  and the warnings under each query on the console.
+- Viewer: a profile's findings appear on the plan. Arrows in the physical
+  plan's header step through its warnings; flagged nodes get a badge and an
+  outline that shows even far zoomed out, also on the minimap; the node's
+  details open with each finding: its evidence, cost, fix and rule.
+
+### Removed
+- `polars.join.amplification` and `Diagnostics.join_amplification`, deprecated
+  in 0.5.0: use `polars.join.growth`.
+
+### Fixed
+- A plugin's library path relative to the environment, which
+  `register_plugin_function` writes by default, is now masked by
+  `Redaction(paths=True)` and reduced to the library's name in the fingerprint.
+  0.5.0 only recognised absolute paths, so the fingerprint of such a plan still
+  depended on the Python version and platform. **Fingerprints of plans that call
+  a plugin through a relative path inside an aggregation change once.**
+
 ## [0.5.1] - 2026-10-04
 
 ### Added

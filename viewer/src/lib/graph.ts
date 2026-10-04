@@ -11,7 +11,8 @@
 import dagre from "@dagrejs/dagre";
 import type { Edge, Node } from "@xyflow/react";
 import { rows as formatRows } from "./format";
-import type { PlanNode } from "../model/profile";
+import type { Finding, PlanNode } from "../model/profile";
+import { badge } from "./insights";
 
 export const NODE_W = 196;
 export const NODE_H = 56;
@@ -77,6 +78,12 @@ export function distant(flow: { nodes: Node<FlowData>[]; edges: Edge[] }): { nod
 export const startsFar = (plan: Box, pane = { width: 600, height: 700 }): boolean =>
   Math.min(pane.width / plan.width, pane.height / plan.height) < FAR_ZOOM;
 
+const classes = (...names: (string | false | null | undefined)[]): string | undefined =>
+  names.filter(Boolean).join(" ") || undefined;
+const isFaded = (className: string | undefined): boolean => !!className?.split(" ").includes("faded");
+const unfaded = (className: string | undefined): string | undefined =>
+  classes(...(className?.split(" ").filter((c) => c !== "faded") ?? []));
+
 /** The same flow with one node selected; every other node and edge keeps its identity. */
 export function withSelection(
   flow: { nodes: Node<FlowData>[]; edges: Edge[] },
@@ -85,9 +92,9 @@ export function withSelection(
   if (selectedId === null) return flow;
   const id = String(selectedId);
   if (!flow.nodes.some((n) => n.id === id)) return flow;
-  const lit = new Set(flow.nodes.filter((n) => n.className !== "faded" || n.id === id).map((n) => n.id));
+  const lit = new Set(flow.nodes.filter((n) => !isFaded(n.className) || n.id === id).map((n) => n.id));
   return {
-    nodes: flow.nodes.map((n) => (n.id === id ? { ...n, selected: true, className: undefined } : n)),
+    nodes: flow.nodes.map((n) => (n.id === id ? { ...n, selected: true, className: unfaded(n.className) } : n)),
     edges: flow.edges.map((e) =>
       e.source === id || e.target === id
         ? { ...e, className: lit.has(e.source) && lit.has(e.target) ? undefined : "faded" }
@@ -131,6 +138,7 @@ export interface FlowData extends Record<string, unknown> {
   logical: boolean;
   label: string;
   far?: boolean;
+  finding?: "warn" | "info" | null;
 }
 
 /** A node's own CPU time in milliseconds; 0 without counters. */
@@ -184,7 +192,8 @@ export function stepFor(steps: FocusStep[], coverage: number | null): number {
 export function toFlow(
   plan: PlanNode[],
   positions: Positions,
-  { logical, selectedId, thresholdMs = 0 }: { logical: boolean; selectedId: number | null; thresholdMs?: number },
+  { logical, selectedId, thresholdMs = 0, findings }:
+    { logical: boolean; selectedId: number | null; thresholdMs?: number; findings?: Map<number, Finding[]> },
 ): { nodes: Node<FlowData>[]; edges: Edge[] } {
   const total = plan.reduce((sum, n) => sum + cpuMs(n), 0) || 1;
   const byId = new Map(plan.map((n) => [n.id, n]));
@@ -200,8 +209,8 @@ export function toFlow(
     width: NODE_W,
     height: NODE_H,
     selected: selectedId === n.id,
-    className: faded(n) ? "faded" : undefined,
-    data: { node: n, share: (cpuMs(n) / total) * 100, logical, label: n.label },
+    className: classes(faded(n) && "faded", badge(findings?.get(n.id)) && `flag-${badge(findings?.get(n.id))}`),
+    data: { node: n, share: (cpuMs(n) / total) * 100, logical, label: n.label, finding: badge(findings?.get(n.id)) },
   }));
 
   const sent = (n: PlanNode | undefined): number | undefined => {

@@ -60,6 +60,18 @@ physical plan. Each step fades the cheapest nodes still lit, and the readout
 says how many remain and how much of the CPU time they account for. The
 setting carries over to the next query as that share, not as a node count.
 
+## Findings
+
+Profiles written with [insights](insights.md), the default, carry what slows
+each query down. The physical plan's header counts its warnings; its arrows
+step through them, zoomed in close enough to read. A node with a warning
+gets a badge, and an outline that still shows when a large plan is zoomed far
+out; the minimap marks it too. The node's details open with each finding: its
+evidence, what it costs, a fix and a link to the rule.
+
+Profiles written before insights existed show none. Run
+`polars-telemetry insights FILE --write OUT` to add them.
+
 ## Comparing runs
 
 When a query ran more than once, pick another run under **compare with…** and

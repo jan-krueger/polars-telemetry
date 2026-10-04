@@ -223,3 +223,9 @@ def test_a_plugin_library_path_in_an_expression_is_masked_with_paths():
     assert "/opt/app/plugins" in redact(PLUGIN_CALL)
     windows = 'col("v").C:\\envs\\lib\\mypkg\\mypkg.pyd:encrypt()'
     assert redact(windows, Redaction(paths=True)) == 'col("v").<path>:encrypt()'
+
+
+def test_a_relative_plugin_path_is_masked_too():
+    """register_plugin_function defaults to a path relative to the environment."""
+    relative = 'col("v").fill_null(["x"]).lib/python3.12/site-packages/mypkg/mypkg.abi3.so:fold()'
+    assert redact(relative, Redaction(paths=True)).endswith(".<path>:fold()")

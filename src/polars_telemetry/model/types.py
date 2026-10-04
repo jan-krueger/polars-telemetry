@@ -9,6 +9,7 @@ from uuid import UUID
 
 if TYPE_CHECKING:
     from polars_telemetry.model.diagnostics import Diagnostics
+    from polars_telemetry.model.insights.finding import Finding
     from polars_telemetry.model.redaction import Redaction
 
 
@@ -109,6 +110,39 @@ class AggregationFacet:
 
 
 @dataclass(frozen=True, slots=True)
+class CallCount:
+    """How often one function is applied to one input within a node."""
+
+    function: str
+    target: str
+    """An opaque token for the column or expression it is applied to."""
+    count: int
+
+
+@dataclass(frozen=True, slots=True)
+class NodeTraits:
+    """How a node executes, read from polars' vocabulary by the adapter.
+
+    Insight rules read these instead of kind names or expression text, which
+    are polars' to change.
+    """
+
+    in_memory_fallback: bool = False
+    """The streaming engine hands this node's whole input to the in-memory engine."""
+    infers_datetime_format: bool = False
+    python_udf: bool = False
+    deduplicates: bool = False
+    """The node only removes duplicate rows: a distinct, or a grouping whose
+    aggregations each keep a value as it is."""
+    asks_unique: bool = False
+    """An expression of the node asks for unique values."""
+    string_calls: tuple[CallCount, ...] = ()
+    plugin_calls: tuple[CallCount, ...] = ()
+    """Keyed by the whole call, input and arguments included: a count above one is
+    the same computation repeated."""
+
+
+@dataclass(frozen=True, slots=True)
 class PlanNode:
     """One plan node."""
 
@@ -131,6 +165,7 @@ class PlanNode:
     join: JoinFacet | None = None
     sort: SortFacet | None = None
     aggregation: AggregationFacet | None = None
+    traits: NodeTraits = NodeTraits()
 
 
 @dataclass(frozen=True, slots=True)
@@ -215,6 +250,13 @@ class Query:
     """What was masked before this reached the exporter, else None."""
     started_unix_ns: int = 0
     """When the query started, in nanoseconds since the Unix epoch."""
+    insights: tuple[Finding, ...] | None = None
+    """Findings about the plan, most important first; None when not computed."""
+    planning_ms: float | None = None
+    """From the start to polars handing over the plan to run: optimisation and
+    lowering. None when the query failed before planning."""
+    telemetry_ms: float | None = None
+    """polars-telemetry's own work before execution, within wall time."""
 
     @property
     def cpu_ms(self) -> float:

@@ -7,6 +7,7 @@ observer callbacks, sampling, model construction and export.
 from __future__ import annotations
 
 import io
+import time
 from typing import Any
 
 import pytest
@@ -272,6 +273,7 @@ def test_a_query_that_fails_before_planning_still_reports():
     assert query.failed
     assert query.plan == {}, "nothing was planned, so there is no plan"
     assert query.wall_ms > 0
+    assert query.planning_ms is None
 
 
 def test_the_failure_is_the_message_not_a_callback_repr():
@@ -341,6 +343,26 @@ def test_an_unrecognised_kind_is_warned_about_once(monkeypatch, caplog):
     warnings = [r for r in caplog.records if "'GroupBy'" in r.getMessage()]
     assert len(warnings) == 1, "warned once, not per query"
     assert len(collected) == 2, "an unknown kind costs nothing but the warning"
+
+
+def _slowly(df: Any) -> Any:
+    time.sleep(0.2)
+    return df
+
+
+def test_planning_is_timed_apart_from_execution():
+    collected, exporter = _collecting()
+    state = polars_telemetry.install(exporter=exporter)
+    assert state is not None
+    try:
+        polars.LazyFrame({"a": [1, 2]}).map_batches(_slowly).collect()
+    finally:
+        polars_telemetry.uninstall()
+
+    query = collected[-1]
+    assert query.planning_ms is not None
+    assert query.telemetry_ms is not None
+    assert query.wall_ms - query.planning_ms - query.telemetry_ms >= 200
 
 
 def test_a_profile_records_the_polars_that_ran_it():

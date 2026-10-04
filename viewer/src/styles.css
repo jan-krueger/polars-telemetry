@@ -135,6 +135,28 @@ pre.snip b{color:var(--ink);font-weight:500}
 .pnode .t1{font:600 11px ui-monospace,monospace;display:flex;align-items:center;gap:5px}
 .pnode .t2{font:9.5px system-ui;opacity:.76;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pnode .t3{font:9.5px system-ui;opacity:.92;font-variant-numeric:tabular-nums}
+.pflag{position:absolute;top:5px;right:20px;display:inline-flex}
+.pflag--warn{color:var(--warn)}
+.pflag--info{opacity:.6}
+.react-flow__node.flag-warn .pnode{box-shadow:0 0 0 3px var(--warn)}
+.react-flow__minimap-node.flag-warn{fill:var(--warn)}
+.reasons{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
+.reason{padding:6px 9px;border-radius:6px;font-size:11.5px;line-height:1.45;color:var(--ink-2);
+  background:var(--surface-2);border:1px solid var(--border)}
+.reason b{display:block;color:var(--ink);font-weight:600;margin-bottom:1px}
+.reason .impact{display:block;margin-top:3px;font-size:10.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.reason .impact a{color:inherit}
+.reason code{font:10.5px ui-monospace,monospace}
+.reason .evidence{display:grid;grid-template-columns:auto 1fr;gap:0 10px;margin:3px 0;font:10.5px ui-monospace,monospace}
+.reason .evidence div{display:contents}
+.reason .evidence dt{color:var(--muted)}
+.reason .evidence dd{margin:0;color:var(--ink);font-variant-numeric:tabular-nums}
+.reason .fix{margin-top:2px}
+.reason--warn{background:color-mix(in srgb,var(--warn) 12%,transparent);border-color:color-mix(in srgb,var(--warn) 40%,transparent)}
+.reason--applied{background:color-mix(in srgb,var(--good) 10%,transparent);border-color:color-mix(in srgb,var(--good) 35%,transparent)}
+.warn-nav{display:flex;align-items:center;font-size:10.5px;color:var(--warn)}
+.warn-nav .pane-btn{color:var(--warn)}
+.warn-count{display:inline-flex;align-items:center;gap:3px;font-variant-numeric:tabular-nums;white-space:nowrap}
 .pnode .status{position:absolute;top:7px;right:8px;width:8px;height:8px;border-radius:50%}
 
 .card{border:1px solid var(--border);border-radius:8px;background:var(--surface);
@@ -272,9 +294,9 @@ button.zone:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 .masked{color:var(--warn)}
 
 .focus{display:flex;align-items:center;gap:8px;margin-left:auto;font-size:10.5px;color:var(--muted)}
-.focus input{width:110px;accent-color:var(--accent)}
+.focus input{width:90px;accent-color:var(--accent)}
 /* A fixed width, so the slider stays put while the text changes. */
-.focus-val{width:29ch;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;
+.focus-val{width:22ch;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;
   overflow:hidden;text-overflow:ellipsis}
 .react-flow__node.faded,.react-flow__edge.faded,.react-flow__minimap-node.faded{opacity:.16}
 .react-flow__node,.react-flow__edge,.react-flow__minimap-node{transition:opacity .18s ease}

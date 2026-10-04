@@ -108,16 +108,17 @@ _TOKEN = re.compile(
 # Quoted text directly after these is a column or alias name, not user data.
 _NAME_CONTEXT = re.compile(r"(?:col|alias|name|nth|field|prefix|suffix)\($")
 
-# A plugin function in expression text: its shared library's path, then `:name(`.
-_PLUGIN = re.compile(
-    r'(?:[A-Za-z]:)?[\\/](?:[^\s"():]*[\\/])?(?P<library>[^\s"():\\/.]+)'
-    r'[^\s"():\\/]*\.(?:so|dylib|dll|pyd)(?=:)'
+# A plugin function in expression text: a method dot, its shared library's path,
+# absolute or relative to the environment, then `:name(`.
+PLUGIN_PATH = re.compile(
+    r'(?<=\.)(?:[A-Za-z]:)?(?:[^\s"():\\/]*[\\/])+(?P<library>[^\s"():\\/.]+)'
+    r'[^\s"():\\/]*\.(?:so|dylib|dll|pyd)(?=:(?P<symbol>[A-Za-z_]\w*))'
 )
 
 
 def plugin_libraries(text: str) -> str:
     """Expression text with each plugin's library path reduced to the library's name."""
-    return _PLUGIN.sub(lambda match: match["library"], text)
+    return PLUGIN_PATH.sub(lambda match: match["library"], text)
 
 
 # Plan properties holding a file path rather than an expression.
@@ -139,7 +140,7 @@ def redact(text: str, redaction: Redaction = LITERALS) -> str:
 
     def unquoted(segment: str) -> str:
         if redaction.paths:
-            segment = _PLUGIN.sub("<path>", segment)
+            segment = PLUGIN_PATH.sub("<path>", segment)
         return _TOKEN.sub(mask, segment)
 
     parts, last = [], 0

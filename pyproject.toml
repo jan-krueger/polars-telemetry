@@ -45,6 +45,9 @@ datadog = [
 ]
 
 
+[project.scripts]
+polars-telemetry = "polars_telemetry.cli:main"
+
 [project.urls]
 Homepage = "https://github.com/jan-krueger/polars-telemetry"
 Issues = "https://github.com/jan-krueger/polars-telemetry/issues"

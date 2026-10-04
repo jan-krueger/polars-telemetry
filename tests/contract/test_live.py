@@ -133,3 +133,53 @@ def test_an_in_memory_fallback_says_what_it_runs_only_when_asked(describe: str) 
     else:
         assert described == [None] * len(described)
     assert result["env"] is None, "uninstall() must put the variable back"
+
+
+_TRAITS = """
+import json
+import polars as pl
+import polars_telemetry as pt
+lf = pl.LazyFrame(
+    {
+        "g": [i % 7 for i in range(1_000)],
+        "s": [f"x{i}" for i in range(1_000)],
+        "day": [f"2024-01-{i % 28 + 1:02d}" for i in range(1_000)],
+    }
+)
+query = lf.with_columns(
+    t=pl.col("s").str.replace("1", "a").str.replace("2", "b").str.replace("3", "c")
+    .str.replace("4", "d"),
+    d=pl.col("day").str.to_datetime(),
+    r=pl.col("g").rank().over("g"),
+    u=pl.col("g").map_elements(lambda v: v, return_dtype=pl.Int64),
+)
+prepared = lf.filter(pl.col("g") > 1).with_columns(h=pl.col("s").str.len_chars())
+with pt.profile() as session:
+    query.collect()
+    lf.map_batches(lambda df: df).collect()
+    prepared.join(prepared, on="s").collect()
+print(json.dumps({
+    "nodes": [n for d in session.profiles() for n in d["plan"]["physical"]],
+    "rules": [f["rule"] for d in session.profiles() for f in d["insights"]["findings"]],
+}))
+"""
+
+
+def test_traits_read_what_polars_writes_today() -> None:
+    """Breaks when polars changes the kind names or expression text traits read."""
+    import subprocess
+    import sys
+
+    from polars_telemetry.adapter.traits import traits
+
+    out = subprocess.run(  # noqa: S603
+        [sys.executable, "-c", _TRAITS], capture_output=True, text=True, check=True
+    )
+    result = json.loads(out.stdout.strip().splitlines()[-1])
+    found = [traits(n["kind"], n.get("properties") or {}) for n in result["nodes"]]
+    assert any(t.in_memory_fallback for t in found), "rank().over() no longer falls back"
+    assert any(t.infers_datetime_format for t in found), "to_datetime() no longer infers"
+    assert sum(t.python_udf for t in found) >= 2, "map_elements or LazyFrame.map_batches unseen"
+    assert "repeated_subplan" not in result["rules"], "polars no longer shares a reused frame"
+    replaces = [c.count for t in found for c in t.string_calls if c.function == "replace"]
+    assert max(replaces, default=0) == 4, "the str.replace chain is no longer read"

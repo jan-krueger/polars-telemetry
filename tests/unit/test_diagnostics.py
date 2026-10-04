@@ -153,7 +153,6 @@ def test_join_growth_compares_with_the_larger_input():
     """A small table joined to a big one is not fan-out, whichever side comes first."""
     diagnostics = derive(_join_query(left=100, right=1_000_000, out=1_000_000))
     assert diagnostics.join_growth == 1.0
-    assert diagnostics.join_amplification == 10_000.0
 
 
 def test_join_growth_shows_many_to_many_keys():

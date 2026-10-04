@@ -139,3 +139,26 @@ describe("profiles without a query_id", () => {
     expect(imported.profiles.map((p) => p.query_id)).toEqual(stored.profiles.map((p) => p.query_id));
   });
 });
+
+describe("insights", () => {
+  const finding = {
+    rule: "exploding_join", kind: "problem", level: "warn", node_id: 7, node_kind: "EquiJoin",
+    cpu_share: 0.4, blocked_share: 0.01, title: "Join emits 5x its larger input", fix: "join on the full key",
+    evidence: [{ name: "growth", value: 5, unit: "ratio" }, { name: "note", value: "dropped", unit: "count" }],
+  };
+  const read = (insights: unknown) => {
+    const result = readProfile({ ...JSON.parse(JSON.stringify(fixture)), insights });
+    if ("problem" in result) throw new Error(result.problem);
+    return result.profile.insights;
+  };
+
+  it("keeps findings as written, numbers only in their evidence", () => {
+    expect(read({ schema: "insights@1", findings: [finding] })).toEqual([{ ...finding, evidence: [finding.evidence[0]] }]);
+  });
+
+  it("leaves out malformed findings and unknown schemas rather than guessing", () => {
+    expect(read({ schema: "insights@1", findings: [finding, { ...finding, level: "fatal" }, "x"] })).toHaveLength(1);
+    expect(read({ schema: "insights@2", findings: [finding] })).toBeNull();
+    expect(read(undefined)).toBeNull();
+  });
+});

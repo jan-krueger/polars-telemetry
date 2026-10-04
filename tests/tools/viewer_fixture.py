@@ -39,7 +39,7 @@ def profile_document() -> dict[str, object]:
         polars_version=fixture.name,
     )
     with mock.patch("polars_telemetry.adapter.build.threads", return_value=8):
-        return build_profile(enrich(query))
+        return build_profile(enrich(query, insights=True))
 
 
 def dialect_table() -> dict[str, str]:

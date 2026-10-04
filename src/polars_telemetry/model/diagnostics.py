@@ -32,10 +32,6 @@ class Diagnostics:
 
     filter_rows_dropped: int | None = None
 
-    join_amplification: float | None = None
-    """Deprecated: use `join_growth`. Rows out over the first input's rows,
-    which flags an ordinary join against a small table as fan-out."""
-
     join_growth: float | None = None
     """The largest join's rows out over its larger input. Above 2 needs
     many-to-many keys: a one-to-many join stays within both inputs together."""
@@ -77,7 +73,7 @@ def derive(query: Query, threads: int | None = None) -> Diagnostics:
         else None
     )
 
-    selectivity = dropped = amplification = growth = projection = skew = None
+    selectivity = dropped = growth = projection = skew = None
     columns_read = 0
     pushed = skipped = stats = None
     incomplete = 0
@@ -99,10 +95,6 @@ def derive(query: Query, threads: int | None = None) -> Diagnostics:
             dropped = metric.rows_received - metric.rows_sent
 
         if node.role in JOIN_ROLES and node.inputs:
-            probe = query.metrics.get(node.inputs[0])
-            if probe and probe.rows_sent:
-                ratio = metric.rows_sent / probe.rows_sent
-                amplification = ratio if amplification is None else max(amplification, ratio)
             larger = max(
                 (
                     received.rows_sent / consumers.get(input_id, 1)
@@ -152,7 +144,6 @@ def derive(query: Query, threads: int | None = None) -> Diagnostics:
         cpu_count=cores,
         filter_selectivity=selectivity,
         filter_rows_dropped=dropped,
-        join_amplification=amplification,
         join_growth=growth,
         projection_efficiency=projection,
         morsel_skew=skew,

@@ -73,3 +73,11 @@ def test_every_config_option_is_in_both_option_tables():
         text = path.read_text()
         table = set(re.findall(r"\| `([a-z_]+)` \| `?[^|]*?`? \|", text))
         assert options <= table, f"{path.name} omits {sorted(options - table)}"
+
+
+def test_every_insight_rule_is_documented():
+    from polars_telemetry.model.insights.rules import RULES
+
+    page = (Path(__file__).parents[2] / "docs" / "insights.md").read_text()
+    missing = [rule.id for rule in RULES if f"### `{rule.id}`" not in page]
+    assert missing == []

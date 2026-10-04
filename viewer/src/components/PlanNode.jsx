@@ -9,7 +9,7 @@ const bin = (p) => (p >= 50 ? 4 : p >= 10 ? 3 : p >= 1 ? 2 : 1);
 /** The logical plan has no counters, so it is drawn as an outline: filling a
  *  node by CPU share would imply a cost it does not have. */
 export default function PlanNode({ data, selected }) {
-  const { node, share, logical, label, far } = data;
+  const { node, share, logical, label, far, finding } = data;
   const role = roleOf(node);
   const info = ROLES[role];
   // A relation is a leaf in the algebra: it is named, not given an operator.
@@ -44,6 +44,13 @@ export default function PlanNode({ data, selected }) {
         <div className="t3">
           {share >= 0.1 ? `${num(share, 1)}% · ` : ""}{ms(cpuMs(node))}
         </div>
+      ) : null}
+      {finding ? (
+        <span className={`pflag pflag--${finding}`} aria-label={finding === "warn" ? "Warning" : "Information"}>
+          {finding === "warn"
+            ? <svg viewBox="0 0 12 11" width="12" height="11" aria-hidden="true"><path d="M6 .8 11.4 10.2H.6Z" fill="currentColor" /><path d="M6 4v3M6 8.4v.2" stroke="var(--surface)" strokeWidth="1.4" strokeLinecap="round" /></svg>
+            : <svg viewBox="0 0 10 10" width="9" height="9" aria-hidden="true"><circle cx="5" cy="5" r="3.2" fill="none" stroke="currentColor" strokeWidth="1.4" /></svg>}
+        </span>
       ) : null}
       {!logical && node.metrics ? (
         <Tip content={node.metrics.done ? "Completed" : "Unfinished when the counters were read"}>

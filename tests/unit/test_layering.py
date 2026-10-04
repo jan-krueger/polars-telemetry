@@ -57,7 +57,7 @@ def _violates(name: str, rule: str) -> bool:
 def test_layer_imports_point_inward(layer: str) -> None:
     offenders = [
         f"{path.relative_to(PACKAGE)} imports {name}"
-        for path in sorted((PACKAGE / layer).glob("*.py"))
+        for path in sorted((PACKAGE / layer).rglob("*.py"))
         for name in _imports(path)
         if any(_violates(name, rule) for rule in FORBIDDEN[layer])
         or name == "polars_telemetry (root)"

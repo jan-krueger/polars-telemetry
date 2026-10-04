@@ -84,6 +84,21 @@ class OTelExporter:
                 include_plan=self._config.include_plan,
             ),
         )
+        for finding in query.insights or ():
+            span.add_event(
+                semconv.INSIGHT_EVENT,
+                attributes={
+                    semconv.INSIGHT_RULE: finding.rule,
+                    semconv.INSIGHT_LEVEL: finding.level,
+                    semconv.NODE_KIND: finding.node_kind,
+                    semconv.INSIGHT_TITLE: finding.title,
+                    semconv.INSIGHT_FIX: finding.fix,
+                    semconv.INSIGHT_EVIDENCE: " · ".join(map(str, finding.evidence)),
+                    semconv.INSIGHT_CPU_SHARE: round(finding.impact.cpu_share, 4),
+                    semconv.INSIGHT_BLOCKED_SHARE: round(finding.impact.blocked_share, 4),
+                },
+                timestamp=end_ns,
+            )
         if query.failed:
             span.set_status(Status(StatusCode.ERROR, query.failed))
         else:

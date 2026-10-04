@@ -48,7 +48,7 @@ A `polars.collect` span per query, on whatever trace context was active:
   group-by keys
 - `polars.cpu_ms`, `polars.parallelism`, result rows
 - the hottest node and its share of total CPU
-- diagnostics — parallel efficiency, filter selectivity, join amplification,
+- diagnostics — parallel efficiency, filter selectivity, join growth,
   projection efficiency, morsel skew, predicate pushdown, row-group skipping
 - the file, line and function that ran the query, as OpenTelemetry's
   `code.*` attributes
@@ -138,6 +138,7 @@ polars_telemetry.install(Config(node_metrics=False))
 | `include_plan` | `False` | Attach the full plan to the span as JSON |
 | `call_site` | `True` | Record the file, line and function that ran the query |
 | `describe_fallbacks` | `True` | Have polars describe what an in-memory fallback node runs |
+| `insights` | `True` | Find what slows each query down; see [Insights](https://jan-krueger.github.io/polars-telemetry/insights/) |
 | `redaction` | `None` | What to mask before exporters see a query; `Redaction()` masks literal values |
 
 ## Your data

@@ -105,6 +105,16 @@ _BY_KIND: dict[str, NodeRole] = {
     "Zip": NodeRole.ENGINE,
 }
 
+# polars' own plan graph marks these as in-memory engine fallbacks (NodeStyle in
+# polars-stream's physical_plan/fmt.rs); InMemoryAsOfJoin is the same mechanism.
+IN_MEMORY_FALLBACK = frozenset(
+    {"InMemoryMap", "InMemoryJoin", "InMemoryAsOfJoin", "ColumnarFunction"}
+)
+INFERS_DATETIME_FORMAT = "StrptimeInfer"
+PYTHON_FORMAT = "OPAQUE_PYTHON"
+DEDUPLICATING = frozenset({"Distinct", "SortedUnique"})
+GROUPING = frozenset({"GroupBy", "SortedGroupBy"})
+
 # Kinds whose role depends on a property, not the kind alone; see `role_of`.
 _IR_SEMI_ANTI = frozenset({"SEMI", "ANTI"})
 

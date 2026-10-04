@@ -17,6 +17,8 @@ The span is named `polars.collect`.
 | `polars.plan.fingerprint` | str | Hash of the plan *shape* — see below |
 | `polars.engine` | str | `streaming`, or `in-memory` for eager operations and an explicit `engine="in-memory"`. Absent when the query failed before planning |
 | `polars.cpu_ms` | float | Summed node self time; exceeds wall time when parallel |
+| `polars.planning_ms` | float | Start to execution: polars optimising and lowering the plan |
+| `polars.telemetry_ms` | float | polars-telemetry's own work before execution |
 | `polars.parallelism` | float | `cpu_ms / wall_ms` |
 | `polars.parallel_efficiency` | float | `cpu_ms / wall_ms / cpu_count`, 0–1 |
 | `polars.cpu_count` | int | Threads polars can use: its pool size, which honours CPU affinity, a container or systemd CPU quota, and `POLARS_MAX_THREADS` |
@@ -76,7 +78,6 @@ the relevant kind.
 | `polars.filter.selectivity` | float | Rows surviving the filter, 0–1 |
 | `polars.filter.rows_dropped` | int | Rows removed before the rest of the plan |
 | `polars.join.growth` | float | The largest join's rows out over its larger input; above 2 means many-to-many keys |
-| `polars.join.amplification` | float | **Deprecated**, removed in 0.6.0: use `polars.join.growth`. Rows out over the first input's rows |
 | `polars.projection.efficiency` | float | Columns read over columns in the file |
 | `polars.morsel.skew` | float | Largest morsel over the mean; above 1 is uneven |
 | `polars.scan.predicate_pushed` | bool | True if **any** scan filters inside the scan |
@@ -123,6 +124,24 @@ shape. Enable with `Config(include_plan=True)` when you want the topology,
 which nothing else carries. Contains both the physical and IR node lists with
 `id`, `kind` and `inputs`, plus every per-node counter.
 
+### Insights
+
+One `polars.insight` event per [finding](../insights.md), most important first.
+Experimental: rule ids and their texts may change in a minor release; the
+attribute names below will not.
+
+| Attribute | Type | Example |
+| --- | --- | --- |
+| `polars.insights.warnings` | int | `2` (on the span) |
+| `polars.insight.rule` | str | `exploding_join` |
+| `polars.insight.level` | str | `warn`, `info`, `applied` |
+| `polars.node.kind` | str | `EquiJoin` |
+| `polars.insight.title` | str | `Join emits 41.3x its larger input` |
+| `polars.insight.evidence` | str | `rows_out 12.4M · max_rows_in 301K · growth 41.3x` |
+| `polars.insight.fix` | str | ``join on the full key`` |
+| `polars.insight.cpu_share` | float | `0.46` |
+| `polars.insight.blocked_share` | float | `0.02` |
+
 ## Metrics
 
 Query-level, dimensioned by `polars.plan.fingerprint` and `polars.engine`:
@@ -131,6 +150,7 @@ Query-level, dimensioned by `polars.plan.fingerprint` and `polars.engine`:
 | --- | --- | --- |
 | `polars.query.duration` | histogram | ms |
 | `polars.query.cpu_time` | histogram | ms |
+| `polars.query.planning_time` | histogram | ms |
 | `polars.query.parallel_efficiency` | histogram | 1 |
 
 Node-level, dimensioned by `polars.node.kind` and `polars.engine`:
@@ -152,6 +172,13 @@ Node-level, dimensioned by `polars.node.kind` and `polars.engine`:
 | `polars.node.polls` | counter | {poll} |
 | `polars.node.state_updates` | counter | {update} |
 | `polars.node.io_bytes` | counter | By |
+
+Query-level, dimensioned by `polars.plan.fingerprint`, `polars.insight.rule` and
+`polars.insight.level`, all bounded:
+
+| Instrument | Type | Unit |
+| --- | --- | --- |
+| `polars.query.insights` | counter | {finding} |
 
 `polars.node.io_bytes` and `polars.node.largest_morsel` carry one extra
 dimension, `polars.direction`. For bytes its values are `requested`,

@@ -29,6 +29,30 @@ export interface CallSite {
   function: string;
 }
 
+export type FindingLevel = "warn" | "info" | "applied";
+
+export type Unit = "rows" | "count" | "ms" | "share" | "ratio";
+
+export interface Measure {
+  name: string;
+  value: number;
+  unit: Unit;
+}
+
+/** One insight about one node, as polars-telemetry wrote it (insights@1). */
+export interface Finding {
+  rule: string;
+  kind: "problem" | "applied";
+  level: FindingLevel;
+  node_id: number;
+  node_kind: string;
+  cpu_share: number;
+  blocked_share: number;
+  title: string;
+  fix: string;
+  evidence: Measure[];
+}
+
 export interface Profile {
   query_id: string;
   /** Set with polars_telemetry.label(); nested labels joined with "/". */
@@ -40,11 +64,17 @@ export interface Profile {
   fingerprint: string;
   started_unix_ns: number;
   wall_ms: number;
+  /** Start to execution: polars optimising and lowering the plan; null before 0.6. */
+  planning_ms: number | null;
+  /** polars-telemetry's own work before execution, within wall time. */
+  telemetry_ms: number | null;
   cpu_ms: number;
   result_rows: number | null;
   call_site: CallSite | null;
   failed: string | null;
   diagnostics: Record<string, unknown>;
+  /** Most important first; null when the profile was written without insights. */
+  insights: Finding[] | null;
   plan: { physical: PlanNode[]; logical: PlanNode[] };
 }
 
