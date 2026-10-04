@@ -61,10 +61,14 @@ class ConsoleExporter:
 
         findings = query.insights or ()
         for finding in (f for f in findings if f.level == "warn"):
-            lines.append(f"  warning: {finding.title} [{finding.rule}, {finding.node_kind}]")
+            lines.append(
+                f"  warn  {finding.title}  [{finding.rule}, {finding.node_kind} #{finding.node_id}]"
+            )
+            lines.append(f"        {' · '.join(map(str, finding.evidence))}")
+            lines.append(f"        fix: {finding.fix}")
         quiet = sum(f.level == "info" for f in findings)
         if quiet:
-            lines.append(f"  {quiet} more findings as information; see polars-telemetry insights")
+            lines.append(f"  info  {quiet} more; `polars-telemetry insights --all` lists them")
 
         self._stream.write("\n".join(lines) + "\n")
         self._stream.flush()

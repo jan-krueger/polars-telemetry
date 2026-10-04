@@ -145,6 +145,13 @@ pre.snip b{color:var(--ink);font-weight:500}
   background:var(--surface-2);border:1px solid var(--border)}
 .reason b{display:block;color:var(--ink);font-weight:600;margin-bottom:1px}
 .reason .impact{display:block;margin-top:3px;font-size:10.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.reason .impact a{color:inherit}
+.reason code{font:10.5px ui-monospace,monospace}
+.reason .evidence{display:grid;grid-template-columns:auto 1fr;gap:0 10px;margin:3px 0;font:10.5px ui-monospace,monospace}
+.reason .evidence div{display:contents}
+.reason .evidence dt{color:var(--muted)}
+.reason .evidence dd{margin:0;color:var(--ink);font-variant-numeric:tabular-nums}
+.reason .fix{margin-top:2px}
 .reason--warn{background:color-mix(in srgb,var(--warn) 12%,transparent);border-color:color-mix(in srgb,var(--warn) 40%,transparent)}
 .reason--applied{background:color-mix(in srgb,var(--good) 10%,transparent);border-color:color-mix(in srgb,var(--good) 35%,transparent)}
 .warnings{background:none;border:0;padding:0;font:inherit;color:var(--warn);cursor:pointer}

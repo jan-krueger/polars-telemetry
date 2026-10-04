@@ -38,7 +38,7 @@ def run(*argv: str) -> tuple[int, str]:
 def test_text_lists_warnings_and_counts_the_rest(q20: Path):
     code, text = run(str(q20))
     assert code == 0
-    assert "Grouping kept every row  [redundant_aggregation, GroupBy]" in text
+    assert "Deduplication removes no rows  [redundant_aggregation, GroupBy #" in text
     assert "line 4 skipped" in text
     assert text.rstrip().endswith("3 queries: 1 warnings, 2 information, 0 applied")
 

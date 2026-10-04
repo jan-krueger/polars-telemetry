@@ -143,8 +143,8 @@ describe("profiles without a query_id", () => {
 describe("insights", () => {
   const finding = {
     rule: "exploding_join", kind: "problem", level: "warn", node_id: 7, node_kind: "EquiJoin",
-    cpu_share: 0.4, blocked_share: 0.01, title: "Join emits 5.0x its larger input", detail: "…",
-    evidence: { growth: 5, note: "dropped" },
+    cpu_share: 0.4, blocked_share: 0.01, title: "Join emits 5x its larger input", fix: "join on the full key",
+    evidence: [{ name: "growth", value: 5, unit: "ratio" }, { name: "note", value: "dropped", unit: "count" }],
   };
   const read = (insights: unknown) => {
     const result = readProfile({ ...JSON.parse(JSON.stringify(fixture)), insights });
@@ -153,7 +153,7 @@ describe("insights", () => {
   };
 
   it("keeps findings as written, numbers only in their evidence", () => {
-    expect(read({ schema: "insights@1", findings: [finding] })).toEqual([{ ...finding, evidence: { growth: 5 } }]);
+    expect(read({ schema: "insights@1", findings: [finding] })).toEqual([{ ...finding, evidence: [finding.evidence[0]] }]);
   });
 
   it("leaves out malformed findings and unknown schemas rather than guessing", () => {

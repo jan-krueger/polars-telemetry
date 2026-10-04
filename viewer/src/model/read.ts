@@ -7,7 +7,7 @@
  */
 
 import { nodeLabel, roleOf, type RawNode } from "../lib/polars";
-import type { Finding, FindingLevel, Metrics, PlanNode, Profile, Session, StoredSession } from "./profile";
+import type { Finding, FindingLevel, Measure, Metrics, PlanNode, Profile, Session, StoredSession } from "./profile";
 
 export const SCHEMA_PREFIX = "polars-telemetry/profile@";
 export const SUPPORTED_VERSIONS: ReadonlySet<number> = new Set([1]);
@@ -156,8 +156,16 @@ function readInsights(raw: unknown): Finding[] | null {
       cpu_share: num(f.cpu_share),
       blocked_share: num(f.blocked_share),
       title: str(f.title),
-      detail: str(f.detail),
-      evidence: isObject(f.evidence) ? scalars(f.evidence) : {},
+      fix: str(f.fix),
+      evidence: Array.isArray(f.evidence) ? f.evidence.flatMap(readMeasure) : [],
     }];
   });
+}
+
+const UNITS: readonly Measure["unit"][] = ["rows", "count", "ms", "share", "ratio"];
+
+function readMeasure(m: unknown): Measure[] {
+  if (!isObject(m) || typeof m.name !== "string" || !Number.isFinite(m.value)) return [];
+  const unit = UNITS.includes(m.unit as Measure["unit"]) ? (m.unit as Measure["unit"]) : "count";
+  return [{ name: m.name, value: m.value as number, unit }];
 }

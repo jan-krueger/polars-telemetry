@@ -70,13 +70,12 @@ NODE_KIND: Final = "polars.node.kind"
 DIRECTION: Final = "polars.direction"
 
 INSIGHTS_WARNINGS: Final = "polars.insights.warnings"
-"""Findings at warning level on this query; absent when insights are off."""
 INSIGHT_EVENT: Final = "polars.insight"
-"""A span event per finding."""
 INSIGHT_RULE: Final = "polars.insight.rule"
 INSIGHT_LEVEL: Final = "polars.insight.level"
 INSIGHT_TITLE: Final = "polars.insight.title"
-INSIGHT_DETAIL: Final = "polars.insight.detail"
+INSIGHT_FIX: Final = "polars.insight.fix"
+INSIGHT_EVIDENCE: Final = "polars.insight.evidence"
 INSIGHT_CPU_SHARE: Final = "polars.insight.cpu_share"
 INSIGHT_BLOCKED_SHARE: Final = "polars.insight.blocked_share"
 
@@ -91,9 +90,8 @@ CARRIES_USER_DATA: Final[frozenset[str]] = frozenset(
 METRIC_DIMENSIONS: Final[frozenset[str]] = frozenset(
     {NODE_KIND, ENGINE, PLAN_FINGERPRINT, DIRECTION, INSIGHT_RULE, INSIGHT_LEVEL}
 )
-"""Every one is bounded: node kinds, io directions, insight rules and levels
-are closed sets, and a plan fingerprint is bounded by the application's code
-paths."""
+"""Every one is bounded: node kinds and io directions are closed sets, and a
+plan fingerprint is bounded by the application's code paths."""
 
 # Instrument names. Public API in the same way attribute names are.
 QUERY_DURATION: Final = "polars.query.duration"

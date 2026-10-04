@@ -6,8 +6,8 @@ import logging
 from dataclasses import dataclass
 from typing import ClassVar
 
-from polars_telemetry.model.insights import evaluate
-from polars_telemetry.model.insights.finding import Text
+from polars_telemetry.model.insights import Finding, evaluate
+from polars_telemetry.model.insights.finding import Measure, Text, unit
 from polars_telemetry.model.insights.rule import Rule
 from polars_telemetry.model.insights.view import PlanView
 from polars_telemetry.model.types import PlanNode
@@ -16,8 +16,9 @@ from tests.insights.plans import Plan
 
 @dataclass(frozen=True)
 class Seen:
-    rows: int
+    rows: int = unit("rows")
     note: str = "not a number"
+    untagged: int = 3
 
 
 class EveryFilter(Rule[Seen]):
@@ -81,10 +82,11 @@ def test_a_failing_rule_is_reported_once_and_the_others_still_run(caplog):
     assert sum("broken" in r.getMessage() for r in caplog.records) == 1
 
 
-def test_evidence_keeps_numbers_only():
+def test_evidence_is_the_fields_tagged_with_a_unit():
     finding = evaluate(plan().query(), [EveryFilter()])[0]
-    assert finding.evidence == {"rows": 500}
-    assert finding.to_dict()["evidence"] == {"rows": 500}
+    assert finding.evidence == (Measure("rows", 500, "rows"),)
+    assert finding.to_dict()["evidence"] == [{"name": "rows", "value": 500, "unit": "rows"}]
+    assert Finding.from_dict(finding.to_dict()).to_dict() == finding.to_dict()
 
 
 def test_a_query_without_a_physical_plan_has_no_findings():

@@ -125,20 +125,19 @@ which nothing else carries. Contains both the physical and IR node lists with
 
 ### Insights
 
-With `Config(insights=True)`, the default, the span carries one
-`polars.insight` event per [finding](../insights.md), most important first,
-timed at the end of the query.
+One `polars.insight` event per [finding](../insights.md), most important first.
 
-| Attribute | Type | Notes |
+| Attribute | Type | Example |
 | --- | --- | --- |
-| `polars.insights.warnings` | int | Findings at warning level, on the span itself |
-| `polars.insight.rule` | str | Rule id, e.g. `exploding_join` |
-| `polars.insight.level` | str | `warn`, `info` or `applied` |
-| `polars.node.kind` | str | The node the finding concerns |
-| `polars.insight.title` | str | One line; numbers and node kinds only |
-| `polars.insight.detail` | str | What it means and what helps |
-| `polars.insight.cpu_share` | float | Share of query CPU it concerns, 0–1 |
-| `polars.insight.blocked_share` | float | Share of wall time one of its steps held, 0–1 |
+| `polars.insights.warnings` | int | `2` (on the span) |
+| `polars.insight.rule` | str | `exploding_join` |
+| `polars.insight.level` | str | `warn`, `info`, `applied` |
+| `polars.node.kind` | str | `EquiJoin` |
+| `polars.insight.title` | str | `Join emits 41.3x its larger input` |
+| `polars.insight.evidence` | str | `rows_out 12.4M · max_rows_in 301K · growth 41.3x` |
+| `polars.insight.fix` | str | ``join on the full key`` |
+| `polars.insight.cpu_share` | float | `0.46` |
+| `polars.insight.blocked_share` | float | `0.02` |
 
 ## Metrics
 

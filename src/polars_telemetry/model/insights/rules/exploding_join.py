@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar
 
-from polars_telemetry.model.insights.finding import Impact, Text
+from polars_telemetry.model.insights.finding import Impact, Text, unit
 from polars_telemetry.model.insights.rule import Rule
 from polars_telemetry.model.types import NodeRole
 
@@ -20,9 +20,9 @@ larger one; beyond that, keys repeat on both sides. Spark and Databricks use 2x.
 
 @dataclass(frozen=True, slots=True)
 class Explosion:
-    rows_out: int
-    larger_input: float
-    growth: float
+    rows_out: int = unit("rows")
+    max_rows_in: float = unit("rows")
+    growth: float = unit("ratio")
 
 
 class ExplodingJoin(Rule[Explosion]):
@@ -37,13 +37,11 @@ class ExplodingJoin(Rule[Explosion]):
         return Explosion(out, larger, out / larger)
 
     def impact(self, node: PlanNode, evidence: Explosion, view: PlanView) -> Impact:
-        region = (node, *view.carriers(node, evidence.larger_input * EXPLODES_AT))
+        region = (node, *view.carriers(node, evidence.max_rows_in * EXPLODES_AT))
         return Impact(view.cpu_share(*region), view.blocked_share(node))
 
     def describe(self, evidence: Explosion) -> Text:
         return Text(
-            f"Join emits {evidence.growth:,.1f}x its larger input",
-            f"{evidence.rows_out:,} rows out from at most {evidence.larger_input:,.0f} in: "
-            "keys repeat on both sides. Deduplicate or aggregate one side first, or add the "
-            "missing key column.",
+            f"Join emits {evidence.growth:.3g}x its larger input",
+            "`unique(subset=keys)` or `group_by(keys)` one input first, or join on the full key",
         )

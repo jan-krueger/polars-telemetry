@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from polars_telemetry.model.types import Query
 
 _FAILS = {"warn": {"warn"}, "info": {"warn", "info"}}
+_INDENT = " " * 19
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -89,9 +90,13 @@ def _text(
         )
         for finding in shown:
             out.write(
-                f"  {_level(finding)}  {finding.title}  [{finding.rule}, {finding.node_kind}]\n"
+                f"  {_level(finding)}  {finding.title}  "
+                f"[{finding.rule}, {finding.node_kind} #{finding.node_id}]\n"
             )
-            out.write(f"          {finding.detail}\n")
+            if finding.evidence:
+                out.write(f"{_INDENT}{' · '.join(map(str, finding.evidence))}\n")
+            if finding.fix:
+                out.write(f"{_INDENT}fix: {finding.fix}\n")
         if hidden:
             listed = ", ".join(f"{rule} x{count}" for rule, count in hidden.most_common())
             out.write(
@@ -108,10 +113,10 @@ def _text(
 
 def _level(finding: Finding) -> str:
     if finding.level == "applied":
-        return "applied      "
+        return "applied       "
     impact = finding.impact
     basis = "wall" if impact.blocked_share > impact.cpu_share else "CPU"
-    return f"{finding.level:4} {share(impact.largest):>4} {basis:<4}"
+    return f"{finding.level:4} {share(impact.largest):>5} {basis:<4}"
 
 
 def _write(files: Sequence[Path], target: Path) -> None:

@@ -45,7 +45,7 @@ def _check(rule: Rule[Any], node: PlanNode, view: PlanView) -> Finding | None:
             return None
         impact = rule.impact(node, evidence, view)
         text = rule.describe(evidence)
-        numbers = rule.numbers(evidence)
+        measures = rule.measures(evidence)
     except Exception:
         if rule.id not in _failed:
             _failed.add(rule.id)
@@ -55,5 +55,5 @@ def _check(rule: Rule[Any], node: PlanNode, view: PlanView) -> Finding | None:
         "applied" if rule.kind == "applied" else "warn" if impact.largest >= WARN_AT else "info"
     )
     return Finding(
-        rule.id, rule.kind, level, node.node_id, node.kind, impact, text.title, text.detail, numbers
+        rule.id, rule.kind, level, node.node_id, node.kind, impact, text.title, text.fix, measures
     )

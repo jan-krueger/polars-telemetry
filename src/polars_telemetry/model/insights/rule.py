@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import asdict, is_dataclass
+from dataclasses import fields, is_dataclass
 from typing import TYPE_CHECKING, ClassVar, Generic, TypeVar
 
-from polars_telemetry.model.insights.finding import Impact, Kind, Text
+from polars_telemetry.model.insights.finding import Impact, Kind, Measure, Text
 
 if TYPE_CHECKING:
     from polars_telemetry.model.insights.view import PlanView
@@ -28,13 +28,16 @@ class Rule(ABC, Generic[E]):
 
     @abstractmethod
     def describe(self, evidence: E) -> Text:
-        """Title and detail from the evidence: numbers and node kinds only."""
+        """A one-line fact and an imperative fix; the evidence speaks for itself."""
 
     def impact(self, node: PlanNode, evidence: E, view: PlanView) -> Impact:
         return Impact(view.cpu_share(node), view.blocked_share(node))
 
-    def numbers(self, evidence: E) -> dict[str, int | float | bool]:
-        values = (
-            asdict(evidence) if is_dataclass(evidence) and not isinstance(evidence, type) else {}
+    def measures(self, evidence: E) -> tuple[Measure, ...]:
+        if not is_dataclass(evidence) or isinstance(evidence, type):
+            return ()
+        return tuple(
+            Measure(f.name, value, f.metadata["unit"])
+            for f in fields(evidence)
+            if "unit" in f.metadata and (value := getattr(evidence, f.name)) is not None
         )
-        return {k: v for k, v in values.items() if isinstance(v, int | float | bool)}

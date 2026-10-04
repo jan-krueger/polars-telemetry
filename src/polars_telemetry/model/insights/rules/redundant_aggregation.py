@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar
 
-from polars_telemetry.model.insights.finding import Text
+from polars_telemetry.model.insights.finding import Text, share, unit
 from polars_telemetry.model.insights.rule import Rule
 
 if TYPE_CHECKING:
@@ -19,8 +19,8 @@ REMOVES_AT_MOST = 1e-4
 
 @dataclass(frozen=True, slots=True)
 class Unchanged:
-    rows_in: float
-    removed: float
+    rows_in: float = unit("rows")
+    rows_removed: float = unit("rows")
 
 
 class RedundantAggregation(Rule[Unchanged]):
@@ -35,14 +35,9 @@ class RedundantAggregation(Rule[Unchanged]):
         return Unchanged(received, max(0.0, received - out))
 
     def describe(self, evidence: Unchanged) -> Text:
-        if not evidence.removed:
-            return Text(
-                "Grouping kept every row",
-                f"{evidence.rows_in:,.0f} rows in and out: every key is already unique here. "
-                "If that holds by construction, this step can go.",
-            )
+        removed = evidence.rows_removed / evidence.rows_in
         return Text(
-            f"Grouping removed only {evidence.removed:,.0f} of {evidence.rows_in:,.0f} rows",
-            "Almost every key is already unique. Avoiding the few duplicates earlier would let "
-            "this step go.",
+            f"Deduplication removes {f'{share(removed)} of' if removed else 'no'} rows",
+            "drop the `unique`/`group_by` if keys are unique by construction, "
+            "or dedup at the source",
         )

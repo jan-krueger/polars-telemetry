@@ -66,8 +66,8 @@ Profiles written with [insights](insights.md), the default, carry what slows
 each query down. The query header counts its warnings: click **N warnings** to
 jump to each in turn, zoomed in close enough to read. A node with a warning
 gets a badge, and an outline that still shows when a large plan is zoomed far
-out; the minimap marks it too. The node's details open with each finding, what
-it costs and why.
+out; the minimap marks it too. The node's details open with each finding: its
+evidence, what it costs, a fix and a link to the rule.
 
 Profiles written before insights existed show none. Run
 `polars-telemetry insights FILE --write OUT` to add them.

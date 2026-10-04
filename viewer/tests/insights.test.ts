@@ -1,9 +1,9 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { badge, byNode, impact, warned } from "../src/lib/insights";
+import { badge, byNode, impact, measured, warned } from "../src/lib/insights";
 import { layout, planGraph, toFlow, withSelection } from "../src/lib/graph";
 import { readProfile } from "../src/model/read";
-import type { Finding, Profile } from "../src/model/profile";
+import type { Finding, Measure, Profile } from "../src/model/profile";
 
 const read = readProfile(JSON.parse(readFileSync(new URL("./fixtures/profile.json", import.meta.url), "utf8")));
 if ("problem" in read) throw new Error(read.problem);
@@ -12,7 +12,7 @@ const [first, second] = base.plan.physical;
 
 const finding = (node_id: number, level: Finding["level"], cpu = 0.2, blocked = 0): Finding => ({
   rule: `rule_${level}`, kind: level === "applied" ? "applied" : "problem", level, node_id, node_kind: "X",
-  cpu_share: cpu, blocked_share: blocked, title: "t", detail: "d", evidence: {},
+  cpu_share: cpu, blocked_share: blocked, title: "t", fix: "f", evidence: [],
 });
 const profile = (insights: Finding[] | null): Profile => ({ ...base, insights });
 
@@ -33,6 +33,14 @@ describe("findings in the viewer", () => {
     expect(impact(finding(1, "warn", 0.461, 0.015))).toBe("46% of CPU");
     expect(impact(finding(1, "warn", 0.101, 0.585))).toBe("59% of wall time");
     expect(impact(finding(1, "info", 0.004, 0))).toBe("0.4% of CPU");
+  });
+
+  it("formats evidence as the CLI does", () => {
+    const m = (value: number, unit: Measure["unit"]) => measured({ name: "x", value, unit });
+    expect([m(940, "rows"), m(12_345, "rows"), m(301_000, "rows"), m(12_400_000, "rows")]).toEqual(["940", "12,345", "301K", "12.4M"]);
+    expect([m(40, "ms"), m(3_600, "ms"), m(66_000, "ms")]).toEqual(["40 ms", "3.6 s", "1.1 min"]);
+    expect([m(0, "share"), m(0.000016, "share"), m(0.025, "share"), m(0.0999, "share"), m(0.46, "share")]).toEqual(["0%", "0.0016%", "2.5%", "10%", "46%"]);
+    expect(m(41.27, "ratio")).toBe("41.3x");
   });
 
   it("keeps a flagged node's class through fading and selection", () => {

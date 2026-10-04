@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar
 
-from polars_telemetry.model.insights.finding import Text
+from polars_telemetry.model.insights.finding import Text, unit
 from polars_telemetry.model.insights.rule import Rule
 
 if TYPE_CHECKING:
@@ -15,20 +15,18 @@ if TYPE_CHECKING:
 REPEATED_AT = 4
 """TPC-H never calls one string function on one column more than once per node."""
 
-_ORDER = "chained replacements can depend on their order, so check the result"
 _SINGLE_PASS = {
-    "replace": f"str.replace_many; {_ORDER}",
-    "replace_all": f"str.replace_many; {_ORDER}",
-    "contains": "str.contains_any for literal patterns, or one regular expression",
+    "replace": "merge into one `str.replace_many`; chained replacements can depend on order",
+    "replace_all": "merge into one `str.replace_many`; chained replacements can depend on order",
+    "contains": "merge into one `str.contains_any`, or one regex",
 }
 
 
 @dataclass(frozen=True, slots=True)
 class Scans:
     function: str
-    calls: int
-    columns: int
-    """Columns in the node that see this many calls."""
+    calls: int = unit("count")
+    columns: int = unit("count")
 
 
 class RepeatedStringScan(Rule[Scans]):
@@ -43,9 +41,8 @@ class RepeatedStringScan(Rule[Scans]):
         return Scans(top.function, top.count, same)
 
     def describe(self, evidence: Scans) -> Text:
-        instead = _SINGLE_PASS.get(evidence.function, "combining them into one call")
-        columns = "one column" if evidence.columns == 1 else f"each of {evidence.columns} columns"
+        where = "one column" if evidence.columns == 1 else f"each of {evidence.columns} columns"
         return Text(
-            f"{evidence.calls} separate str.{evidence.function} calls on {columns}",
-            f"Each call is another pass over the column. Consider {instead}.",
+            f"{evidence.calls}x `str.{evidence.function}` on {where}, one pass each",
+            _SINGLE_PASS.get(evidence.function, "merge them into one call"),
         )

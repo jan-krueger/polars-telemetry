@@ -74,7 +74,10 @@ every polars version.
 To add one:
 
 1. Write `rules/<id>.py`: a `Rule` with `check` (facts only, no data-size
-   thresholds) and `describe` (numbers and node kinds only).
+   thresholds) returning evidence whose reported fields use `unit()`, and
+   `describe` returning a title (the fact, one line) and a fix (imperative,
+   one line, API names in backticks, no hedging, no why: that goes in the
+   docs).
 2. Add it to `RULES`.
 3. Add a test pair to `tests/insights/test_rules.py`: a plan that shows the
    pattern, and the closest healthy one that must stay quiet.

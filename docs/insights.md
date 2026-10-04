@@ -7,13 +7,12 @@ multiplies rows, the same string function run many times on one column.
 ```console
 $ polars-telemetry insights nightly.jsonl
 nightly.jsonl · etl/orders  (212.4 s wall, 1,904.0 s CPU, 148 nodes)
-  warn  31% wall  Runs on the in-memory engine  [in_memory_fallback, InMemoryMap]
-          The streaming engine hands all 12,000,000 input rows to one call, which took
-          1.1 min while the pipeline waited. A streaming equivalent, or fewer rows before
-          this node, avoids it.
-  warn  22% CPU   8 separate str.replace calls on one column  [repeated_string_scan, Select]
-          Each call is another pass over the column. Consider str.replace_many; chained
-          replacements can depend on their order, so check the result.
+  warn   31% wall  In-memory fallback: all input rows in one call  [in_memory_fallback, InMemoryMap #41]
+                   rows_in 12M · longest_step 1.1 min
+                   fix: use a streaming-native expression, or reduce rows before this node
+  warn   22% CPU   8x `str.replace` on one column, one pass each  [repeated_string_scan, Select #17]
+                   calls 8 · columns 1
+                   fix: merge into one `str.replace_many`; chained replacements can depend on order
   3 more as information: redundant_aggregation x3 (--all lists them)
 
 1 queries: 2 warnings, 3 information, 0 applied
@@ -47,8 +46,8 @@ At 1% or more a finding is a **warning**, below that **information**. Nothing
 is dropped for being small. polars 1.44 does not charge all of a query's time
 to its nodes, so read shares as relative within a query.
 
-Findings state what was observed and what it costs. Whether a pattern is
-deliberate is for you to judge; the text never says it is a mistake.
+Each finding is a one-line title, its evidence as measured values, and a fix.
+Whether a pattern is deliberate is for you to judge.
 
 ## Rules
 
@@ -88,6 +87,6 @@ internally, for `n_unique()` for one, and that is not the query's to change.
 
 ## Privacy
 
-Finding texts carry numbers and polars' node kinds, never a column name, an
-alias or a literal from the plan. Insights read the plan the profile already
+Findings carry numbers, polars' node kinds and API names, never a column
+name, an alias or a literal from the plan. Insights read the plan the profile already
 holds; nothing else is collected.

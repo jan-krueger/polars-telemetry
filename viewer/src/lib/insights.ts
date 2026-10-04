@@ -1,6 +1,6 @@
 /** The findings polars-telemetry wrote into a profile, arranged for the plan view. */
 
-import type { Finding, FindingLevel, Profile } from "../model/profile";
+import type { Finding, FindingLevel, Measure, Profile } from "../model/profile";
 
 /** Problem findings per physical node, most important first. */
 export function byNode(profile: Profile | null): Map<number, Finding[]> {
@@ -31,4 +31,30 @@ export function impact(finding: Finding): string {
   const percent = share * 100;
   const text = percent >= 10 ? percent.toFixed(0) : percent >= 0.1 ? percent.toFixed(1) : "<0.1";
   return `${text}% of ${wall ? "wall time" : "CPU"}`;
+}
+
+const DOCS = "https://jan-krueger.github.io/polars-telemetry/insights/";
+
+export const ruleDocs = (rule: string): string => `${DOCS}#${rule}`;
+
+const significant = (v: number, digits: number): string => String(Number(v.toPrecision(digits)));
+
+/** A measured value as the CLI prints it: 12.4M rows, 1.1 min, 0.0016%, 41.3x. */
+export function measured({ value, unit }: Measure): string {
+  if (unit === "share") {
+    const percent = value * 100;
+    if (percent === 0) return "0%";
+    return percent >= 9.95 ? `${percent.toFixed(0)}%` : `${significant(percent, 2)}%`;
+  }
+  if (unit === "ratio") return `${significant(value, 3)}x`;
+  if (unit === "ms") {
+    if (value < 1_000) return `${value.toFixed(0)} ms`;
+    if (value < 60_000) return `${(value / 1_000).toFixed(1)} s`;
+    return `${(value / 60_000).toFixed(1)} min`;
+  }
+  if (Math.abs(value) < 100_000) return Math.round(value).toLocaleString("en-US");
+  for (const [divisor, suffix] of [[1e9, "B"], [1e6, "M"], [1e3, "K"]] as const) {
+    if (Math.abs(value) >= divisor) return `${significant(value / divisor, 3)}${suffix}`;
+  }
+  return String(value);
 }

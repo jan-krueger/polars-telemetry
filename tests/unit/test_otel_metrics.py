@@ -41,8 +41,8 @@ _FINDING = Finding(
     node_kind="GroupBy",
     impact=Impact(cpu_share=1.0, blocked_share=0.5),
     title="t",
-    detail="d",
-    evidence={},
+    fix="f",
+    evidence=(),
 )
 
 

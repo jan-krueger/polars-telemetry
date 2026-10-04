@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar
 
-from polars_telemetry.model.insights.finding import Text, duration
+from polars_telemetry.model.insights.finding import Text, unit
 from polars_telemetry.model.insights.rule import Rule
 
 if TYPE_CHECKING:
@@ -15,8 +15,8 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True, slots=True)
 class Fallback:
-    rows_in: float
-    longest_step_ms: float
+    rows_in: float = unit("rows")
+    longest_step: float = unit("ms")
 
 
 class InMemoryFallback(Rule[Fallback]):
@@ -33,8 +33,6 @@ class InMemoryFallback(Rule[Fallback]):
 
     def describe(self, evidence: Fallback) -> Text:
         return Text(
-            "Runs on the in-memory engine",
-            f"The streaming engine hands all {evidence.rows_in:,.0f} input rows to one call, "
-            f"which took {duration(evidence.longest_step_ms)} while the pipeline waited. "
-            "A streaming equivalent, or fewer rows before this node, avoids it.",
+            "In-memory fallback: all input rows in one call",
+            "use a streaming-native expression, or reduce rows before this node",
         )

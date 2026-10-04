@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar
 
-from polars_telemetry.model.insights.finding import Impact, Text, share
+from polars_telemetry.model.insights.finding import Impact, Text, share, unit
 from polars_telemetry.model.insights.rule import Rule
 from polars_telemetry.model.types import NodeRole
 
@@ -16,11 +16,10 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True, slots=True)
 class Pairs:
-    left: float
-    right: float
-    rows_out: int
-    kept: float | None
-    """Share of the pairs the next filter keeps, when a filter follows."""
+    rows_left: float = unit("rows")
+    rows_right: float = unit("rows")
+    rows_out: int = unit("rows")
+    filter_keeps: float | None = unit("share")
 
 
 class CrossJoin(Rule[Pairs]):
@@ -38,15 +37,16 @@ class CrossJoin(Rule[Pairs]):
         return Pairs(sides[0], sides[1], out, kept)
 
     def impact(self, node: PlanNode, evidence: Pairs, view: PlanView) -> Impact:
-        region = (node, *view.carriers(node, max(evidence.left, evidence.right) * 2))
+        region = (node, *view.carriers(node, max(evidence.rows_left, evidence.rows_right) * 2))
         return Impact(view.cpu_share(*region), view.blocked_share(node))
 
     def describe(self, evidence: Pairs) -> Text:
-        pairs = f"{evidence.left:,.0f} x {evidence.right:,.0f} = {evidence.rows_out:,} rows"
-        if evidence.kept is not None:
+        if evidence.filter_keeps is not None:
             return Text(
-                f"Cross join, then a filter keeps {share(evidence.kept)}",
-                f"{pairs}, almost all discarded. An equality key, join_where or a pattern "
-                "function such as str.contains_any avoids building the pairs.",
+                f"Cross join, then a filter keeps {share(evidence.filter_keeps)} of the pairs",
+                "join on an equality key, or use `join_where`, instead of cross join + filter",
             )
-        return Text(f"Cross join of {pairs}", f"{pairs}: check that every pair is wanted.")
+        return Text(
+            "Cross join of two multi-row inputs",
+            "join on a key unless every pair is needed",
+        )

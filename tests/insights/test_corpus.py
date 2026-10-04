@@ -40,7 +40,7 @@ def test_no_finding_repeats_a_name_or_literal_from_its_plan():
         found = evaluate(query)
         if not found:
             continue
-        texts = " ".join(f"{f.title} {f.detail}" for f in found)
+        texts = " ".join(f"{f.title} {f.fix}" for f in found)
         quoted = {
             m.group(1)
             for node in (*query.plan.values(), *query.logical.values())
@@ -49,3 +49,18 @@ def test_no_finding_repeats_a_name_or_literal_from_its_plan():
         }
         leaked = {q for q in quoted if q in texts}
         assert not leaked, (query.label, leaked)
+
+
+_HEDGES = re.compile(r"\b(consider|may|might|should|perhaps|probably)\b", re.IGNORECASE)
+
+
+def test_findings_read_as_diagnostics():
+    for _, query in corpus():
+        for f in evaluate(query):
+            assert len(f.title) <= 72, f.title
+            assert not f.title.endswith("."), f.title
+            assert "\n" not in f.fix, f.fix
+            assert len(f.fix) <= 100, f.fix
+            assert not f.fix.endswith("."), f.fix
+            assert not _HEDGES.search(f"{f.title} {f.fix}"), f"{f.title} / {f.fix}"
+            assert f.evidence, f.rule

@@ -1,5 +1,3 @@
-"""Findings leave the process with the query: on its span, as a count, on the console."""
-
 from __future__ import annotations
 
 import io
@@ -18,7 +16,7 @@ from polars_telemetry.export.measurements import measurements
 from polars_telemetry.export.otel import OTelExporter
 from polars_telemetry.model.diagnostics import Diagnostics
 from polars_telemetry.model.insights import Finding
-from polars_telemetry.model.insights.finding import Impact
+from polars_telemetry.model.insights.finding import Impact, Measure
 from polars_telemetry.model.types import Query
 
 
@@ -31,8 +29,8 @@ def _finding(rule: str, level: str, kind: str = "problem") -> Finding:
         node_kind="GroupBy",
         impact=Impact(cpu_share=0.25, blocked_share=0.123456),
         title=f"{rule} title",
-        detail=f"{rule} detail",
-        evidence={},
+        fix=f"{rule} fix",
+        evidence=(Measure("rows_out", 12_400_000, "rows"), Measure("growth", 41.3, "ratio")),
     )
 
 
@@ -76,7 +74,8 @@ def test_each_finding_is_a_span_event():
         semconv.INSIGHT_LEVEL: "warn",
         semconv.NODE_KIND: "GroupBy",
         semconv.INSIGHT_TITLE: "exploding_join title",
-        semconv.INSIGHT_DETAIL: "exploding_join detail",
+        semconv.INSIGHT_FIX: "exploding_join fix",
+        semconv.INSIGHT_EVIDENCE: "rows_out 12.4M · growth 41.3x",
         semconv.INSIGHT_CPU_SHARE: 0.25,
         semconv.INSIGHT_BLOCKED_SHARE: 0.1235,
     }
@@ -109,7 +108,9 @@ def test_the_console_names_warnings_and_counts_the_rest():
     ConsoleExporter(stream).export(_query(*FOUND))
     text = stream.getvalue()
 
-    assert "warning: exploding_join title [exploding_join, GroupBy]" in text
-    assert "2 more findings as information" in text
+    assert "warn  exploding_join title  [exploding_join, GroupBy #0]" in text
+    assert "rows_out 12.4M · growth 41.3x" in text
+    assert "fix: exploding_join fix" in text
+    assert "info  2 more" in text
     assert "cross_join title" not in text
     assert "file_skipping" not in text

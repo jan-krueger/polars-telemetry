@@ -7,6 +7,10 @@ from polars_telemetry.model.insights.rules import RULES
 from tests.insights.plans import Plan
 
 
+def numbers(finding: Finding) -> dict[str, float]:
+    return {m.name: m.value for m in finding.evidence}
+
+
 def found(plan: Plan, rule: str, wall_ms: float = 100.0) -> list[Finding]:
     return [f for f in evaluate(plan.query(wall_ms=wall_ms)) if f.rule == rule]
 
@@ -26,7 +30,7 @@ class TestInMemoryFallback:
         )
         (finding,) = found(plan, "in_memory_fallback")
         assert finding.impact.blocked_share == 0.4
-        assert finding.evidence == {"rows_in": 1_000_000, "longest_step_ms": 40.0}
+        assert numbers(finding) == {"rows_in": 1_000_000, "longest_step": 40.0}
 
     def test_a_python_udf_is_not_reported_as_a_fallback(self):
         plan = (
@@ -48,7 +52,7 @@ class TestExplodingJoin:
             .node(5, "GroupBy", (4,), rows=5, ms=8)
         )
         (finding,) = found(plan, "exploding_join")
-        assert finding.evidence["growth"] == 5.0
+        assert numbers(finding)["growth"] == 5.0
         assert round(finding.impact.cpu_share, 2) == 0.96
 
     def test_a_one_to_many_join_stays_quiet(self):
@@ -71,7 +75,7 @@ class TestCrossJoin:
             .node(4, "Filter", (3,), rows=500, ms=10)
         )
         (finding,) = found(plan, "cross_join")
-        assert finding.title == "Cross join, then a filter keeps 0.01%"
+        assert finding.title == "Cross join, then a filter keeps 0.01% of the pairs"
 
     def test_a_scalar_broadcast_is_no_cross_join_finding(self):
         plan = (
@@ -92,8 +96,8 @@ class TestRepeatedStringScan:
             .node(2, "Select", (1,), selectors=[f'col("s"){chain}'])
         )
         (finding,) = found(plan, "repeated_string_scan")
-        assert finding.title == "13 separate str.replace calls on one column"
-        assert "str.replace_many" in finding.detail
+        assert finding.title == "13x `str.replace` on one column, one pass each"
+        assert "`str.replace_many`" in finding.fix
 
     def test_three_calls_are_not_enough(self):
         expressions = [f'col("s").str.contains(["{i}"])' for i in range(3)]
@@ -116,7 +120,7 @@ class TestRedundantAggregation:
 
     def test_a_deduplication_that_removes_almost_nothing(self):
         (finding,) = found(self.dedup(999_998), "redundant_aggregation")
-        assert finding.title == "Grouping removed only 2 of 1,000,000 rows"
+        assert finding.title == "Deduplication removes 0.0002% of rows"
 
     def test_one_that_removes_real_duplicates_stays_quiet(self):
         assert found(self.dedup(900_000), "redundant_aggregation") == []

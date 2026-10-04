@@ -31,6 +31,14 @@ export interface CallSite {
 
 export type FindingLevel = "warn" | "info" | "applied";
 
+export type Unit = "rows" | "count" | "ms" | "share" | "ratio";
+
+export interface Measure {
+  name: string;
+  value: number;
+  unit: Unit;
+}
+
 /** One insight about one node, as polars-telemetry wrote it (insights@1). */
 export interface Finding {
   rule: string;
@@ -41,8 +49,8 @@ export interface Finding {
   cpu_share: number;
   blocked_share: number;
   title: string;
-  detail: string;
-  evidence: Record<string, number | boolean>;
+  fix: string;
+  evidence: Measure[];
 }
 
 export interface Profile {
