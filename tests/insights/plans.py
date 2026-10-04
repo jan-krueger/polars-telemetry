@@ -6,6 +6,7 @@ from typing import Any
 from uuid import uuid4
 
 from polars_telemetry.adapter.build import build_metrics, build_plan
+from polars_telemetry.adapter.traits import with_traits
 from polars_telemetry.model.types import Query
 
 
@@ -52,7 +53,7 @@ class Plan:
         return Query(
             query_id=uuid4(),
             wall_ms=wall_ms,
-            plan=build_plan(self._nodes),
-            logical=build_plan(self._logical),
+            plan=with_traits(build_plan(self._nodes)),
+            logical=with_traits(build_plan(self._logical)),
             metrics=build_metrics(self._metrics),
         )

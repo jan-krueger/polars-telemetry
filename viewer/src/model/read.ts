@@ -7,7 +7,7 @@
  */
 
 import { nodeLabel, roleOf, type RawNode } from "../lib/polars";
-import type { Metrics, PlanNode, Profile, Session, StoredSession } from "./profile";
+import type { Finding, FindingLevel, Metrics, PlanNode, Profile, Session, StoredSession } from "./profile";
 
 export const SCHEMA_PREFIX = "polars-telemetry/profile@";
 export const SUPPORTED_VERSIONS: ReadonlySet<number> = new Set([1]);
@@ -93,6 +93,7 @@ function readV1(raw: Record<string, unknown>, schema: string, position?: number)
         : null,
       failed: typeof raw.failed === "string" ? raw.failed : null,
       diagnostics: isObject(raw.diagnostics) ? scalars(raw.diagnostics) : {},
+      insights: readInsights(raw.insights),
       plan: { physical, logical },
     },
   };
@@ -137,4 +138,26 @@ export function readSession(stored: StoredSession): Session {
     if ("profile" in read) profiles.push(read.profile);
   }
   return { ...stored, profiles, raw: stored.profiles };
+}
+
+const LEVELS: readonly FindingLevel[] = ["warn", "info", "applied"];
+
+/** Findings polars-telemetry wrote; anything malformed is left out, never guessed. */
+function readInsights(raw: unknown): Finding[] | null {
+  if (!isObject(raw) || raw.schema !== "insights@1" || !Array.isArray(raw.findings)) return null;
+  return raw.findings.flatMap((f): Finding[] => {
+    if (!isObject(f) || !LEVELS.includes(f.level as FindingLevel) || !Number.isFinite(f.node_id)) return [];
+    return [{
+      rule: str(f.rule),
+      kind: f.kind === "applied" ? "applied" : "problem",
+      level: f.level as FindingLevel,
+      node_id: f.node_id as number,
+      node_kind: str(f.node_kind),
+      cpu_share: num(f.cpu_share),
+      blocked_share: num(f.blocked_share),
+      title: str(f.title),
+      detail: str(f.detail),
+      evidence: isObject(f.evidence) ? scalars(f.evidence) : {},
+    }];
+  });
 }

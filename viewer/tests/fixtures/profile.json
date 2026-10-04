@@ -657,5 +657,9 @@
     }
    }
   ]
+ },
+ "insights": {
+  "schema": "insights@1",
+  "findings": []
  }
 }

@@ -9,8 +9,10 @@ only as opaque tokens.
 from __future__ import annotations
 
 import hashlib
+import logging
 import re
 from collections import Counter
+from dataclasses import replace
 from typing import TYPE_CHECKING
 
 from polars_telemetry.adapter.dialect import (
@@ -25,6 +27,10 @@ from polars_telemetry.model.types import CallCount, NodeTraits
 if TYPE_CHECKING:
     from collections.abc import Iterator, Mapping
 
+    from polars_telemetry.model.types import PlanNode
+
+_logger = logging.getLogger("polars_telemetry")
+
 _COLUMN = re.compile(r'col\("((?:[^"\\]|\\.)*)"\)')
 _NAME = re.compile(r"[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*")
 _PYTHON_UDF = re.compile(r"\.python_udf\(")
@@ -32,9 +38,21 @@ _KEEPS_VALUE = frozenset({"first", "last", "alias"})
 _UNIQUE = re.compile(r"\.unique\(")
 
 
+def with_traits(plan: dict[int, PlanNode]) -> dict[int, PlanNode]:
+    """The plan with each node's traits read; a node polars wrote unexpectedly keeps none."""
+    read: dict[int, PlanNode] = {}
+    for node_id, node in plan.items():
+        try:
+            read[node_id] = replace(node, traits=traits(node.kind, node.properties))
+        except Exception:
+            _logger.debug("polars-telemetry: no traits for a %s node", node.kind, exc_info=True)
+            read[node_id] = node
+    return read
+
+
 def traits(kind: str, properties: Mapping[str, object]) -> NodeTraits:
     """The neutral facts insight rules need about one node."""
-    texts = list(_texts(properties))
+    texts = [text for text in _texts(properties) if "(" in text]
     strings: Counter[tuple[str, str]] = Counter()
     plugins: Counter[tuple[str, str]] = Counter()
     for text in texts:

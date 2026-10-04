@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import Any, Literal
 
 Kind = Literal["problem", "applied"]
 Level = Literal["warn", "info", "applied"]
@@ -63,6 +63,20 @@ class Finding:
     title: str
     detail: str
     evidence: dict[str, int | float | bool] = field(default_factory=dict)
+
+    @classmethod
+    def from_dict(cls, values: dict[str, Any]) -> Finding:
+        return cls(
+            rule=str(values["rule"]),
+            kind=values["kind"],
+            level=values["level"],
+            node_id=int(values["node_id"]),
+            node_kind=str(values["node_kind"]),
+            impact=Impact(float(values["cpu_share"]), float(values["blocked_share"])),
+            title=str(values["title"]),
+            detail=str(values["detail"]),
+            evidence=dict(values.get("evidence") or {}),
+        )
 
     def to_dict(self) -> dict[str, object]:
         return {

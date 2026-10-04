@@ -41,6 +41,14 @@ class Config:
     query, and polars keeps it on for the process once it has read it.
     """
 
+    insights: bool = True
+    """Find what slows each query down, as `polars-telemetry insights` does.
+
+    Runs once the query has finished, after its wall time is measured: a few
+    milliseconds even for a plan of a thousand nodes. Findings carry numbers and
+    node kinds only.
+    """
+
     redaction: Redaction | None = None
     """What to mask before any exporter receives a query; None masks nothing.
 

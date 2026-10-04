@@ -11,8 +11,9 @@ from typing import Any
 
 from polars_telemetry.adapter.dialect import described, facets, role_of
 from polars_telemetry.adapter.fingerprint import fingerprint
-from polars_telemetry.adapter.traits import traits
+from polars_telemetry.adapter.traits import with_traits
 from polars_telemetry.model.diagnostics import derive
+from polars_telemetry.model.insights import evaluate
 from polars_telemetry.model.types import COUNTER_NAMES, NodeMetrics, PlanNode, Query
 
 
@@ -29,7 +30,6 @@ def build_plan(records: list[dict[str, Any]]) -> dict[int, PlanNode]:
             inputs=tuple(int(i) for i in record["input_ids"]),
             properties=properties,
             role=role,
-            traits=traits(kind, properties),
             **facets(role, properties),
         )
     return nodes
@@ -56,14 +56,19 @@ def threads() -> int:
     return polars.thread_pool_size()
 
 
-def enrich(query: Query) -> Query:
+def enrich(query: Query, *, insights: bool = False) -> Query:
     """Attach what every consumer would otherwise derive for itself.
 
     Before any redaction, so the fingerprint is the same whatever a receiver's
-    privacy settings are.
+    privacy settings are. With `insights`, the plan gains its traits and the
+    query its findings.
     """
-    return replace(
+    enriched = replace(
         query,
         fingerprint=fingerprint(query.logical or query.plan),
         diagnostics=derive(query, threads()),
     )
+    if not insights:
+        return enriched
+    traced = replace(enriched, plan=with_traits(query.plan), logical=with_traits(query.logical))
+    return replace(traced, insights=evaluate(traced))

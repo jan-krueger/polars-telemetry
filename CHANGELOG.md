@@ -13,6 +13,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `cross_join`, `repeated_string_scan` and `redundant_aggregation`.
   `--format json`, `--fail-on` for CI, and `--write` to keep the findings in
   the profiles. See the new Insights page.
+- `Config(insights=True)`: the same findings for every query as it runs,
+  computed after its wall time is measured, and written to profiles as an
+  `insights` field. A few milliseconds even for a plan of a thousand nodes;
+  `Config(insights=False)` turns it off.
 
 ### Fixed
 - A plugin's library path relative to the environment, which

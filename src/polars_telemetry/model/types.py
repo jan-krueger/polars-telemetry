@@ -9,6 +9,7 @@ from uuid import UUID
 
 if TYPE_CHECKING:
     from polars_telemetry.model.diagnostics import Diagnostics
+    from polars_telemetry.model.insights.finding import Finding
     from polars_telemetry.model.redaction import Redaction
 
 
@@ -247,6 +248,8 @@ class Query:
     """What was masked before this reached the exporter, else None."""
     started_unix_ns: int = 0
     """When the query started, in nanoseconds since the Unix epoch."""
+    insights: tuple[Finding, ...] | None = None
+    """Findings about the plan, most important first; None when not computed."""
 
     @property
     def cpu_ms(self) -> float:

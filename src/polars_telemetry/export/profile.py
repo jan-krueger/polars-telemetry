@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Any
 
 from polars_telemetry._version import __version__
 from polars_telemetry.model.diagnostics import Diagnostics, derive
+from polars_telemetry.model.insights.finding import SCHEMA as INSIGHTS_SCHEMA
 from polars_telemetry.model.types import COUNTER_NAMES
 
 if TYPE_CHECKING:
@@ -101,6 +102,11 @@ def build_profile(query: Query, *, diagnostics: Diagnostics | None = None) -> di
             "logical": [_node(node, None) for node in query.logical.values()],
         },
     }
+    if query.insights is not None:
+        document["insights"] = {
+            "schema": INSIGHTS_SCHEMA,
+            "findings": [finding.to_dict() for finding in query.insights],
+        }
     document.update(_trace_context())
     return document
 

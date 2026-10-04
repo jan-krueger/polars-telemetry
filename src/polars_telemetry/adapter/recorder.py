@@ -165,6 +165,7 @@ class QueryRecorder:
                     polars_version=_POLARS_VERSION,
                     failed=failure,
                     started_unix_ns=self._started_unix_ns,
-                )
+                ),
+                insights=self._config.insights,
             )
         )

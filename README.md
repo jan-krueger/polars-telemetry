@@ -138,6 +138,7 @@ polars_telemetry.install(Config(node_metrics=False))
 | `include_plan` | `False` | Attach the full plan to the span as JSON |
 | `call_site` | `True` | Record the file, line and function that ran the query |
 | `describe_fallbacks` | `True` | Have polars describe what an in-memory fallback node runs |
+| `insights` | `True` | Find what slows each query down; see [Insights](https://jan-krueger.github.io/polars-telemetry/insights/) |
 | `redaction` | `None` | What to mask before exporters see a query; `Redaction()` masks literal values |
 
 ## Your data

@@ -12,7 +12,10 @@ from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from polars_telemetry.adapter.build import build_metrics, build_plan
+from polars_telemetry.adapter.traits import with_traits
 from polars_telemetry.model.diagnostics import Diagnostics
+from polars_telemetry.model.insights import Finding
+from polars_telemetry.model.insights.finding import SCHEMA as INSIGHTS_SCHEMA
 from polars_telemetry.model.types import CallSite, Query
 
 if TYPE_CHECKING:
@@ -45,8 +48,8 @@ def read_profile(document: Mapping[str, Any]) -> Query:
     return Query(
         query_id=UUID(str(document["query_id"])),
         wall_ms=float(document.get("wall_ms") or 0.0),
-        plan=build_plan([_record(node) for node in physical]),
-        logical=build_plan([_record(node) for node in plan.get("logical") or []]),
+        plan=with_traits(build_plan([_record(node) for node in physical])),
+        logical=with_traits(build_plan([_record(node) for node in plan.get("logical") or []])),
         metrics=build_metrics(
             [
                 {"phys_node_key": node["id"], **node["metrics"]}
@@ -64,6 +67,7 @@ def read_profile(document: Mapping[str, Any]) -> Query:
         diagnostics=_diagnostics(document.get("diagnostics") or {}),
         failed=document.get("failed"),
         started_unix_ns=int(document.get("started_unix_ns") or 0),
+        insights=_insights(document.get("insights")),
     )
 
 
@@ -83,6 +87,13 @@ def _record(node: Mapping[str, Any]) -> dict[str, Any]:
     properties = dict(node.get("properties") or {})
     properties.setdefault("type", node.get("kind", "Unknown"))
     return {"id": node["id"], "input_ids": list(node.get("inputs") or []), "properties": properties}
+
+
+def _insights(written: object) -> tuple[Finding, ...] | None:
+    """Findings as written, when a version that reads them wrote them."""
+    if not isinstance(written, dict) or written.get("schema") != INSIGHTS_SCHEMA:
+        return None
+    return tuple(Finding.from_dict(f) for f in written.get("findings") or [])
 
 
 def _diagnostics(values: Mapping[str, Any]) -> Diagnostics:
