@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import replace
 from typing import Any
 
-from polars_telemetry.adapter.dialect import facets, role_of
+from polars_telemetry.adapter.dialect import described, facets, role_of
 from polars_telemetry.adapter.fingerprint import fingerprint
 from polars_telemetry.model.diagnostics import derive
 from polars_telemetry.model.types import COUNTER_NAMES, NodeMetrics, PlanNode, Query
@@ -19,7 +19,7 @@ def build_plan(records: list[dict[str, Any]]) -> dict[int, PlanNode]:
     """Index plan nodes by id."""
     nodes: dict[int, PlanNode] = {}
     for record in records:
-        properties = dict(record["properties"])
+        properties = described(dict(record["properties"]))
         kind = str(properties.get("type", "Unknown"))
         role = role_of(kind, properties)
         nodes[int(record["id"])] = PlanNode(
@@ -46,6 +46,14 @@ def build_metrics(records: list[dict[str, Any]]) -> dict[int, NodeMetrics]:
     return metrics
 
 
+def threads() -> int:
+    """Threads polars can run a query on: its pool, which honours CPU affinity,
+    a cgroup CPU quota and POLARS_MAX_THREADS, unlike os.cpu_count()."""
+    import polars
+
+    return polars.thread_pool_size()
+
+
 def enrich(query: Query) -> Query:
     """Attach what every consumer would otherwise derive for itself.
 
@@ -55,5 +63,5 @@ def enrich(query: Query) -> Query:
     return replace(
         query,
         fingerprint=fingerprint(query.logical or query.plan),
-        diagnostics=derive(query),
+        diagnostics=derive(query, threads()),
     )

@@ -90,3 +90,46 @@ def test_live_metrics_key_onto_plan(live: dict[str, Any]) -> None:
     plan_ids = {node["id"] for node in live["physical"]}
     metric_ids = {record["phys_node_key"] for record in live["metrics"]}
     assert metric_ids <= plan_ids
+
+
+_FALLBACK = """
+import json, os, sys
+import polars as pl
+import polars_telemetry as pt
+lf = pl.LazyFrame({"g": [i % 7 for i in range(1_000)], "v": list(range(1_000))})
+with pt.profile(pt.Config(describe_fallbacks=sys.argv[1] == "on")) as session:
+    lf.with_columns(r=pl.col("v").rank().over("g")).collect()
+nodes = [n for d in session.profiles() for n in d["plan"]["physical"]]
+fallbacks = [n["properties"] for n in nodes if n["kind"] == "InMemoryMap"]
+env = os.environ.get("POLARS_STREAM_ALWAYS_PREPARE_VISUALIZATION_DATA")
+print(json.dumps({"fallbacks": fallbacks, "env": env}))
+"""
+
+
+@pytest.mark.parametrize("describe", ["on", "off"])
+def test_an_in_memory_fallback_says_what_it_runs_only_when_asked(describe: str) -> None:
+    """The switch is undocumented in polars; this fails when a release drops it."""
+    import os
+    import subprocess
+    import sys
+
+    env = {
+        k: v
+        for k, v in os.environ.items()
+        if k != "POLARS_STREAM_ALWAYS_PREPARE_VISUALIZATION_DATA"
+    }
+    out = subprocess.run(  # noqa: S603
+        [sys.executable, "-c", _FALLBACK, describe],
+        capture_output=True,
+        text=True,
+        env=env,
+        check=True,
+    )
+    result = json.loads(out.stdout.strip().splitlines()[-1])
+    assert result["fallbacks"], "rank().over() no longer falls back to the in-memory engine"
+    described = [props.get("format_str") for props in result["fallbacks"]]
+    if describe == "on":
+        assert all(text and ".rank(" in text for text in described)
+    else:
+        assert described == [None] * len(described)
+    assert result["env"] is None, "uninstall() must put the variable back"

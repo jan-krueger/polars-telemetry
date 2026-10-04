@@ -24,6 +24,8 @@ class Diagnostics:
     """cpu / wall / cores. Low means the query is not using the machine."""
 
     cpu_count: int | None = None
+    """Threads in polars' pool: honours CPU affinity, a cgroup CPU quota and
+    POLARS_MAX_THREADS."""
 
     filter_selectivity: float | None = None
     """Rows surviving the filter. Low is good when the filter runs early."""
@@ -62,9 +64,13 @@ class Diagnostics:
         return self.incomplete_nodes == 0
 
 
-def derive(query: Query) -> Diagnostics:
-    """Compute every diagnostic the plan supports."""
-    cores = os.cpu_count()
+def derive(query: Query, threads: int | None = None) -> Diagnostics:
+    """Compute every diagnostic the plan supports.
+
+    `threads` is the size of polars' pool, which the adapter reads; without it
+    the machine's core count stands in, which overstates a container's share.
+    """
+    cores = threads or os.cpu_count()
     parallel = (
         query.cpu_ms / query.wall_ms / cores
         if cores and query.wall_ms > 0 and query.metrics

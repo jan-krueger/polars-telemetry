@@ -19,7 +19,7 @@ The span is named `polars.collect`.
 | `polars.cpu_ms` | float | Summed node self time; exceeds wall time when parallel |
 | `polars.parallelism` | float | `cpu_ms / wall_ms` |
 | `polars.parallel_efficiency` | float | `cpu_ms / wall_ms / cpu_count`, 0–1 |
-| `polars.cpu_count` | int | Cores visible to the process |
+| `polars.cpu_count` | int | Threads polars can use: its pool size, which honours CPU affinity, a container or systemd CPU quota, and `POLARS_MAX_THREADS` |
 | `polars.node_count` | int | Physical plan nodes |
 | `polars.result.rows` | int | Rows reaching the sink, when reported |
 
