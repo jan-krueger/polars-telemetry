@@ -9,7 +9,7 @@ import ShareDialog from "./components/ShareDialog";
 import { byNode, warned } from "./lib/insights";
 import Tip, { TipText } from "./components/Tip";
 import { allSessions, dropAll, dropSession, saveSession, storageUnavailable } from "./lib/storage";
-import { bytes, diagnostics, ms, num, shapeName } from "./lib/format";
+import { busy, bytes, compact, diagnostics, ms, num, shapeName, span, tableName } from "./lib/format";
 import { basename } from "./lib/polars";
 import { clock, instant, iso, ranBetween, spansDays } from "./lib/time";
 import { readJsonl, readSession, toJsonl } from "./model/read";
@@ -27,6 +27,28 @@ const EXAMPLES = [
 ];
 
 const VERDICT = { good: "var(--good)", warn: "var(--warn)", crit: "var(--crit)", info: "var(--muted)" };
+
+function Busy({ profile, compare }) {
+  const b = busy(profile);
+  if (!b) return null;
+  const cpu = compare?.cpu_ms ? ` (${profile.cpu_ms >= compare.cpu_ms ? "+" : ""}${num(((profile.cpu_ms - compare.cpu_ms) / compare.cpu_ms) * 100, 0)}% against the compared run)` : "";
+  const note = `${num(profile.cpu_ms, 1)} ms of node CPU over ${num(profile.wall_ms, 1)} ms of wall time${cpu}: `
+    + (b.of ? `on average ${num(b.threads, 1)} of the ${b.of} threads polars had were busy, ${num(b.share * 100, 0)}% parallel efficiency.`
+      : `on average ${num(b.threads, 1)} threads were busy.`)
+    + " Node CPU counts only time polars charges to nodes.";
+  return (
+    <Tip content={<TipText term="Threads busy">{note}</TipText>}>
+      <span className="busy" tabIndex={0}>
+        ·{b.share != null && (
+          <span className="busy-bar" aria-hidden="true">
+            <span style={{ width: `${Math.max(2, b.share * 100)}%`, background: VERDICT[b.verdict] }} />
+          </span>
+        )}
+        <b>{num(b.threads, 1)}</b>{b.of ? <> of {b.of}</> : null} threads busy
+      </span>
+    </Tip>
+  );
+}
 
 export default function App() {
   const [state, dispatch] = useReducer(reducer, initialState);
@@ -410,7 +432,7 @@ polars_telemetry.install(exporter=FileExporter("profiles/session.jsonl"))`} />
                     <tr key={r.fingerprint} onClick={() => pick(r.runs[0].query_id)}>
                       <td><div style={{ fontWeight: 500 }}>{title(r.runs[0])}</div>
                         <div style={{ font: "10.5px ui-monospace,monospace", color: "var(--muted)" }}>
-                          {r.runs[0].label ? `${shapeName(r.runs[0])} · ` : ""}{r.fingerprint}</div></td>
+                          {r.runs[0].label && tableName(r.runs[0]) ? `${tableName(r.runs[0])} · ` : ""}{r.fingerprint}</div></td>
                       <td>{r.runs.length}</td><td>{ms(r.wallMs)}</td>
                       <td>{num((r.wallMs / totalWall) * 100, 1)}%</td><td>{ms(r.cpuMs / r.runs.length)}</td>
                       <td style={{ width: 140 }}>
@@ -425,11 +447,11 @@ polars_telemetry.install(exporter=FileExporter("profiles/session.jsonl"))`} />
               <div className="qhead">
                 <div className="qline">
                   <span className="qname">{title(profile)}</span>
-                  <span className="qmeta">{profile.label ? `${shapeName(profile)} · ` : ""}{profile.fingerprint} ·{" "}
+                  <span className="qmeta">{profile.label && tableName(profile) ? `${tableName(profile)} · ` : ""}{profile.fingerprint} ·{" "}
                     <Tip content={instant(profile.started_unix_ns)}>
                       <time dateTime={iso(profile.started_unix_ns)} tabIndex={0}>
                         {clock(profile.started_unix_ns, withDates)}</time>
-                    </Tip></span>
+                    </Tip> · polars {profile.polars_version}</span>
                   {profile.call_site && (
                     <Tip content={profile.call_site.filepath}>
                     <span className="qsite" tabIndex={0}>
@@ -462,37 +484,35 @@ polars_telemetry.install(exporter=FileExporter("profiles/session.jsonl"))`} />
                                onClose={() => setSharing(null)} />
                 )}
                 <div className="qstats">
-                  <b>{num(profile.wall_ms, 1)} ms</b> wall{delta(profile.wall_ms, compare?.wall_ms)} ·{" "}
-                  {profile.planning_ms != null && (
-                    <>
-                      <Tip content={<TipText term="Planning">From collect() until the plan starts running: polars optimising and lowering it.{profile.telemetry_ms != null ? ` polars-telemetry then took ${num(profile.telemetry_ms, 1)} ms before execution.` : ""}</TipText>}>
-                        <span tabIndex={0}><b>{num(profile.planning_ms, 1)} ms</b> planning</span>
-                      </Tip>
-                      {delta(profile.planning_ms, compare?.planning_ms)} ·{" "}
-                    </>
+                  <Tip content={<TipText term="Wall time">{num(profile.wall_ms, 1)} ms from collect() to the result
+                    {profile.planning_ms != null ? `, of which ${num(profile.planning_ms, 1)} ms planning` : ""}
+                    {profile.telemetry_ms != null ? ` and ${num(profile.telemetry_ms, 1)} ms polars-telemetry` : ""}.</TipText>}>
+                    <span tabIndex={0}><b className="qwall">{span(profile.wall_ms)}</b> wall</span>
+                  </Tip>
+                  {delta(profile.wall_ms, compare?.wall_ms)}
+                  <Busy profile={profile} compare={compare} />
+                  {profile.result_rows != null && (
+                    <span>· <b>{compact(profile.result_rows)}</b> rows out{delta(profile.result_rows, compare?.result_rows)}</span>
                   )}
-                  <b>{num(profile.cpu_ms, 1)} ms</b> cpu{delta(profile.cpu_ms, compare?.cpu_ms)} ·{" "}
-                  <b>{profile.plan.physical.length}</b> nodes ·{" "}
-                  <b>{num(profile.result_rows ?? 0)}</b> rows out · polars {profile.polars_version}
+                  <span className="chips">
+                    {diagnostics(profile).map((d) => (
+                      <span className="chipd" key={d.t}>
+                        <i className="dot" style={{ background: VERDICT[d.s] }} />
+                        <span className="lb">{d.t}</span><b>{d.v}{d.u}</b>
+                        <Help term={d.k} extra={d.n} />
+                      </span>
+                    ))}
+                  </span>
                   {profile.redacted?.length ? (
                     <Tip content={<TipText term="Masked before export">Values such as {'"<str>"'} and {"<num>"} are placeholders, not your data.</TipText>}>
                       <span className="masked" tabIndex={0}>
-                        {" "}· masked: {profile.redacted.join(", ").replace("_", " ")}</span>
+                        · masked: {profile.redacted.join(", ").replace("_", " ")}</span>
                     </Tip>
                   ) : null}
                 </div>
                 {profile.failed && (
                   <div className="qfail" role="alert"><b>Failed</b> {profile.failed}</div>
                 )}
-                <div className="chips">
-                  {diagnostics(profile).map((d) => (
-                    <span className="chipd" key={d.t}>
-                      <i className="dot" style={{ background: VERDICT[d.s] }} />
-                      <span className="lb">{d.t}</span><b>{d.v}{d.u}</b>
-                      <Help term={d.k} extra={d.n} />
-                    </span>
-                  ))}
-                </div>
               </div>
 
               <div className={alone ? `plans alone-${alone}` : "plans"}>

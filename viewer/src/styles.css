@@ -89,19 +89,24 @@ pre.snip{text-align:left;background:var(--surface);border:1px solid var(--border
   color:var(--ink-2);overflow-x:auto;margin:0 0 14px}
 pre.snip b{color:var(--ink);font-weight:500}
 
-.qhead{margin-bottom:10px}
+.qhead{margin-bottom:8px}
 .qline{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
 .qname{font:600 15px system-ui;letter-spacing:-.012em}
 .qmeta{font:11px ui-monospace,monospace;color:var(--muted)}
 .qsite{font:10.5px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--accent);
   background:var(--surface-2);border-radius:4px;padding:1px 6px}
-.qstats{font-size:12.5px;color:var(--muted);margin-top:2px;font-variant-numeric:tabular-nums}
+.qstats{display:flex;align-items:center;flex-wrap:wrap;gap:4px 8px;font-size:12.5px;color:var(--muted);
+  margin-top:3px;font-variant-numeric:tabular-nums}
 .qstats b{color:var(--ink);font-weight:600}
+.qstats .qwall{font-size:15px}
+.busy{display:inline-flex;align-items:center;gap:6px}
+.busy-bar{display:inline-block;width:96px;height:7px;border-radius:4px;background:var(--surface-2);
+  border:1px solid var(--border);overflow:hidden}
+.busy-bar span{display:block;height:100%}
 .dl{font-size:11px;font-variant-numeric:tabular-nums}
 .delta-up{color:var(--up)} .delta-down{color:var(--down)}
-.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
-.chipd{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);
-  border-radius:999px;padding:3px 10px;font-size:12px;cursor:help;background:var(--surface)}
+.chips{display:inline-flex;gap:4px 12px;flex-wrap:wrap;margin-left:4px;padding-left:12px;border-left:1px solid var(--border)}
+.chipd{display:inline-flex;align-items:center;gap:5px;font-size:12px}
 .chipd b{font-variant-numeric:tabular-nums;font-weight:600}
 .chipd .lb{color:var(--muted)}
 .dot{width:7px;height:7px;border-radius:50%;flex:none}
