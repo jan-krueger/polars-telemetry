@@ -13,7 +13,12 @@ import re
 from collections import Counter
 from typing import TYPE_CHECKING
 
-from polars_telemetry.adapter.dialect import IN_MEMORY_FALLBACK, INFERS_DATETIME_FORMAT
+from polars_telemetry.adapter.dialect import (
+    DEDUPLICATING,
+    GROUPING,
+    IN_MEMORY_FALLBACK,
+    INFERS_DATETIME_FORMAT,
+)
 from polars_telemetry.model.redaction import PLUGIN_PATH
 from polars_telemetry.model.types import CallCount, NodeTraits
 
@@ -23,6 +28,8 @@ if TYPE_CHECKING:
 _COLUMN = re.compile(r'col\("((?:[^"\\]|\\.)*)"\)')
 _NAME = re.compile(r"[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*")
 _PYTHON_UDF = re.compile(r"\.python_udf\(")
+_KEEPS_VALUE = frozenset({"first", "last", "alias"})
+_UNIQUE = re.compile(r"\.unique\(")
 
 
 def traits(kind: str, properties: Mapping[str, object]) -> NodeTraits:
@@ -43,9 +50,23 @@ def traits(kind: str, properties: Mapping[str, object]) -> NodeTraits:
         infers_datetime_format=kind == INFERS_DATETIME_FORMAT,
         python_udf=properties.get("name") == "python_udf"
         or any(_PYTHON_UDF.search(text) for text in texts),
+        deduplicates=kind in DEDUPLICATING or (kind in GROUPING and _only_picks(properties)),
+        asks_unique=any(_UNIQUE.search(text) for text in texts),
         string_calls=_counts(strings),
         plugin_calls=_counts(plugins),
     )
+
+
+def _only_picks(properties: Mapping[str, object]) -> bool:
+    """Every aggregation keeps one value of a column as it is, or there are none."""
+    aggregations = list(_texts(properties.get("aggs_per_input", properties.get("aggs", []))))
+    for expression in aggregations:
+        chains = list(_chains(expression))
+        if len(chains) != 1 or not set(chains[0][1]) <= _KEEPS_VALUE:
+            return False
+        if not expression.startswith("col("):
+            return False
+    return True
 
 
 def token(column: str) -> str:

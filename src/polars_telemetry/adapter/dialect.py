@@ -111,6 +111,8 @@ IN_MEMORY_FALLBACK = frozenset(
     {"InMemoryMap", "InMemoryJoin", "InMemoryAsOfJoin", "ColumnarFunction"}
 )
 INFERS_DATETIME_FORMAT = "StrptimeInfer"
+DEDUPLICATING = frozenset({"Distinct", "SortedUnique"})
+GROUPING = frozenset({"GroupBy", "SortedGroupBy"})
 
 # Kinds whose role depends on a property, not the kind alone; see `role_of`.
 _IR_SEMI_ANTI = frozenset({"SEMI", "ANTI"})

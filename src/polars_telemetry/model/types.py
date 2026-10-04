@@ -130,6 +130,11 @@ class NodeTraits:
     """The streaming engine hands this node's whole input to the in-memory engine."""
     infers_datetime_format: bool = False
     python_udf: bool = False
+    deduplicates: bool = False
+    """The node only removes duplicate rows: a distinct, or a grouping whose
+    aggregations each keep a value as it is."""
+    asks_unique: bool = False
+    """An expression of the node asks for unique values."""
     string_calls: tuple[CallCount, ...] = ()
     plugin_calls: tuple[CallCount, ...] = ()
 

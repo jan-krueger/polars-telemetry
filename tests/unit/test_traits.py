@@ -64,3 +64,18 @@ def test_execution_facts_come_from_the_node_kind():
     assert traits("ColumnarFunction", {"name": "python_udf"}).python_udf
     assert traits("Select", {"selectors": ['col("a").python_udf()']}).python_udf
     assert traits("Select", {}) == traits("Filter", {})
+
+
+def test_a_node_that_only_removes_duplicates():
+    pick = {"aggs_per_input": [['col("a").first().alias("a")', 'col("b").last().alias("b")']]}
+    assert traits("GroupBy", pick).deduplicates
+    assert traits("GroupBy", {"aggs_per_input": [[]]}).deduplicates
+    assert traits("Distinct", {}).deduplicates
+    assert not traits("GroupBy", {"aggs_per_input": [['col("a").sum().alias("a")']]}).deduplicates
+    assert not traits("GroupBy", {"aggs_per_input": [['len().alias("n")']]}).deduplicates
+    assert not traits("Select", pick).deduplicates
+
+
+def test_an_expression_asking_for_unique_values():
+    assert traits("Select", {"exprs": ['col("k").unique()']}).asks_unique
+    assert not traits("Select", {"exprs": ['col("k").n_unique()']}).asks_unique
