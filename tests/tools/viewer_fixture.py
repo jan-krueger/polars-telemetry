@@ -7,7 +7,6 @@ from the same captured payloads means the two cannot drift apart silently.
 from __future__ import annotations
 
 import json
-import os
 import sys
 from pathlib import Path
 from unittest import mock
@@ -39,7 +38,7 @@ def profile_document() -> dict[str, object]:
         started_unix_ns=1_759_478_400_000_000_000,
         polars_version=fixture.name,
     )
-    with mock.patch.object(os, "cpu_count", return_value=8):
+    with mock.patch("polars_telemetry.adapter.build.threads", return_value=8):
         return build_profile(enrich(query))
 
 

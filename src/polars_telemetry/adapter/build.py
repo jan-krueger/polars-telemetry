@@ -46,6 +46,14 @@ def build_metrics(records: list[dict[str, Any]]) -> dict[int, NodeMetrics]:
     return metrics
 
 
+def threads() -> int:
+    """Threads polars can run a query on: its pool, which honours CPU affinity,
+    a cgroup CPU quota and POLARS_MAX_THREADS, unlike os.cpu_count()."""
+    import polars
+
+    return polars.thread_pool_size()
+
+
 def enrich(query: Query) -> Query:
     """Attach what every consumer would otherwise derive for itself.
 
@@ -55,5 +63,5 @@ def enrich(query: Query) -> Query:
     return replace(
         query,
         fingerprint=fingerprint(query.logical or query.plan),
-        diagnostics=derive(query),
+        diagnostics=derive(query, threads()),
     )

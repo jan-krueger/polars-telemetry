@@ -16,6 +16,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   costs a fraction of a millisecond per query.
 
 ### Fixed
+- `polars.cpu_count` and `polars.parallel_efficiency` counted every core of the
+  machine. They now use polars' thread pool, which honours CPU affinity, a
+  systemd or container CPU quota and `POLARS_MAX_THREADS`. A query in a unit
+  limited to 48 of 96 cores reported half its real efficiency.
 - An undescribed in-memory fallback no longer carries polars' placeholder text
   `error: prepare_visualization was not set during conversion` into spans and
   profiles. The viewer shows "not recorded" for profiles written before.

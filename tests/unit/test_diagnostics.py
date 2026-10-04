@@ -168,3 +168,17 @@ def test_join_growth_counts_a_shared_input_once_per_consumer():
 
 def test_join_growth_is_absent_without_a_join():
     assert derive(_join_query(left=1, right=1, out=1, kind="Select")).join_growth is None
+
+
+def test_parallel_efficiency_counts_the_threads_polars_has_not_the_machine():
+    """polars' pool follows CPU affinity, a cgroup quota and POLARS_MAX_THREADS."""
+    import os
+    import subprocess
+    import sys
+
+    script = "from polars_telemetry.adapter.build import threads; print(threads())"
+    env = {**os.environ, "POLARS_MAX_THREADS": "3"}
+    out = subprocess.run(  # noqa: S603
+        [sys.executable, "-c", script], capture_output=True, text=True, env=env, check=True
+    )
+    assert out.stdout.strip() == "3"
