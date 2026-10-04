@@ -6,7 +6,7 @@ One span per query carrying the plan, and per-node counters as metrics, to any
 OTLP collector — or a profile file you open in your browser, with no collector
 at all.
 
-[![Both plans, per-node counters and diagnostics for one query in the profile viewer](https://raw.githubusercontent.com/jan-krueger/polars-telemetry/main/docs/assets/viewer.png)](https://jan-krueger.github.io/polars-telemetry/viewer/)
+[![Both plans of a TPC-H query, its figures and diagnostics, and a finding on the selected node in the profile viewer](https://raw.githubusercontent.com/jan-krueger/polars-telemetry/main/docs/assets/viewer.png)](https://jan-krueger.github.io/polars-telemetry/viewer/)
 
 > [!IMPORTANT]
 > **Unaffiliated with Polars and Polars Cloud.** This package attaches to an
