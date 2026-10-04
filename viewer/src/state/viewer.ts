@@ -140,6 +140,13 @@ export function reducer(state: ViewerState, action: Action): ViewerState {
 
 // --- selectors ------------------------------------------------------------------
 
+/** The session already holding exactly these runs, so a file opened twice is not stored twice. */
+export function sameRuns(sessions: Session[], profiles: Profile[]): Session | null {
+  const key = (ps: Profile[]) => ps.map((p) => p.query_id).sort().join(",");
+  const wanted = key(profiles);
+  return sessions.find((s) => s.profiles.length === profiles.length && key(s.profiles) === wanted) ?? null;
+}
+
 export const currentSession = (state: ViewerState): Session | null =>
   state.sessions.find((s) => s.id === state.sessionId) ?? null;
 
@@ -223,4 +230,17 @@ export const visibleShapes = (state: ViewerState): ShapeRow[] =>
 
 /** What to call a query: its label, else a name derived from its plan. */
 export const title = (profile: Profile): string => profile.label ?? shapeName(profile);
+
+/** The label path every query shares, such as "pipeline/", so a list can show what differs. */
+export function sharedPrefix(profiles: Profile[]): string {
+  if (profiles.length < 2) return "";
+  const paths = profiles.map((p) => title(p).split("/"));
+  const shared: string[] = [];
+  for (let i = 0; i < Math.min(...paths.map((p) => p.length - 1)); i++) {
+    const segment = paths[0]![i]!;
+    if (!paths.every((p) => p[i] === segment)) break;
+    shared.push(segment);
+  }
+  return shared.length ? `${shared.join("/")}/` : "";
+}
 

@@ -4,15 +4,42 @@ export const num = (v, d = 0) =>
   (v ?? 0).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
 export const ms = (v) =>
   v >= 10 ? num(v, 1) + " ms" : v >= 0.1 ? num(v, 2) + " ms" : num(v * 1000, 0) + " µs";
-export const rows = (v) =>
-  v >= 1e6 ? num(v / 1e6, 2) + "M" : v >= 1e3 ? num(v / 1e3, 1) + "k" : num(v, 0);
 export const bytes = (b) =>
   b >= 1048576 ? num(b / 1048576, 1) + " MiB" : num(b / 1024, 1) + " KiB";
 
-/** A name for a query without a label: the first table it reads. */
-export function shapeName(p) {
+/** The first table a query reads, if it reads a named one. */
+export function tableName(p) {
   const scan = p.plan.logical.find((n) => roleOf(n) === "scan");
-  return (scan && relationName(scan.properties ?? {})) || `${p.plan.physical.length} nodes`;
+  return (scan && relationName(scan.properties ?? {})) || null;
+}
+
+/** A name for a query without a label: the first table it reads. */
+export const shapeName = (p) => tableName(p) ?? `${p.plan.physical.length} nodes`;
+
+/** A duration at the scale a reader thinks in: 40 µs, 5.3 ms, 88.9 s, 456 s, 13.0 min. */
+export function span(v) {
+  if (v < 1) return `${num(v * 1_000, 0)} µs`;
+  if (v < 1_000) return `${num(v, v < 10 ? 1 : 0)} ms`;
+  if (v < 600_000) return `${num(v / 1_000, v < 100_000 ? 1 : 0)} s`;
+  return `${num(v / 60_000, 1)} min`;
+}
+
+/** A count at the scale a reader thinks in: 940, 12,345, 301K, 57.7M. */
+export function compact(v) {
+  if (Math.abs(v) < 100_000) return num(v);
+  for (const [divisor, suffix] of [[1e9, "B"], [1e6, "M"], [1e3, "K"]])
+    if (Math.abs(v) >= divisor) return `${Number((v / divisor).toPrecision(3))}${suffix}`;
+  return num(v);
+}
+
+/** How many of the threads polars had were busy on average, and how that reads. */
+export function busy(p) {
+  if (!(p.wall_ms > 0) || !(p.cpu_ms > 0)) return null;
+  const threads = p.cpu_ms / p.wall_ms;
+  const of = p.diagnostics?.cpu_count ?? null;
+  const share = of ? Math.min(1, threads / of) : null;
+  const verdict = share == null ? "info" : share >= 0.7 ? "good" : share >= 0.4 ? "warn" : "crit";
+  return { threads, of, share, verdict };
 }
 
 const JOINS = new Set(["join", "theta_join", "cross_join", "semi_anti_join"]);
@@ -39,10 +66,6 @@ export function joinGrowth(plan) {
 export function diagnostics(p) {
   const d = p.diagnostics || {}, out = [];
   const push = (k, t, v, u, s, n) => out.push({ k, t, v, u, s, n });
-  if (d.parallel_efficiency !== undefined)
-    push("parallel_efficiency", "Parallel efficiency", num(d.parallel_efficiency * 100, 0), "%",
-      d.parallel_efficiency >= 0.7 ? "good" : d.parallel_efficiency >= 0.4 ? "warn" : "crit",
-      `${num(d.parallel_efficiency * (d.cpu_count || 1), 1)} of ${d.cpu_count} cores`);
   const growth = typeof d.join_growth === "number" ? d.join_growth : joinGrowth(p.plan?.physical ?? []);
   if (growth !== undefined)
     push("join_growth", "Join growth", num(growth, 2), "×",
@@ -72,3 +95,5 @@ export function diagnostics(p) {
       "figures are a floor, not a total");
   return out;
 }
+
+export const rows = compact;

@@ -1,6 +1,7 @@
 /** The findings polars-telemetry wrote into a profile, arranged for the plan view. */
 
 import type { Finding, FindingLevel, Measure, Profile } from "../model/profile";
+import { compact } from "./format";
 
 /** Problem findings per physical node, most important first. */
 export function byNode(profile: Profile | null): Map<number, Finding[]> {
@@ -52,9 +53,5 @@ export function measured({ value, unit }: Measure): string {
     if (value < 60_000) return `${(value / 1_000).toFixed(1)} s`;
     return `${(value / 60_000).toFixed(1)} min`;
   }
-  if (Math.abs(value) < 100_000) return Math.round(value).toLocaleString("en-US");
-  for (const [divisor, suffix] of [[1e9, "B"], [1e6, "M"], [1e3, "K"]] as const) {
-    if (Math.abs(value) >= divisor) return `${significant(value / divisor, 3)}${suffix}`;
-  }
-  return String(value);
+  return compact(value);
 }

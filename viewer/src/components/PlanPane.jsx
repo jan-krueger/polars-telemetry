@@ -3,7 +3,7 @@ import { ReactFlow, Background, MiniMap, Controls, useReactFlow, useStore } from
 import PlanNode from "./PlanNode";
 import { FAR_ZOOM, NODE_H, NODE_W, applyView, distant, extent, focusSteps, shareView, startsFar, stepFor, toFlow, withSelection } from "../lib/graph";
 import useLayout from "./useLayout";
-import { ms } from "../lib/format";
+import { span } from "../lib/format";
 import Tip from "./Tip";
 
 const nodeTypes = { plan: PlanNode };
@@ -142,7 +142,7 @@ function Focus({ steps, step, onFocus }) {
   const total = steps[0].shown;
   const text = step === 0
     ? `all ${total} nodes`
-    : `${shown} of ${total} · ${Math.round(coverage)}% of CPU · ≥ ${ms(thresholdMs)}`;
+    : `${shown} of ${total} · ${Math.round(coverage)}% of CPU · ≥ ${span(thresholdMs)}`;
   return (
     <label className="focus">
       <Tip content={text}><span className="focus-val">{text}</span></Tip>

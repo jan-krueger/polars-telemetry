@@ -43,6 +43,11 @@ as expected. A link only opens in the browser where that session was imported.
 
 ## Reading a plan
 
+Above the plans, a query states its wall time, how many of the threads polars
+had were busy on average (node CPU ÷ wall time, as a bar against the thread
+count), and the rows it returned. Hover the figures for exact times, planning
+and CPU.
+
 Each query shows the logical plan on the left and the physical plan on the
 right. Drag to pan, scroll to zoom; the minimap shows where you are.
 

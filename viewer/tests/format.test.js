@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { diagnostics, joinGrowth, shapeName } from "../src/lib/format.js";
+import { busy, compact, diagnostics, joinGrowth, shapeName, span } from "../src/lib/format.js";
 
 const profile = (over = {}) => ({
   schema: "polars-telemetry/profile@1",
@@ -19,14 +19,29 @@ describe("diagnostics", () => {
     expect(diagnostics({})).toEqual([]);
   });
 
-  it("flags poor parallel efficiency", () => {
-    const [chip] = diagnostics({ diagnostics: { parallel_efficiency: 0.2, cpu_count: 8 } });
-    expect(chip.s).toBe("crit");
+  it("leaves parallel efficiency to the threads-busy bar", () => {
+    expect(diagnostics({ diagnostics: { parallel_efficiency: 0.2, cpu_count: 8 } })).toEqual([]);
+  });
+});
+
+describe("busy", () => {
+  it("reads CPU over wall as threads busy, judged against the threads polars had", () => {
+    const b = busy({ wall_ms: 100, cpu_ms: 570, diagnostics: { cpu_count: 48 } });
+    expect(b.threads).toBeCloseTo(5.7);
+    expect(b.verdict).toBe("crit");
+    expect(busy({ wall_ms: 100, cpu_ms: 760, diagnostics: { cpu_count: 8 } }).verdict).toBe("good");
   });
 
-  it("calls good parallel efficiency good", () => {
-    const [chip] = diagnostics({ diagnostics: { parallel_efficiency: 0.9, cpu_count: 8 } });
-    expect(chip.s).toBe("good");
+  it("still counts threads when the profile does not say how many there were", () => {
+    expect(busy({ wall_ms: 10, cpu_ms: 30, diagnostics: {} })).toMatchObject({ of: null, share: null });
+    expect(busy({ wall_ms: 10, cpu_ms: 0 })).toBeNull();
+  });
+});
+
+describe("human units", () => {
+  it("scales durations and counts", () => {
+    expect([span(0.04), span(5.25), span(940), span(88_906.5), span(456_000), span(781_494)]).toEqual(["40 µs", "5.3 ms", "940 ms", "88.9 s", "456 s", "13.0 min"]);
+    expect([compact(940), compact(12_345), compact(301_000), compact(57_718_060)]).toEqual(["940", "12,345", "301K", "57.7M"]);
   });
 });
 

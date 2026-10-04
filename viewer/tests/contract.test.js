@@ -14,7 +14,7 @@ const profile = JSON.parse(
 const NOT_SHOWN = new Set(["node_id", "done"]);
 
 // Computed by the Python side but with nothing to render yet.
-const NO_CHIP = new Set(["cpu_count", "filter_rows_dropped", "incomplete_nodes"]);
+const NO_CHIP = new Set(["cpu_count", "filter_rows_dropped", "incomplete_nodes", "parallel_efficiency"]);
 
 describe("the profile contract", () => {
   it("shows every counter the exporter writes", () => {

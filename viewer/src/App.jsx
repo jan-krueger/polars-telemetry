@@ -9,7 +9,7 @@ import ShareDialog from "./components/ShareDialog";
 import { byNode, warned } from "./lib/insights";
 import Tip, { TipText } from "./components/Tip";
 import { allSessions, dropAll, dropSession, saveSession, storageUnavailable } from "./lib/storage";
-import { bytes, diagnostics, ms, num, shapeName } from "./lib/format";
+import { busy, bytes, compact, diagnostics, num, shapeName, span, tableName } from "./lib/format";
 import { basename } from "./lib/polars";
 import { clock, instant, iso, ranBetween, spansDays } from "./lib/time";
 import { readJsonl, readSession, toJsonl } from "./model/read";
@@ -17,8 +17,8 @@ import { fromHash, isNewPage, routeOf, toHash } from "./state/route";
 import { MAX_LINK_CHARS, isShareFragment, openShareFragment, shareFragment } from "./share/link";
 import { documentsFor, sharedSession } from "./share/session";
 import {
-  compareProfile, currentProfile, currentSession, findNode, initialState, reducer, title,
-  visibleShapes,
+  compareProfile, currentProfile, currentSession, findNode, initialState, reducer, sameRuns,
+  sharedPrefix, title, visibleShapes,
 } from "./state/viewer";
 
 const EXAMPLES = [
@@ -27,6 +27,31 @@ const EXAMPLES = [
 ];
 
 const VERDICT = { good: "var(--good)", warn: "var(--warn)", crit: "var(--crit)", info: "var(--muted)" };
+
+const Breakable = ({ text }) =>
+  text.split(/(?<=[/._])/).map((part, i) => <span key={i}>{i ? <wbr /> : null}{part}</span>);
+
+function Busy({ profile, compare }) {
+  const b = busy(profile);
+  if (!b) return null;
+  const cpu = compare?.cpu_ms ? ` (${profile.cpu_ms >= compare.cpu_ms ? "+" : ""}${num(((profile.cpu_ms - compare.cpu_ms) / compare.cpu_ms) * 100, 0)}% against the compared run)` : "";
+  const note = `${num(profile.cpu_ms, 1)} ms of node CPU over ${num(profile.wall_ms, 1)} ms of wall time${cpu}: `
+    + (b.of ? `on average ${num(b.threads, 1)} of the ${b.of} threads polars had were busy, ${num(b.share * 100, 0)}% parallel efficiency.`
+      : `on average ${num(b.threads, 1)} threads were busy.`)
+    + " Node CPU counts only time polars charges to nodes.";
+  return (
+    <Tip content={<TipText term="Threads busy">{note}</TipText>}>
+      <span className="busy" tabIndex={0}>
+        ·{b.share != null && (
+          <span className="busy-bar" aria-hidden="true">
+            <span style={{ width: `${Math.max(2, b.share * 100)}%`, background: VERDICT[b.verdict] }} />
+          </span>
+        )}
+        <b>{num(b.threads, 1)}</b>{b.of ? <> of {b.of}</> : null} threads busy
+      </span>
+    </Tip>
+  );
+}
 
 export default function App() {
   const [state, dispatch] = useReducer(reducer, initialState);
@@ -108,9 +133,12 @@ export default function App() {
   useEffect(() => setSharing(null), [profile?.query_id, compare?.query_id]);
   const withDates = useMemo(() => spansDays(profiles), [profiles]);
 
+  const open = useRef(state.sessions);
+  open.current = state.sessions;
   const importFiles = useCallback(async (files) => {
     const added = [];
     const rejected = [];
+    let reopened = null;
     for (const f of files) {
       let read;
       try {
@@ -129,6 +157,11 @@ export default function App() {
         const n = read.rejected.length;
         rejected.push(`${f.name}: skipped ${n} line${n > 1 ? "s" : ""} (${read.rejected[0]})`);
       }
+      const already = sameRuns([...added, ...open.current], read.profiles);
+      if (already) {
+        reopened = already.id;
+        continue;
+      }
       const meta = { id: crypto.randomUUID(), name: f.name, importedAt: Date.now(), bytes: f.size };
       try {
         await saveSession({ ...meta, profiles: read.raw });
@@ -139,6 +172,7 @@ export default function App() {
     }
     setRejectedFiles(rejected);
     if (added.length) dispatch({ type: "imported", sessions: added });
+    else if (reopened) dispatch({ type: "sessionPicked", sessionId: reopened });
   }, []);
 
   useEffect(() => {
@@ -223,6 +257,7 @@ export default function App() {
   const selectedNode = findNode(profile, state.node);
   const compareNode = findNode(compare, state.node);
   const findings = useMemo(() => byNode(profile), [profile]);
+  const prefix = useMemo(() => sharedPrefix(profiles), [profiles]);
   const warnings = useMemo(() => warned(profile), [profile]);
   const [reveal, setReveal] = useState(null);
   const showWarning = (id) => {
@@ -344,15 +379,17 @@ export default function App() {
                      aria-label="Search queries by label, file, table or fingerprint"
                      onChange={(e) => dispatch({ type: "searched", text: e.target.value })} />
               {!overview.length && <div className="nomatch">No query matches “{state.search}”.</div>}
+              {prefix && <div className="prefix">{prefix}</div>}
               {overview.map((row) => (
                 <div className="shape" key={row.fingerprint}>
-                  <div className="fp"><span>{row.fingerprint}</span>
-                    <span>{row.runs.length} run{row.runs.length > 1 ? "s" : ""}</span></div>
+                  {row.runs.length > 1 && (
+                    <div className="fp"><span>{row.fingerprint}</span><span>{row.runs.length} runs</span></div>
+                  )}
                   {row.runs.map((p) => (
                     <button key={p.query_id} className="run" aria-pressed={p.query_id === state.queryId}
                             onClick={() => pick(p.query_id)}>
-                      <div className="l1">{title(p)}</div>
-                      <div className="l2">{ms(p.wall_ms)} wall · {ms(p.cpu_ms)} cpu</div>
+                      <div className="l1"><Breakable text={title(p).slice(prefix.length)} /></div>
+                      <div className="l2">{span(p.wall_ms)} wall{p.cpu_ms > 0 ? ` · ${span(p.cpu_ms)} cpu` : ""}</div>
                     </button>
                   ))}
                 </div>
@@ -410,9 +447,9 @@ polars_telemetry.install(exporter=FileExporter("profiles/session.jsonl"))`} />
                     <tr key={r.fingerprint} onClick={() => pick(r.runs[0].query_id)}>
                       <td><div style={{ fontWeight: 500 }}>{title(r.runs[0])}</div>
                         <div style={{ font: "10.5px ui-monospace,monospace", color: "var(--muted)" }}>
-                          {r.runs[0].label ? `${shapeName(r.runs[0])} · ` : ""}{r.fingerprint}</div></td>
-                      <td>{r.runs.length}</td><td>{ms(r.wallMs)}</td>
-                      <td>{num((r.wallMs / totalWall) * 100, 1)}%</td><td>{ms(r.cpuMs / r.runs.length)}</td>
+                          {r.runs[0].label && tableName(r.runs[0]) ? `${tableName(r.runs[0])} · ` : ""}{r.fingerprint}</div></td>
+                      <td>{r.runs.length}</td><td>{span(r.wallMs)}</td>
+                      <td>{num((r.wallMs / totalWall) * 100, 1)}%</td><td>{r.cpuMs > 0 ? span(r.cpuMs / r.runs.length) : "—"}</td>
                       <td style={{ width: 140 }}>
                         <div className="bar" style={{ width: `${(r.wallMs / widest) * 100}%` }} /></td>
                     </tr>
@@ -425,11 +462,11 @@ polars_telemetry.install(exporter=FileExporter("profiles/session.jsonl"))`} />
               <div className="qhead">
                 <div className="qline">
                   <span className="qname">{title(profile)}</span>
-                  <span className="qmeta">{profile.label ? `${shapeName(profile)} · ` : ""}{profile.fingerprint} ·{" "}
+                  <span className="qmeta">{profile.label && tableName(profile) ? `${tableName(profile)} · ` : ""}{profile.fingerprint} ·{" "}
                     <Tip content={instant(profile.started_unix_ns)}>
                       <time dateTime={iso(profile.started_unix_ns)} tabIndex={0}>
                         {clock(profile.started_unix_ns, withDates)}</time>
-                    </Tip></span>
+                    </Tip> · polars {profile.polars_version}</span>
                   {profile.call_site && (
                     <Tip content={profile.call_site.filepath}>
                     <span className="qsite" tabIndex={0}>
@@ -445,7 +482,7 @@ polars_telemetry.install(exporter=FileExporter("profiles/session.jsonl"))`} />
                       <option value="">compare with…</option>
                       {siblings.map((q) => (
                         <option value={q.query_id} key={q.query_id}>
-                          {clock(q.started_unix_ns, withDates)} · {ms(q.wall_ms)}
+                          {clock(q.started_unix_ns, withDates)} · {span(q.wall_ms)}
                         </option>))}
                     </select>
                   )}
@@ -462,37 +499,35 @@ polars_telemetry.install(exporter=FileExporter("profiles/session.jsonl"))`} />
                                onClose={() => setSharing(null)} />
                 )}
                 <div className="qstats">
-                  <b>{num(profile.wall_ms, 1)} ms</b> wall{delta(profile.wall_ms, compare?.wall_ms)} ·{" "}
-                  {profile.planning_ms != null && (
-                    <>
-                      <Tip content={<TipText term="Planning">From collect() until the plan starts running: polars optimising and lowering it.{profile.telemetry_ms != null ? ` polars-telemetry then took ${num(profile.telemetry_ms, 1)} ms before execution.` : ""}</TipText>}>
-                        <span tabIndex={0}><b>{num(profile.planning_ms, 1)} ms</b> planning</span>
-                      </Tip>
-                      {delta(profile.planning_ms, compare?.planning_ms)} ·{" "}
-                    </>
+                  <Tip content={<TipText term="Wall time">{num(profile.wall_ms, 1)} ms from collect() to the result
+                    {profile.planning_ms != null ? `, of which ${num(profile.planning_ms, 1)} ms planning` : ""}
+                    {profile.telemetry_ms != null ? ` and ${num(profile.telemetry_ms, 1)} ms polars-telemetry` : ""}.</TipText>}>
+                    <span tabIndex={0}><b className="qwall">{span(profile.wall_ms)}</b> wall</span>
+                  </Tip>
+                  {delta(profile.wall_ms, compare?.wall_ms)}
+                  <Busy profile={profile} compare={compare} />
+                  {profile.result_rows != null && (
+                    <span>· <b>{compact(profile.result_rows)}</b> rows out{delta(profile.result_rows, compare?.result_rows)}</span>
                   )}
-                  <b>{num(profile.cpu_ms, 1)} ms</b> cpu{delta(profile.cpu_ms, compare?.cpu_ms)} ·{" "}
-                  <b>{profile.plan.physical.length}</b> nodes ·{" "}
-                  <b>{num(profile.result_rows ?? 0)}</b> rows out · polars {profile.polars_version}
+                  <span className="chips">
+                    {diagnostics(profile).map((d) => (
+                      <span className="chipd" key={d.t}>
+                        <i className="dot" style={{ background: VERDICT[d.s] }} />
+                        <span className="lb">{d.t}</span><b>{d.v}{d.u}</b>
+                        <Help term={d.k} extra={d.n} />
+                      </span>
+                    ))}
+                  </span>
                   {profile.redacted?.length ? (
                     <Tip content={<TipText term="Masked before export">Values such as {'"<str>"'} and {"<num>"} are placeholders, not your data.</TipText>}>
                       <span className="masked" tabIndex={0}>
-                        {" "}· masked: {profile.redacted.join(", ").replace("_", " ")}</span>
+                        · masked: {profile.redacted.join(", ").replace("_", " ")}</span>
                     </Tip>
                   ) : null}
                 </div>
                 {profile.failed && (
                   <div className="qfail" role="alert"><b>Failed</b> {profile.failed}</div>
                 )}
-                <div className="chips">
-                  {diagnostics(profile).map((d) => (
-                    <span className="chipd" key={d.t}>
-                      <i className="dot" style={{ background: VERDICT[d.s] }} />
-                      <span className="lb">{d.t}</span><b>{d.v}{d.u}</b>
-                      <Help term={d.k} extra={d.n} />
-                    </span>
-                  ))}
-                </div>
               </div>
 
               <div className={alone ? `plans alone-${alone}` : "plans"}>

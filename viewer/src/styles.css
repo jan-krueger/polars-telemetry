@@ -3,6 +3,7 @@
   --plane:#f4f5f4; --surface:#fcfcfb; --surface-2:#eceeec;
   --ink:#0b0b0b; --ink-2:#52514e; --muted:#898781;
   --grid:#e1e0d9; --axis:#c3c2b7; --rule-2:#d2d6d3; --border:rgba(11,11,11,.11);
+  --lnode:#fcfcfb; --lnode-line:#c3c8c4;
   --accent:#2a78d6;
   --sq1:#86b6ef; --sq1-ink:#0b0b0b; --sq2:#256abf; --sq2-ink:#fff;
   --sq3:#184f95; --sq3-ink:#fff;  --sq4:#0d366b; --sq4-ink:#fff;
@@ -14,6 +15,7 @@
   --plane:#0c0c0c; --surface:#171716; --surface-2:#201f1e;
   --ink:#fff; --ink-2:#c3c2b7; --muted:#8c8a84;
   --grid:#2c2c2a; --axis:#3a3a37; --rule-2:#393934; --border:rgba(255,255,255,.12);
+  --lnode:#2a2a27; --lnode-line:#6a6963;
   --accent:#3987e5;
   --sq1:#184f95; --sq1-ink:#fff; --sq2:#2a78d6; --sq2-ink:#fff;
   --sq3:#6da7ec; --sq3-ink:#0b0b0b; --sq4:#b7d3f6; --sq4-ink:#0b0b0b;
@@ -64,7 +66,8 @@ h2{font:600 10.5px/1 ui-monospace,monospace;letter-spacing:.1em;text-transform:u
 .link{background:none;border:0;color:var(--accent);cursor:pointer;font-size:11px;padding:0}
 .link:hover{text-decoration:underline}
 
-.shape{margin-bottom:12px;scroll-margin:12px}
+.shape{margin-bottom:6px;scroll-margin:12px}
+.prefix{font:11px ui-monospace,monospace;color:var(--muted);margin:2px 0 6px;overflow-wrap:anywhere}
 .fp{font:11px ui-monospace,monospace;color:var(--muted);margin-bottom:5px;
   display:flex;justify-content:space-between}
 .run{display:block;width:100%;text-align:left;background:transparent;border:0;
@@ -72,7 +75,7 @@ h2{font:600 10.5px/1 ui-monospace,monospace;letter-spacing:.1em;text-transform:u
   cursor:pointer;margin-bottom:2px}
 .run:hover{background:var(--surface-2)}
 .run[aria-pressed="true"]{border-left-color:var(--accent);background:var(--surface-2)}
-.run .l1{font-size:12.5px;font-weight:500}
+.run .l1{font-size:12.5px;font-weight:500;overflow-wrap:break-word}
 .run .l2{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
 
 /* min-width:0 so a long code line scrolls inside its block rather than
@@ -89,19 +92,24 @@ pre.snip{text-align:left;background:var(--surface);border:1px solid var(--border
   color:var(--ink-2);overflow-x:auto;margin:0 0 14px}
 pre.snip b{color:var(--ink);font-weight:500}
 
-.qhead{margin-bottom:10px}
+.qhead{margin-bottom:8px}
 .qline{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
 .qname{font:600 15px system-ui;letter-spacing:-.012em}
 .qmeta{font:11px ui-monospace,monospace;color:var(--muted)}
 .qsite{font:10.5px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--accent);
   background:var(--surface-2);border-radius:4px;padding:1px 6px}
-.qstats{font-size:12.5px;color:var(--muted);margin-top:2px;font-variant-numeric:tabular-nums}
+.qstats{display:flex;align-items:center;flex-wrap:wrap;gap:4px 8px;font-size:12.5px;color:var(--muted);
+  margin-top:3px;font-variant-numeric:tabular-nums}
 .qstats b{color:var(--ink);font-weight:600}
+.qstats .qwall{font-size:15px}
+.busy{display:inline-flex;align-items:center;gap:6px}
+.busy-bar{display:inline-block;width:96px;height:7px;border-radius:4px;background:var(--surface-2);
+  border:1px solid var(--border);overflow:hidden}
+.busy-bar span{display:block;height:100%}
 .dl{font-size:11px;font-variant-numeric:tabular-nums}
 .delta-up{color:var(--up)} .delta-down{color:var(--down)}
-.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
-.chipd{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);
-  border-radius:999px;padding:3px 10px;font-size:12px;cursor:help;background:var(--surface)}
+.chips{display:inline-flex;gap:4px 12px;flex-wrap:wrap;margin-left:4px;padding-left:12px;border-left:1px solid var(--border)}
+.chipd{display:inline-flex;align-items:center;gap:5px;font-size:12px}
 .chipd b{font-variant-numeric:tabular-nums;font-weight:600}
 .chipd .lb{color:var(--muted)}
 .dot{width:7px;height:7px;border-radius:50%;flex:none}
@@ -130,7 +138,7 @@ pre.snip b{color:var(--ink);font-weight:500}
 /* plan node */
 .pnode{width:196px;height:56px;border-radius:6px;padding:6px 9px;overflow:hidden;
   border:1px solid var(--border);cursor:pointer}
-.pnode.logical{background:var(--surface);border-color:var(--rule-2)}
+.pnode.logical{background:var(--lnode);border-color:var(--lnode-line)}
 .pnode--sel{outline:2px solid var(--accent);outline-offset:1px}
 .pnode .t1{font:600 11px ui-monospace,monospace;display:flex;align-items:center;gap:5px}
 .pnode .t2{font:9.5px system-ui;opacity:.76;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -219,7 +227,7 @@ pre.snip b{color:var(--ink);font-weight:500}
   --xy-edge-label-background-color:var(--surface);
   --xy-attribution-background-color:transparent;
 }
-.planbox.logical{--xy-minimap-node-background-color:var(--axis)}
+.planbox.logical{--xy-minimap-node-background-color:var(--lnode-line)}
 
 /* No variable exists for these, so they still reach into React Flow's own
    classes. Keep any such rule here, where an upgrade can check them at once. */
