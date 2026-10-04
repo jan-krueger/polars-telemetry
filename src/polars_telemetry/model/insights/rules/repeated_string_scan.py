@@ -16,9 +16,10 @@ REPEATED_AT = 4
 """TPC-H never calls one string function on one column more than once per node."""
 
 _SINGLE_PASS = {
-    "contains": "merge into one `str.contains_any`, or one regex",
+    "contains": "if they are OR'ed: one `str.contains_any` for literals, or one regex `a|b`",
 }
 _LITERAL = "if these are literal `replace_all`"
+_ONE_PASS = frozenset({"replace", "contains"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,7 +34,11 @@ class RepeatedStringScan(Rule[Scans]):
     id: ClassVar[str] = "repeated_string_scan"
 
     def check(self, node: PlanNode, view: PlanView) -> Scans | None:
-        repeated = [c for c in node.traits.string_calls if c.count >= REPEATED_AT]
+        repeated = [
+            c
+            for c in node.traits.string_calls
+            if c.count >= REPEATED_AT and c.function in _ONE_PASS
+        ]
         if not repeated:
             return None
         top = max(repeated, key=lambda c: c.count)
@@ -53,7 +58,7 @@ class RepeatedStringScan(Rule[Scans]):
 
 def _fix(evidence: Scans) -> str:
     if evidence.function != "replace":
-        return _SINGLE_PASS.get(evidence.function, "merge them into one call")
+        return _SINGLE_PASS[evidence.function]
     merged = evidence.replace_many_calls
     if merged is None:
         return "merge literal `replace_all` steps that cannot interact into `str.replace_many`"

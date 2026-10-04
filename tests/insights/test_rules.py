@@ -111,6 +111,11 @@ class TestRepeatedStringScan:
         assert numbers(finding)["replace_many_calls"] == 2
         assert finding.fix.endswith("merge into 2 `str.replace_many` calls, in order")
 
+    def test_a_function_without_a_one_pass_form_is_not_reported(self):
+        expressions = [f'col("s").str.slice([{i}, 2])' for i in range(5)]
+        plan = Plan().node(1, "MultiScan", rows=10).node(2, "Select", (1,), selectors=expressions)
+        assert found(plan, "repeated_string_scan") == []
+
     def test_a_chain_where_every_step_depends_on_the_last_stays_a_chain(self):
         finding = self.chain([("a", "b"), ("b", "c"), ("c", "d"), ("d", "e")])
         assert finding.fix.startswith("keep the chain")

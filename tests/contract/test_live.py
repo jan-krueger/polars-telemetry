@@ -183,3 +183,19 @@ def test_traits_read_what_polars_writes_today() -> None:
     assert "repeated_subplan" not in result["rules"], "polars no longer shares a reused frame"
     replaces = [c.count for t in found for c in t.string_calls if c.function == "replace"]
     assert max(replaces, default=0) == 4, "the str.replace chain is no longer read"
+
+
+def test_every_api_a_fix_names_exists_in_this_polars() -> None:
+    """A fix that names an API polars dropped or renamed sends users nowhere."""
+    import re
+
+    import polars as pl
+
+    rules = Path(__file__).parents[2] / "src" / "polars_telemetry" / "model" / "insights" / "rules"
+    quoted = {q for f in rules.glob("*.py") for q in re.findall(r"`([^`]+)`", f.read_text())}
+    names = {n for q in quoted for n in re.findall(r"(?:^|[./])([a-z_]+)(?=\(|$|/)", q)}
+    names -= {"a", "b", "keys"}
+    places = (pl.LazyFrame, pl.col("a"), pl.col("a").str)
+    missing = sorted(n for n in names if not any(hasattr(p, n) for p in places))
+    assert names
+    assert missing == []

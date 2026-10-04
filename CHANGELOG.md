@@ -11,6 +11,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   it would change: a replacement a later pattern matches, or overlapping
   patterns. The fix now names the fewest `replace_many` calls that keep the
   result, or says to keep the chain.
+- Other insight fixes checked against polars and corrected where following them
+  could change a query's result or would not help:
+  - `repeated_subplan` says `.cache()` or `collect()`. Reusing one
+    LazyFrame does not share a subplan polars considers nondeterministic,
+    such as one with a plugin call on polars 1.41 to 1.44.
+  - `repeated_string_scan` offers `str.contains_any` only for OR'ed
+    literal patterns, and fires only for `replace` and `contains`, which
+    have a one-pass form.
+  - `exploding_join` and `in_memory_fallback` no longer suggest
+    deduplicating or filtering earlier without a condition: both change
+    results when the duplicates or rows are wanted.
 
 ## [0.6.0] - 2026-10-04
 

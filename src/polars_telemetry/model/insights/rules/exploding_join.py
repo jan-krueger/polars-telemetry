@@ -43,5 +43,6 @@ class ExplodingJoin(Rule[Explosion]):
     def describe(self, evidence: Explosion) -> Text:
         return Text(
             f"Join emits {evidence.growth:.3g}x its larger input",
-            "`unique(subset=keys)` or `group_by(keys)` one input first, or join on the full key",
+            "if keys repeat by mistake: `unique(subset=keys)` one input first, "
+            "or join on the full key",
         )

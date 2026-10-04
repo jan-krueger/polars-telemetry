@@ -9,7 +9,7 @@ $ polars-telemetry insights nightly.jsonl
 nightly.jsonl · etl/orders  (212.4 s wall, 1,904.0 s CPU, 148 nodes)
   warn   31% wall  In-memory fallback: all input rows in one call  [in_memory_fallback, InMemoryMap #41]
                    rows_in 12M · longest_step 1.1 min
-                   fix: use a streaming-native expression, or reduce rows before this node
+                   fix: rewrite it with operations the streaming engine runs natively
   warn   22% CPU   8x `str.replace` on one column, one pass each  [repeated_string_scan, Select #17]
                    calls 8 · columns 1
                    fix: merge into one `str.replace_many`; chained replacements can depend on order
