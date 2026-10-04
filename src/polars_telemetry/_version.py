@@ -1,3 +1,3 @@
 """The package version, importable without pulling in the rest of the package."""
 
-__version__ = "0.5.1"
+__version__ = "0.6.0"

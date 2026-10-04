@@ -13,11 +13,25 @@ from polars_telemetry.cli import _insights, main
 EXAMPLE = Path(__file__).parents[2] / "examples" / "tpch-sf1.jsonl"
 
 
+def _timed(line: str, *, blocking: bool) -> str:
+    document = json.loads(line)
+    step = 1_000_000 if blocking else 0
+    if blocking:
+        document["wall_ms"] = 1.0
+    for node in document["plan"]["physical"]:
+        if node["kind"] == "GroupBy" and node.get("metrics"):
+            node["metrics"].update(
+                max_state_update_time_ns=step, max_poll_time_ns=step, total_time_ns=step
+            )
+    return json.dumps(document)
+
+
 @pytest.fixture
 def q20(tmp_path: Path) -> Path:
     lines = [line for line in EXAMPLE.read_text().splitlines() if '"tpch/q20"' in line]
+    timed = [_timed(line, blocking=i == 0) for i, line in enumerate(lines)]
     session = tmp_path / "q20.jsonl"
-    session.write_text("\n".join([*lines, "not a profile"]) + "\n")
+    session.write_text("\n".join([*timed, "not a profile"]) + "\n")
     return session
 
 
