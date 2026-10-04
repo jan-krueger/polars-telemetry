@@ -112,10 +112,9 @@ def _newest_polars() -> str:
     return max(live, key=Version)
 
 
-@nox.session
+@nox.session(venv_backend="none")
 def bench(session: nox.Session) -> None:
     """Overhead against the budget. Isolated, because it measures timing."""
-    session.install("-e", ".", "pytest")
     session.run("pytest", "-m", "bench", *session.posargs)
 
 
