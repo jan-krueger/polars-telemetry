@@ -11,6 +11,7 @@ from typing import Any
 
 from polars_telemetry.adapter.dialect import described, facets, role_of
 from polars_telemetry.adapter.fingerprint import fingerprint
+from polars_telemetry.adapter.traits import traits
 from polars_telemetry.model.diagnostics import derive
 from polars_telemetry.model.types import COUNTER_NAMES, NodeMetrics, PlanNode, Query
 
@@ -28,6 +29,7 @@ def build_plan(records: list[dict[str, Any]]) -> dict[int, PlanNode]:
             inputs=tuple(int(i) for i in record["input_ids"]),
             properties=properties,
             role=role,
+            traits=traits(kind, properties),
             **facets(role, properties),
         )
     return nodes

@@ -109,6 +109,32 @@ class AggregationFacet:
 
 
 @dataclass(frozen=True, slots=True)
+class CallCount:
+    """How often one function is applied to one input within a node."""
+
+    function: str
+    target: str
+    """An opaque token for the column or expression it is applied to."""
+    count: int
+
+
+@dataclass(frozen=True, slots=True)
+class NodeTraits:
+    """How a node executes, read from polars' vocabulary by the adapter.
+
+    Insight rules read these instead of kind names or expression text, which
+    are polars' to change.
+    """
+
+    in_memory_fallback: bool = False
+    """The streaming engine hands this node's whole input to the in-memory engine."""
+    infers_datetime_format: bool = False
+    python_udf: bool = False
+    string_calls: tuple[CallCount, ...] = ()
+    plugin_calls: tuple[CallCount, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
 class PlanNode:
     """One plan node."""
 
@@ -131,6 +157,7 @@ class PlanNode:
     join: JoinFacet | None = None
     sort: SortFacet | None = None
     aggregation: AggregationFacet | None = None
+    traits: NodeTraits = NodeTraits()
 
 
 @dataclass(frozen=True, slots=True)
