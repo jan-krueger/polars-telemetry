@@ -21,6 +21,10 @@ nightly.jsonl · etl/orders  (212.4 s wall, 1,904.0 s CPU, 148 nodes)
 It reads the session files the [JSONL exporter](exporters/jsonl.md) and
 `profile()` write, from any version.
 
+!!! note "Experimental"
+    Rules, their ids, titles, fixes and evidence may change in a minor
+    release while they are tuned on real workloads.
+
 ## Options
 
 | Option | Effect |

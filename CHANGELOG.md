@@ -7,6 +7,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- Insights, experimental: rule ids, titles, fixes and evidence may change in
+  a minor release.
 - `polars-telemetry insights FILE…`: reads profile files and reports what
   slows their queries, ranked by the share of CPU or wall time each finding
   concerns. The first rules: `in_memory_fallback`, `exploding_join`,
@@ -32,12 +34,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   outline that shows even far zoomed out, also on the minimap; the node's
   details open with each finding: its evidence, cost, fix and rule.
 
-### Fixed
-- A plugin's library path relative to the environment, which
 ### Removed
 - `polars.join.amplification` and `Diagnostics.join_amplification`, deprecated
   in 0.5.0: use `polars.join.growth`.
 
+### Fixed
+- A plugin's library path relative to the environment, which
   `register_plugin_function` writes by default, is now masked by
   `Redaction(paths=True)` and reduced to the library's name in the fingerprint.
   0.5.0 only recognised absolute paths, so the fingerprint of such a plan still

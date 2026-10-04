@@ -127,6 +127,8 @@ which nothing else carries. Contains both the physical and IR node lists with
 ### Insights
 
 One `polars.insight` event per [finding](../insights.md), most important first.
+Experimental: rule ids and their texts may change in a minor release; the
+attribute names below will not.
 
 | Attribute | Type | Example |
 | --- | --- | --- |
