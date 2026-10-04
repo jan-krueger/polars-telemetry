@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readProfile } from "../src/model/read";
 import type { Profile, Session } from "../src/model/profile";
-import { currentProfile, initialState, matches, reducer, sameRuns, shapes, sortShapes, title, visibleShapes, type ViewerState } from "../src/state/viewer";
+import { currentProfile, initialState, matches, reducer, sameRuns, sharedPrefix, shapes, sortShapes, title, visibleShapes, type ViewerState } from "../src/state/viewer";
 
 function profile(id: string, fingerprint: string, wall: number, hotNode = 7): Profile {
   const result = readProfile({
@@ -202,5 +202,21 @@ describe("opening a file twice", () => {
   it("treats a file with more or fewer runs as new", () => {
     expect(sameRuns(open, [run("1")])).toBeNull();
     expect(sameRuns(open, [run("3"), run("4")])).toBeNull();
+  });
+});
+
+describe("shared label prefix", () => {
+  const labelled = (label: string) => ({ label, plan: { logical: [], physical: [] } }) as unknown as Profile;
+
+  it("is the leading path every label shares, whole segments only", () => {
+    const ps = ["etl/load/orders", "etl/load/items", "etl/write"].map(labelled);
+    expect(sharedPrefix(ps)).toBe("etl/");
+    expect(sharedPrefix(["etl/loading", "etl/load"].map(labelled))).toBe("etl/");
+  });
+
+  it("never swallows a whole label, and needs two queries", () => {
+    expect(sharedPrefix(["etl/a", "etl/a"].map(labelled))).toBe("etl/");
+    expect(sharedPrefix(["etl", "etl/a"].map(labelled))).toBe("");
+    expect(sharedPrefix([labelled("etl/a")])).toBe("");
   });
 });

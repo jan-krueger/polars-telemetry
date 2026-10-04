@@ -17,8 +17,8 @@ import { fromHash, isNewPage, routeOf, toHash } from "./state/route";
 import { MAX_LINK_CHARS, isShareFragment, openShareFragment, shareFragment } from "./share/link";
 import { documentsFor, sharedSession } from "./share/session";
 import {
-  compareProfile, currentProfile, currentSession, findNode, initialState, reducer, sameRuns, title,
-  visibleShapes,
+  compareProfile, currentProfile, currentSession, findNode, initialState, reducer, sameRuns,
+  sharedPrefix, title, visibleShapes,
 } from "./state/viewer";
 
 const EXAMPLES = [
@@ -27,6 +27,9 @@ const EXAMPLES = [
 ];
 
 const VERDICT = { good: "var(--good)", warn: "var(--warn)", crit: "var(--crit)", info: "var(--muted)" };
+
+const Breakable = ({ text }) =>
+  text.split(/(?<=[/._])/).map((part, i) => <span key={i}>{i ? <wbr /> : null}{part}</span>);
 
 function Busy({ profile, compare }) {
   const b = busy(profile);
@@ -254,6 +257,7 @@ export default function App() {
   const selectedNode = findNode(profile, state.node);
   const compareNode = findNode(compare, state.node);
   const findings = useMemo(() => byNode(profile), [profile]);
+  const prefix = useMemo(() => sharedPrefix(profiles), [profiles]);
   const warnings = useMemo(() => warned(profile), [profile]);
   const [reveal, setReveal] = useState(null);
   const showWarning = (id) => {
@@ -375,14 +379,16 @@ export default function App() {
                      aria-label="Search queries by label, file, table or fingerprint"
                      onChange={(e) => dispatch({ type: "searched", text: e.target.value })} />
               {!overview.length && <div className="nomatch">No query matches “{state.search}”.</div>}
+              {prefix && <div className="prefix">{prefix}</div>}
               {overview.map((row) => (
                 <div className="shape" key={row.fingerprint}>
-                  <div className="fp"><span>{row.fingerprint}</span>
-                    <span>{row.runs.length} run{row.runs.length > 1 ? "s" : ""}</span></div>
+                  {row.runs.length > 1 && (
+                    <div className="fp"><span>{row.fingerprint}</span><span>{row.runs.length} runs</span></div>
+                  )}
                   {row.runs.map((p) => (
                     <button key={p.query_id} className="run" aria-pressed={p.query_id === state.queryId}
                             onClick={() => pick(p.query_id)}>
-                      <div className="l1">{title(p)}</div>
+                      <div className="l1"><Breakable text={title(p).slice(prefix.length)} /></div>
                       <div className="l2">{span(p.wall_ms)} wall{p.cpu_ms > 0 ? ` · ${span(p.cpu_ms)} cpu` : ""}</div>
                     </button>
                   ))}

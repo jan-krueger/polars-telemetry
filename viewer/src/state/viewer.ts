@@ -231,3 +231,16 @@ export const visibleShapes = (state: ViewerState): ShapeRow[] =>
 /** What to call a query: its label, else a name derived from its plan. */
 export const title = (profile: Profile): string => profile.label ?? shapeName(profile);
 
+/** The label path every query shares, such as "pipeline/", so a list can show what differs. */
+export function sharedPrefix(profiles: Profile[]): string {
+  if (profiles.length < 2) return "";
+  const paths = profiles.map((p) => title(p).split("/"));
+  const shared: string[] = [];
+  for (let i = 0; i < Math.min(...paths.map((p) => p.length - 1)); i++) {
+    const segment = paths[0]![i]!;
+    if (!paths.every((p) => p[i] === segment)) break;
+    shared.push(segment);
+  }
+  return shared.length ? `${shared.join("/")}/` : "";
+}
+

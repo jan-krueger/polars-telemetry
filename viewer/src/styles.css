@@ -66,7 +66,8 @@ h2{font:600 10.5px/1 ui-monospace,monospace;letter-spacing:.1em;text-transform:u
 .link{background:none;border:0;color:var(--accent);cursor:pointer;font-size:11px;padding:0}
 .link:hover{text-decoration:underline}
 
-.shape{margin-bottom:12px;scroll-margin:12px}
+.shape{margin-bottom:6px;scroll-margin:12px}
+.prefix{font:11px ui-monospace,monospace;color:var(--muted);margin:2px 0 6px;overflow-wrap:anywhere}
 .fp{font:11px ui-monospace,monospace;color:var(--muted);margin-bottom:5px;
   display:flex;justify-content:space-between}
 .run{display:block;width:100%;text-align:left;background:transparent;border:0;
@@ -74,7 +75,7 @@ h2{font:600 10.5px/1 ui-monospace,monospace;letter-spacing:.1em;text-transform:u
   cursor:pointer;margin-bottom:2px}
 .run:hover{background:var(--surface-2)}
 .run[aria-pressed="true"]{border-left-color:var(--accent);background:var(--surface-2)}
-.run .l1{font-size:12.5px;font-weight:500}
+.run .l1{font-size:12.5px;font-weight:500;overflow-wrap:break-word}
 .run .l2{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
 
 /* min-width:0 so a long code line scrolls inside its block rather than
