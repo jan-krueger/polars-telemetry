@@ -29,7 +29,7 @@ It reads the session files the [JSONL exporter](exporters/jsonl.md) and
 | `--all` | List information-level findings too; by default they are counted per rule |
 | `--format json` | One record per query, with every finding |
 | `--fail-on warn` / `--fail-on info` | Exit with 1 when a finding reaches that level, for CI |
-| `--write OUT` | Write the profiles again with an `insights` field the viewer reads |
+| `--write OUT` | Write the profiles again with an `insights` field the [viewer](profile-viewer.md#findings) shows |
 
 ## How findings are ranked
 

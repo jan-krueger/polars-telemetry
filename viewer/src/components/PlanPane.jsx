@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ReactFlow, Background, MiniMap, Controls, useReactFlow, useStore } from "@xyflow/react";
 import PlanNode from "./PlanNode";
-import { FAR_ZOOM, applyView, distant, extent, focusSteps, shareView, startsFar, stepFor, toFlow, withSelection } from "../lib/graph";
+import { FAR_ZOOM, NODE_H, NODE_W, applyView, distant, extent, focusSteps, shareView, startsFar, stepFor, toFlow, withSelection } from "../lib/graph";
 import useLayout from "./useLayout";
 import { ms } from "../lib/format";
 import Tip from "./Tip";
@@ -9,12 +9,12 @@ import Tip from "./Tip";
 const nodeTypes = { plan: PlanNode };
 
 export default function PlanPane({ title, plan, logical, selectedId, onSelect, focus = null, onFocus,
-                                   alone, onAlone, linked, leads, onLink, channel }) {
+                                   alone, onAlone, linked, leads, onLink, channel, findings, reveal }) {
   const positions = useLayout(plan);
   const steps = useMemo(() => focusSteps(plan), [plan]);
   const step = logical ? 0 : stepFor(steps, focus);
   const thresholdMs = steps[step].thresholdMs;
-  const view = { plan, positions, logical, selectedId, onSelect, thresholdMs, alone, linked, leads, channel };
+  const view = { plan, positions, logical, selectedId, onSelect, thresholdMs, alone, linked, leads, channel, findings, reveal };
 
   return (
     <div className={logical ? "planbox logical" : "planbox"}>
@@ -52,10 +52,11 @@ export default function PlanPane({ title, plan, logical, selectedId, onSelect, f
   );
 }
 
-function PlanView({ plan, positions, logical, selectedId, onSelect, thresholdMs, alone, linked, leads, channel }) {
+function PlanView({ plan, positions, logical, selectedId, onSelect, thresholdMs, alone, linked, leads, channel,
+                    findings, reveal }) {
   const flow = useMemo(
-    () => toFlow(plan, positions, { logical, selectedId: null, thresholdMs }),
-    [plan, positions, logical, thresholdMs],
+    () => toFlow(plan, positions, { logical, selectedId: null, thresholdMs, findings }),
+    [plan, positions, logical, thresholdMs, findings],
   );
   const box = useMemo(() => extent(positions), [positions]);
   const [far, setFar] = useState(() => startsFar(box));
@@ -96,6 +97,7 @@ function PlanView({ plan, positions, logical, selectedId, onSelect, thresholdMs,
         <Controls showInteractive={false} />
         <Refit when={alone} />
         <Distance onChange={setFar} onFitted={setFitted} />
+        <Reveal request={reveal} positions={positions} />
         <Follow linked={linked} leads={leads} channel={channel} pane={pane} box={box} size={size} following={following} />
       </ReactFlow>
     </div>
@@ -181,5 +183,17 @@ function Distance({ onChange, onFitted }) {
     onChange(far);
     onFitted(true);
   }, [far, onChange, onFitted]);
+  return null;
+}
+
+/** Centre a node the header asked to see, close enough to read it. */
+function Reveal({ request, positions }) {
+  const { getZoom, setCenter } = useReactFlow();
+  useEffect(() => {
+    const at = request && positions[String(request.id)];
+    if (!at) return;
+    const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    setCenter(at.x + NODE_W / 2, at.y + NODE_H / 2, { zoom: Math.max(getZoom(), 0.7), duration: still ? 0 : 400 });
+  }, [request]);
   return null;
 }

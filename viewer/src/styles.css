@@ -135,6 +135,21 @@ pre.snip b{color:var(--ink);font-weight:500}
 .pnode .t1{font:600 11px ui-monospace,monospace;display:flex;align-items:center;gap:5px}
 .pnode .t2{font:9.5px system-ui;opacity:.76;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pnode .t3{font:9.5px system-ui;opacity:.92;font-variant-numeric:tabular-nums}
+.pflag{position:absolute;top:5px;right:20px;display:inline-flex}
+.pflag--warn{color:var(--warn)}
+.pflag--info{opacity:.6}
+.react-flow__node.flag-warn .pnode{box-shadow:0 0 0 3px var(--warn)}
+.react-flow__minimap-node.flag-warn{fill:var(--warn)}
+.reasons{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
+.reason{padding:6px 9px;border-radius:6px;font-size:11.5px;line-height:1.45;color:var(--ink-2);
+  background:var(--surface-2);border:1px solid var(--border)}
+.reason b{display:block;color:var(--ink);font-weight:600;margin-bottom:1px}
+.reason .impact{display:block;margin-top:3px;font-size:10.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.reason--warn{background:color-mix(in srgb,var(--warn) 12%,transparent);border-color:color-mix(in srgb,var(--warn) 40%,transparent)}
+.reason--applied{background:color-mix(in srgb,var(--good) 10%,transparent);border-color:color-mix(in srgb,var(--good) 35%,transparent)}
+.warnings{background:none;border:0;padding:0;font:inherit;color:var(--warn);cursor:pointer}
+.warnings:hover{text-decoration:underline}
+.warnings:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:2px}
 .pnode .status{position:absolute;top:7px;right:8px;width:8px;height:8px;border-radius:50%}
 
 .card{border:1px solid var(--border);border-radius:8px;background:var(--surface);

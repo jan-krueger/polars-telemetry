@@ -6,6 +6,7 @@ import NodeDetails from "./components/NodeDetails";
 import Help from "./components/Help";
 import Code from "./components/Code";
 import ShareDialog from "./components/ShareDialog";
+import { byNode, warned } from "./lib/insights";
 import Tip, { TipText } from "./components/Tip";
 import { allSessions, dropAll, dropSession, saveSession, storageUnavailable } from "./lib/storage";
 import { bytes, diagnostics, ms, num, shapeName } from "./lib/format";
@@ -221,6 +222,15 @@ export default function App() {
 
   const selectedNode = findNode(profile, state.node);
   const compareNode = findNode(compare, state.node);
+  const findings = useMemo(() => byNode(profile), [profile]);
+  const warnings = useMemo(() => warned(profile), [profile]);
+  const [reveal, setReveal] = useState(null);
+  const nextWarning = () => {
+    const at = state.node?.plan === "physical" ? warnings.indexOf(state.node.id) : -1;
+    const id = warnings[(at + 1) % warnings.length];
+    dispatch({ type: "nodePicked", node: { plan: "physical", id } });
+    setReveal({ id });
+  };
 
   // Other runs of the same shape, which the compare picker offers.
   const siblings = profile
@@ -464,6 +474,16 @@ polars_telemetry.install(exporter=FileExporter("profiles/session.jsonl"))`} />
                         {" "}· masked: {profile.redacted.join(", ").replace("_", " ")}</span>
                     </Tip>
                   ) : null}
+                  {warnings.length > 0 && (
+                    <>
+                      {" · "}
+                      <Tip content={warnings.length > 1 ? "Show the next warning in the plan" : "Show the warning in the plan"}>
+                      <button className="warnings" onClick={nextWarning}>
+                        {warnings.length} warning{warnings.length > 1 ? "s" : ""}
+                      </button>
+                      </Tip>
+                    </>
+                  )}
                 </div>
                 {profile.failed && (
                   <div className="qfail" role="alert"><b>Failed</b> {profile.failed}</div>
@@ -490,6 +510,7 @@ polars_telemetry.install(exporter=FileExporter("profiles/session.jsonl"))`} />
                           plan={profile.plan.physical} logical={false}
                           alone={alone === "physical"} onAlone={() => toggleAlone("physical")}
                           linked={!!linked} leads={linked === "physical"} onLink={() => toggleLinked("physical")} channel={views}
+                          findings={findings} reveal={reveal}
                           focus={state.focus} onFocus={(focus) => dispatch({ type: "focused", focus })}
                           selectedId={state.node?.plan === "physical" ? state.node.id : null}
                           onSelect={(id) => dispatch({ type: "nodePicked", node: { plan: "physical", id } })} />
@@ -499,7 +520,8 @@ polars_telemetry.install(exporter=FileExporter("profiles/session.jsonl"))`} />
         </main>
 
         <aside className="rail right">
-          <NodeDetails node={selectedNode} compareNode={compareNode} />
+          <NodeDetails node={selectedNode} compareNode={compareNode}
+                       findings={state.node?.plan === "physical" ? findings.get(state.node.id) : undefined} />
         </aside>
       </div>
     </>

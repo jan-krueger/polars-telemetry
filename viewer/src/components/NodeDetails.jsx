@@ -1,6 +1,7 @@
 import { PROP_LABELS, GLOSSARY } from "../lib/glossary";
 import { visibleCounters } from "../lib/counters";
 import { ROLES, conjunction, exprLines, roleOf } from "../lib/polars";
+import { impact } from "../lib/insights";
 import { bytes, ms, num } from "../lib/format";
 import Help from "./Help";
 import Tip, { TipText } from "./Tip";
@@ -58,7 +59,7 @@ function Field({ name, value: raw }) {
   return <div className="field"><div className="lbl">{label}</div><Expr lines={lines} /></div>;
 }
 
-export default function NodeDetails({ node, compareNode }) {
+export default function NodeDetails({ node, compareNode, findings }) {
   if (!node) return <div className="empty">Select a node in a plan.</div>;
   const m = node.metrics, other = compareNode?.metrics;
   const props = Object.entries(node.properties || {})
@@ -79,6 +80,17 @@ export default function NodeDetails({ node, compareNode }) {
             #{node.id}
           </span>
         </div>
+        {findings?.length ? (
+          <div className="reasons">
+            {findings.map((f) => (
+              <div className={`reason reason--${f.level}`} key={f.rule}>
+                <b>{f.title}</b>
+                <div>{f.detail}</div>
+                {f.kind === "problem" && <span className="impact">{impact(f)} · {f.rule}</span>}
+              </div>
+            ))}
+          </div>
+        ) : null}
         {props.length
           ? props.map(([k, v]) => <Field key={k} name={k} value={v} />)
           : <div className="field"><span className="lbl">No properties on this node.</span></div>}
