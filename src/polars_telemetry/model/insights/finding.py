@@ -23,6 +23,15 @@ def share(fraction: float) -> str:
     return f"{percent:.2g}%" if percent < 10 else f"{percent:.0f}%"
 
 
+def duration(ms: float) -> str:
+    """Milliseconds as a reader would say them: 40 ms, 3.6 s, 7.6 min."""
+    if ms < 1_000:
+        return f"{ms:,.0f} ms"
+    if ms < 60_000:
+        return f"{ms / 1_000:,.1f} s"
+    return f"{ms / 60_000:,.1f} min"
+
+
 @dataclass(frozen=True, slots=True)
 class Text:
     title: str

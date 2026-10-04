@@ -15,10 +15,11 @@ if TYPE_CHECKING:
 REPEATED_AT = 4
 """TPC-H never calls one string function on one column more than once per node."""
 
+_ORDER = "chained replacements can depend on their order, so check the result"
 _SINGLE_PASS = {
-    "replace": "str.replace_many",
-    "replace_all": "str.replace_many",
-    "contains": "str.contains_any, or one regular expression",
+    "replace": f"str.replace_many; {_ORDER}",
+    "replace_all": f"str.replace_many; {_ORDER}",
+    "contains": "str.contains_any for literal patterns, or one regular expression",
 }
 
 
@@ -46,6 +47,5 @@ class RepeatedStringScan(Rule[Scans]):
         columns = "one column" if evidence.columns == 1 else f"each of {evidence.columns} columns"
         return Text(
             f"{evidence.calls} separate str.{evidence.function} calls on {columns}",
-            f"Each call is another pass over the column. Consider {instead}; chained replacements "
-            "can depend on their order, so check the result.",
+            f"Each call is another pass over the column. Consider {instead}.",
         )
