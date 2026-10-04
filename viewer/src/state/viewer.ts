@@ -140,6 +140,13 @@ export function reducer(state: ViewerState, action: Action): ViewerState {
 
 // --- selectors ------------------------------------------------------------------
 
+/** The session already holding exactly these runs, so a file opened twice is not stored twice. */
+export function sameRuns(sessions: Session[], profiles: Profile[]): Session | null {
+  const key = (ps: Profile[]) => ps.map((p) => p.query_id).sort().join(",");
+  const wanted = key(profiles);
+  return sessions.find((s) => s.profiles.length === profiles.length && key(s.profiles) === wanted) ?? null;
+}
+
 export const currentSession = (state: ViewerState): Session | null =>
   state.sessions.find((s) => s.id === state.sessionId) ?? null;
 

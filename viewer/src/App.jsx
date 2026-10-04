@@ -17,7 +17,7 @@ import { fromHash, isNewPage, routeOf, toHash } from "./state/route";
 import { MAX_LINK_CHARS, isShareFragment, openShareFragment, shareFragment } from "./share/link";
 import { documentsFor, sharedSession } from "./share/session";
 import {
-  compareProfile, currentProfile, currentSession, findNode, initialState, reducer, title,
+  compareProfile, currentProfile, currentSession, findNode, initialState, reducer, sameRuns, title,
   visibleShapes,
 } from "./state/viewer";
 
@@ -130,9 +130,12 @@ export default function App() {
   useEffect(() => setSharing(null), [profile?.query_id, compare?.query_id]);
   const withDates = useMemo(() => spansDays(profiles), [profiles]);
 
+  const open = useRef(state.sessions);
+  open.current = state.sessions;
   const importFiles = useCallback(async (files) => {
     const added = [];
     const rejected = [];
+    let reopened = null;
     for (const f of files) {
       let read;
       try {
@@ -151,6 +154,11 @@ export default function App() {
         const n = read.rejected.length;
         rejected.push(`${f.name}: skipped ${n} line${n > 1 ? "s" : ""} (${read.rejected[0]})`);
       }
+      const already = sameRuns([...added, ...open.current], read.profiles);
+      if (already) {
+        reopened = already.id;
+        continue;
+      }
       const meta = { id: crypto.randomUUID(), name: f.name, importedAt: Date.now(), bytes: f.size };
       try {
         await saveSession({ ...meta, profiles: read.raw });
@@ -161,6 +169,7 @@ export default function App() {
     }
     setRejectedFiles(rejected);
     if (added.length) dispatch({ type: "imported", sessions: added });
+    else if (reopened) dispatch({ type: "sessionPicked", sessionId: reopened });
   }, []);
 
   useEffect(() => {
