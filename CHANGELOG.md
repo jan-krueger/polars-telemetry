@@ -4,6 +4,22 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- `Config(describe_fallbacks=True)`: an in-memory fallback node now says what it
+  runs, for example `col("v").rank().over([col("g")])`, in its `format_str`
+  property and in the viewer under **Runs**. polars only writes this when
+  `POLARS_STREAM_ALWAYS_PREPARE_VISUALIZATION_DATA=1`, an undocumented switch
+  it added for Polars Cloud; `install()` sets it when unset and `uninstall()`
+  removes it again, though polars keeps it on for the process once read. It
+  costs a fraction of a millisecond per query.
+
+### Fixed
+- An undescribed in-memory fallback no longer carries polars' placeholder text
+  `error: prepare_visualization was not set during conversion` into spans and
+  profiles. The viewer shows "not recorded" for profiles written before.
+
 ## [0.5.0] - 2026-10-03
 
 ### Added

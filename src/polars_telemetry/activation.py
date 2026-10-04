@@ -140,14 +140,18 @@ _MONITORING_ENV = (
     "POLARS_QUERY_MONITORING_WORKSPACE",
     "POLARS_QUERY_MONITORING_ORGANIZATION",
 )
+_DESCRIBE_ENV = "POLARS_STREAM_ALWAYS_PREPARE_VISUALIZATION_DATA"
 
 
-def _monitoring_on() -> Before:
+def _monitoring_on(*, describe_fallbacks: bool) -> Before:
     import polars as pl
 
-    before = Before(_engine_affinity(), {key: os.environ.get(key) for key in _MONITORING_ENV})
+    keys = (*_MONITORING_ENV, _DESCRIBE_ENV)
+    before = Before(_engine_affinity(), {key: os.environ.get(key) for key in keys})
     pl.Config.enable_monitoring()
     _restore_env(before, _MONITORING_ENV[1:])
+    if describe_fallbacks and before.monitoring[_DESCRIBE_ENV] is None:
+        os.environ[_DESCRIBE_ENV] = "1"
     return before
 
 
@@ -162,7 +166,7 @@ def _monitoring_off(before: Before | None) -> None:
     pl.Config.enable_monitoring(False)
     if before is None:
         return
-    _restore_env(before, _MONITORING_ENV)
+    _restore_env(before, (*_MONITORING_ENV, _DESCRIBE_ENV))
     if _engine_affinity() == "streaming":
         pl.Config.set_engine_affinity(before.affinity)  # type: ignore[arg-type]
 
@@ -258,7 +262,7 @@ def _install(
         mod.unbind(binding)
         return None
 
-    before = _monitoring_on()
+    before = _monitoring_on(describe_fallbacks=(config or Config()).describe_fallbacks)
     try:
         return _activate(binding, config, exporters, before, scoped=scoped)
     except BaseException:

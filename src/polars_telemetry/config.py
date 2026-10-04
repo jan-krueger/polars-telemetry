@@ -32,6 +32,15 @@ class Config:
     telemetry you do not control.
     """
 
+    describe_fallbacks: bool = True
+    """Have polars describe what an in-memory fallback node runs.
+
+    polars leaves such a node unnamed unless asked: this sets
+    POLARS_STREAM_ALWAYS_PREPARE_VISUALIZATION_DATA=1 at install() when it is
+    unset. The variable is undocumented, costs a fraction of a millisecond per
+    query, and polars keeps it on for the process once it has read it.
+    """
+
     redaction: Redaction | None = None
     """What to mask before any exporter receives a query; None masks nothing.
 

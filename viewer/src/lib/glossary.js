@@ -31,7 +31,7 @@ export const GLOSSARY = {
 
 // polars' property names are precise but not prose.
 export const PROP_LABELS = {
-  first_source: "Source", scan_type: "Format", num_sources: "Sources",
+  first_source: "Source", scan_type: "Format", num_sources: "Sources", format_str: "Runs",
   file_columns: "File columns", projected_file_columns: "Projected columns",
   projection: "Projection", predicate: "Predicate",
   predicate_file_skip_applied: "Row groups skipped", has_table_statistics: "Table statistics",

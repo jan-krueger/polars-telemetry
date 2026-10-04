@@ -10,7 +10,7 @@ from uuid import uuid4
 import pytest
 
 from polars_telemetry.adapter.build import build_metrics, build_plan
-from polars_telemetry.adapter.dialect import facets, role_of, unknown_kinds
+from polars_telemetry.adapter.dialect import described, facets, role_of, unknown_kinds
 from polars_telemetry.model.diagnostics import derive
 from polars_telemetry.model.types import NodeRole, Query
 from tests.fixture_paths import latest_fixture
@@ -212,3 +212,9 @@ def test_nodes_without_a_facet_role_carry_none():
             assert node.scan is not None
         else:
             assert node.scan is None
+
+
+def test_the_placeholder_polars_writes_for_an_undescribed_node_is_dropped():
+    placeholder = "error: prepare_visualization was not set during conversion"
+    assert described({"type": "InMemoryMap", "format_str": placeholder}) == {"type": "InMemoryMap"}
+    assert described({"format_str": "SELECT [x]"}) == {"format_str": "SELECT [x]"}

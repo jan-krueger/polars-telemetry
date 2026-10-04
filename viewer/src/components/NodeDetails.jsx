@@ -22,8 +22,20 @@ function Expr({ lines }) {
   );
 }
 
+const UNDESCRIBED = "error: prepare_visualization was not set during conversion";
+
+/** A property as it reads best: one predicate, or the expressions an in-memory fallback runs. */
+function shown(name, raw) {
+  if (name === "predicate" && Array.isArray(raw) && raw.length) return conjunction(raw.map(String));
+  if (name === "format_str" && raw === UNDESCRIBED) return "not recorded";
+  if (name === "format_str" && typeof raw === "string" && raw.startsWith("SELECT [")) {
+    return raw.slice("SELECT [".length, raw.lastIndexOf("]")).split("\n").map((line) => line.trim()).filter(Boolean);
+  }
+  return raw;
+}
+
 function Field({ name, value: raw }) {
-  const value = name === "predicate" && Array.isArray(raw) && raw.length ? conjunction(raw.map(String)) : raw;
+  const value = shown(name, raw);
   const label = PROP_LABELS[name] ?? name.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
   if (typeof value === "boolean")
     return <div className="field inline"><span className="lbl">{label}</span>

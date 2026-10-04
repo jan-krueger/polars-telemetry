@@ -127,6 +127,14 @@ def role_of(kind: str, properties: Mapping[str, object]) -> NodeRole:
     return _BY_KIND.get(kind, NodeRole.UNKNOWN)
 
 
+_UNDESCRIBED = "error: prepare_visualization was not set during conversion"
+
+
+def described(properties: dict[str, object]) -> dict[str, object]:
+    """The properties without the placeholder polars writes where it kept no description."""
+    return {key: value for key, value in properties.items() if value != _UNDESCRIBED}
+
+
 def unknown_kinds(kinds: Iterable[str]) -> list[str]:
     """Kinds `role_of` does not recognise. Reportable, never fatal."""
     return sorted({kind for kind in kinds if role_of(kind, {}) is NodeRole.UNKNOWN})
