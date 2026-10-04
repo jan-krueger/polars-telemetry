@@ -4,6 +4,16 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- A plugin's library path relative to the environment, which
+  `register_plugin_function` writes by default, is now masked by
+  `Redaction(paths=True)` and reduced to the library's name in the fingerprint.
+  0.5.0 only recognised absolute paths, so the fingerprint of such a plan still
+  depended on the Python version and platform. **Fingerprints of plans that call
+  a plugin through a relative path inside an aggregation change once.**
+
 ## [0.5.1] - 2026-10-04
 
 ### Added

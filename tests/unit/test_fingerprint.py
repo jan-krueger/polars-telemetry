@@ -72,6 +72,7 @@ def test_a_plugin_counts_by_its_library_name_not_where_it_is_installed(plan):
         "laptop": "/home/dev/.venv/lib/python3.12/site-packages/mypkg/"
         "mypkg.cpython-312-x86_64-linux-gnu.so",
         "server": "/app/plugin/mypkg/mypkg.cpython-311-aarch64-linux-gnu.so",
+        "relative": "lib/python3.13/site-packages/mypkg/mypkg.cpython-313-x86_64-linux-gnu.so",
     }
     prints = []
     for path in installed.values():
@@ -79,7 +80,7 @@ def test_a_plugin_counts_by_its_library_name_not_where_it_is_installed(plan):
         node = next(iter(other.values()))
         node.properties["aggs"] = [f'col("v").{path}:encrypt().alias("w")']
         prints.append(fingerprint(other))
-    assert prints[0] == prints[1]
+    assert len(set(prints)) == 1
     elsewhere = copy.deepcopy(plan)
     next(iter(elsewhere.values())).properties["aggs"] = ['col("v").otherpkg:encrypt().alias("w")']
     assert fingerprint(elsewhere) != prints[0]
