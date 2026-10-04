@@ -39,6 +39,7 @@ nav:
       - Write your own: exporters/custom.md
   - Label and scope queries: labels.md
   - Profile viewer: profile-viewer.md
+  - Insights: insights.md
   - Polars Cloud: polars-cloud.md
   - Reference:
       - Configuration: reference/configuration.md

@@ -6,6 +6,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- `polars-telemetry insights FILE…`: reads profile files and reports what
+  slows their queries, ranked by the share of CPU or wall time each finding
+  concerns. The first rules: `in_memory_fallback`, `exploding_join`,
+  `cross_join`, `repeated_string_scan` and `redundant_aggregation`.
+  `--format json`, `--fail-on` for CI, and `--write` to keep the findings in
+  the profiles. See the new Insights page.
+
 ### Fixed
 - A plugin's library path relative to the environment, which
   `register_plugin_function` writes by default, is now masked by
