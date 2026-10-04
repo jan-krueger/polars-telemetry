@@ -111,6 +111,7 @@ IN_MEMORY_FALLBACK = frozenset(
     {"InMemoryMap", "InMemoryJoin", "InMemoryAsOfJoin", "ColumnarFunction"}
 )
 INFERS_DATETIME_FORMAT = "StrptimeInfer"
+PYTHON_FORMAT = "OPAQUE_PYTHON"
 DEDUPLICATING = frozenset({"Distinct", "SortedUnique"})
 GROUPING = frozenset({"GroupBy", "SortedGroupBy"})
 

@@ -50,11 +50,12 @@ def test_a_column_name_never_leaves_as_text():
         "C:\\envs\\lib\\mypkg\\mypkg.pyd",
     ],
 )
-def test_plugin_calls_are_counted_per_input_wherever_the_plugin_lives(path):
+def test_identical_plugin_calls_are_counted_wherever_the_plugin_lives(path):
     expression = f'col("v").fill_null(["x"]).{path}:fold().alias("w")'
-    assert calls("Select", expression, expression, field="plugin_calls") == {
-        ("fold", token("v")): 2
-    }
+    other = f'col("v").{path}:fold().alias("u")'
+    found = calls("Select", expression, expression, other, field="plugin_calls")
+    assert sorted(found.values()) == [1, 2]
+    assert {function for function, _ in found} == {"fold"}
 
 
 def test_execution_facts_come_from_the_node_kind():
@@ -63,6 +64,7 @@ def test_execution_facts_come_from_the_node_kind():
     assert traits("StrptimeInfer", {}).infers_datetime_format
     assert traits("ColumnarFunction", {"name": "python_udf"}).python_udf
     assert traits("Select", {"selectors": ['col("a").python_udf()']}).python_udf
+    assert traits("InMemoryMap", {"format_str": "OPAQUE_PYTHON"}).python_udf
     assert traits("Select", {}) == traits("Filter", {})
 
 

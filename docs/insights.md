@@ -85,6 +85,36 @@ A deduplication, a `unique()` or a group-by that only keeps values with
 only when the query asks for deduplication itself: polars also deduplicates
 internally, for `n_unique()` for one, and that is not the query's to change.
 
+### `python_udf`
+
+A Python function in the plan: `map_elements`, `map_batches` or
+`LazyFrame.map_batches`. polars cannot look inside it, so nothing is pushed
+through it, and it runs under the GIL. A frame-level function also takes the
+whole input in one call, which `longest_step` shows.
+
+### `datetime_format_inferred`
+
+`str.to_datetime()` or `str.strptime()` without a format. polars infers one from
+the data in a separate node; with `format=` the parse stays inside the
+expression, and a value in another format fails instead of guessing.
+
+### `repeated_subplan`
+
+The same nodes, with the same inputs, run more than once. Work below a node
+that feeds several consumers is done once and not counted. Impact is the CPU of
+every copy but one. polars shares identical subplans itself unless something
+in them is not deterministic; on polars 1.41 to 1.44 that includes every
+plugin call, which `plugin_calls` counts. Whether a copy is deliberate is for
+you to judge.
+
+### `repeated_plugin_call`
+
+The same plugin call, on the same input with the same arguments, more than once
+in one node. polars 1.41 to 1.44 never shares plugin calls between expressions
+([polars#29165](https://github.com/pola-rs/polars/issues/29165)); the fix,
+[polars#29428](https://github.com/pola-rs/polars/pull/29428), is not yet in a
+release. Until then, compute the call once and reference the column.
+
 ## Privacy
 
 Findings carry numbers, polars' node kinds and API names, never a column

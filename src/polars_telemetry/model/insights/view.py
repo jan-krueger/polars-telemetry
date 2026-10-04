@@ -2,11 +2,25 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
+from dataclasses import dataclass
 from functools import cached_property
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from polars_telemetry.model.types import NodeMetrics, PlanNode, Query
+
+
+@dataclass(frozen=True, slots=True)
+class Subplan:
+    """Identical work the plan runs more than once: each copy's root and own nodes."""
+
+    roots: tuple[int, ...]
+    copies: tuple[tuple[int, ...], ...]
+
+
+SUBPLAN_NODES = 2
 
 
 class PlanView:
@@ -35,6 +49,64 @@ class PlanView:
         return any(
             n.traits.deduplicates or n.traits.asks_unique for n in self.query.logical.values()
         )
+
+    @cached_property
+    def _shapes(self) -> dict[int, str]:
+        """A digest of each node's kind, properties and inputs: equal digests, equal work."""
+        plan = self.query.plan
+        shapes: dict[int, str] = {}
+        stack = list(plan)
+        while stack:
+            node_id = stack[-1]
+            if node_id in shapes:
+                stack.pop()
+                continue
+            node = plan[node_id]
+            pending = [i for i in node.inputs if i in plan and i not in shapes]
+            if pending:
+                stack.extend(pending)
+                continue
+            stack.pop()
+            text = json.dumps([node.kind, node.properties], sort_keys=True, default=str)
+            inputs = "|".join(shapes[i] for i in node.inputs if i in plan)
+            shapes[node_id] = hashlib.blake2b(
+                f"{text}|{inputs}".encode(), digest_size=16
+            ).hexdigest()
+        return shapes
+
+    def _own(self, root: int) -> tuple[int, ...]:
+        """The nodes only this root's subtree uses: below a shared node, work is done once."""
+        own, stack = [], [root]
+        while stack:
+            node_id = stack.pop()
+            if node_id in own or node_id not in self.query.plan:
+                continue
+            if node_id != root and len(self._consumers.get(node_id, ())) > 1:
+                continue
+            own.append(node_id)
+            stack.extend(self.query.plan[node_id].inputs)
+        return tuple(own)
+
+    @cached_property
+    def repeated_subplans(self) -> dict[int, Subplan]:
+        """Subplans run more than once, by the first copy's root; nested repeats count once."""
+        groups: dict[str, list[int]] = {}
+        for node_id, shape in self._shapes.items():
+            groups.setdefault(shape, []).append(node_id)
+        repeated = {
+            shape: sorted(ids)
+            for shape, ids in groups.items()
+            if len(ids) > 1 and len(self._own(min(ids))) >= SUBPLAN_NODES
+        }
+
+        def nested(node_id: int) -> bool:
+            return any(self._shapes[c] in repeated for c in self._consumers.get(node_id, ()))
+
+        return {
+            ids[0]: Subplan(tuple(ids), tuple(self._own(i) for i in ids))
+            for ids in repeated.values()
+            if not all(nested(i) for i in ids)
+        }
 
     def inputs(self, node: PlanNode) -> tuple[PlanNode, ...]:
         return tuple(self.query.plan[i] for i in node.inputs if i in self.query.plan)

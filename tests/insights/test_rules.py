@@ -136,3 +136,89 @@ class TestRedundantAggregation:
             .logical(10, "Distinct")
         )
         assert found(plan, "redundant_aggregation") == []
+
+
+class TestPythonUdf:
+    def test_a_python_function_in_an_expression_or_over_the_frame(self):
+        plan = (
+            Plan()
+            .node(1, "MultiScan", rows=1_000)
+            .node(2, "Select", (1,), rows=1_000, ms=50, selectors=['col("a").python_udf()'])
+            .node(
+                3, "InMemoryMap", (2,), rows=1_000, ms=40, blocked_ms=40, format_str="OPAQUE_PYTHON"
+            )
+        )
+        assert [f.node_id for f in found(plan, "python_udf")] == [2, 3]
+        assert found(plan, "in_memory_fallback") == []
+
+    def test_native_expressions_stay_quiet(self):
+        plan = Plan().node(1, "MultiScan").node(2, "Select", (1,), selectors=['(col("a") + 1)'])
+        assert found(plan, "python_udf") == []
+
+
+class TestDatetimeFormatInferred:
+    def test_an_inferred_format_is_reported(self):
+        plan = Plan().node(1, "MultiScan", rows=10).node(2, "StrptimeInfer", (1,), format="None")
+        (finding,) = found(plan, "datetime_format_inferred")
+        assert numbers(finding) == {"rows_in": 10}
+
+    def test_a_given_format_stays_quiet(self):
+        plan = (
+            Plan()
+            .node(1, "MultiScan", rows=10)
+            .node(2, "Select", (1,), selectors=['col("d").str.strptime(["raise"])'])
+        )
+        assert found(plan, "datetime_format_inferred") == []
+
+
+class TestRepeatedSubplan:
+    def copies(self, n: int, *, shared_below: bool) -> Plan:
+        plan = Plan().node(1, "MultiScan", rows=1_000, ms=10)
+        if shared_below:
+            plan.node(2, "Multiplexer", (1,), rows=1_000 * n)
+        for copy in range(n):
+            base = 10 * (copy + 1)
+            source = (2,) if shared_below else ()
+            if not shared_below:
+                plan.node(base, "MultiScan", rows=1_000, ms=10, scan_type="parquet")
+                source = (base,)
+            plan.node(base + 1, "Filter", source, rows=500, ms=20, predicate='(col("a") > 1)')
+            plan.node(base + 2, "Select", (base + 1,), rows=500, ms=20, selectors=['col("a")'])
+        roots = tuple(10 * (c + 1) + 2 for c in range(n))
+        return plan.node(99, "Zip", roots)
+
+    def test_the_same_work_run_three_times(self):
+        (finding,) = found(self.copies(3, shared_below=True), "repeated_subplan")
+        assert finding.node_id == 12
+        assert numbers(finding) == {"copies": 3, "nodes": 2}
+        assert finding.title == "Same 2-node subplan runs 3x"
+        assert round(finding.impact.cpu_share, 2) == round(80 / 130, 2)
+
+    def test_a_repeat_inside_a_larger_repeat_is_reported_once(self):
+        (finding,) = found(self.copies(2, shared_below=False), "repeated_subplan")
+        assert numbers(finding) == {"copies": 2, "nodes": 3}
+
+    def test_one_repeated_node_over_a_shared_input_is_not_a_subplan(self):
+        plan = (
+            Plan()
+            .node(1, "MultiScan", rows=10)
+            .node(2, "Multiplexer", (1,))
+            .node(3, "SimpleProjection", (2,), columns="['a']")
+            .node(4, "SimpleProjection", (2,), columns="['a']")
+            .node(5, "Zip", (3, 4))
+        )
+        assert found(plan, "repeated_subplan") == []
+
+
+class TestRepeatedPluginCall:
+    CALL = 'col("v").lib/mylib.so:fold()'
+
+    def test_the_same_call_twice_in_one_node(self):
+        plan = Plan().node(1, "MultiScan").node(2, "Select", (1,), selectors=[self.CALL, self.CALL])
+        (finding,) = found(plan, "repeated_plugin_call")
+        assert numbers(finding) == {"calls": 2, "repeated": 1}
+
+    def test_different_inputs_stay_quiet(self):
+        other = 'col("w").lib/mylib.so:fold()'
+        plan = Plan().node(1, "MultiScan").node(2, "Select", (1,), selectors=[self.CALL, other])
+        assert found(plan, "repeated_plugin_call") == []

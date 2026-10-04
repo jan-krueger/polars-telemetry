@@ -15,8 +15,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the profiles. See the new Insights page.
 - `Config(insights=True)`: the same findings for every query as it runs,
   computed after its wall time is measured, and written to profiles as an
-  `insights` field. A few milliseconds even for a plan of a thousand nodes;
+  `insights` field. About 10 ms for a plan of a thousand nodes;
   `Config(insights=False)` turns it off.
+- Insight rules `python_udf`, `datetime_format_inferred`, `repeated_subplan`
+  and `repeated_plugin_call`.
 - Exporters carry the findings: a `polars.insight` event per finding and a
   `polars.insights.warnings` count on the query span, a `polars.query.insights`
   counter by rule and level (also over DogStatsD, tagged `rule` and `level`),

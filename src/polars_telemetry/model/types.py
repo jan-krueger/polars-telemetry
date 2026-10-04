@@ -138,6 +138,8 @@ class NodeTraits:
     """An expression of the node asks for unique values."""
     string_calls: tuple[CallCount, ...] = ()
     plugin_calls: tuple[CallCount, ...] = ()
+    """Keyed by the whole call, input and arguments included: a count above one is
+    the same computation repeated."""
 
 
 @dataclass(frozen=True, slots=True)

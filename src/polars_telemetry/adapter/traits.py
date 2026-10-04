@@ -20,6 +20,7 @@ from polars_telemetry.adapter.dialect import (
     GROUPING,
     IN_MEMORY_FALLBACK,
     INFERS_DATETIME_FORMAT,
+    PYTHON_FORMAT,
 )
 from polars_telemetry.model.redaction import PLUGIN_PATH
 from polars_telemetry.model.types import CallCount, NodeTraits
@@ -58,15 +59,16 @@ def traits(kind: str, properties: Mapping[str, object]) -> NodeTraits:
     for text in texts:
         for column, steps in _chains(text):
             target = token(column)
-            for step in steps:
+            for step, call in steps:
                 if step.startswith("plugin:"):
-                    plugins[(step.removeprefix("plugin:"), target)] += 1
+                    plugins[(step.removeprefix("plugin:"), token(call))] += 1
                 elif step.startswith("str."):
                     strings[(step.removeprefix("str."), target)] += 1
     return NodeTraits(
         in_memory_fallback=kind in IN_MEMORY_FALLBACK,
         infers_datetime_format=kind == INFERS_DATETIME_FORMAT,
         python_udf=properties.get("name") == "python_udf"
+        or properties.get("format_str") == PYTHON_FORMAT
         or any(_PYTHON_UDF.search(text) for text in texts),
         deduplicates=kind in DEDUPLICATING or (kind in GROUPING and _only_picks(properties)),
         asks_unique=any(_UNIQUE.search(text) for text in texts),
@@ -80,7 +82,7 @@ def _only_picks(properties: Mapping[str, object]) -> bool:
     aggregations = list(_texts(properties.get("aggs_per_input", properties.get("aggs", []))))
     for expression in aggregations:
         chains = list(_chains(expression))
-        if len(chains) != 1 or not set(chains[0][1]) <= _KEEPS_VALUE:
+        if len(chains) != 1 or not {name for name, _ in chains[0][1]} <= _KEEPS_VALUE:
             return False
         if not expression.startswith("col("):
             return False
@@ -109,10 +111,10 @@ def _texts(value: object) -> Iterator[str]:
             yield from _texts(item)
 
 
-def _chains(text: str) -> Iterator[tuple[str, list[str]]]:
-    """Each `col("…")` with the methods called on it, in order."""
+def _chains(text: str) -> Iterator[tuple[str, list[tuple[str, str]]]]:
+    """Each `col("…")` with the methods called on it, in order, and the chain up to each."""
     for match in _COLUMN.finditer(text):
-        steps: list[str] = []
+        steps: list[tuple[str, str]] = []
         position = match.end()
         while position < len(text) and text[position] == ".":
             rest = position + 1
@@ -130,7 +132,7 @@ def _chains(text: str) -> Iterator[tuple[str, list[str]]]:
             if position >= len(text) or text[position] != "(":
                 break
             position = _after_arguments(text, position)
-            steps.append(name)
+            steps.append((name, text[match.start() : position]))
         yield match.group(1), steps
 
 
