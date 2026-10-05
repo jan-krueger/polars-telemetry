@@ -12,7 +12,7 @@ import threading
 from typing import TYPE_CHECKING
 
 from polars_telemetry._safety import FailureTracker
-from polars_telemetry.model.redaction import Redaction, redact_query
+from polars_telemetry.model.redaction import URL_QUERIES, Redaction, redact_query
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -65,14 +65,13 @@ def dispatch(query: Query) -> None:
         if receiver.tracker.disarmed:
             continue
         try:
-            delivered = query
-            if receiver.redaction is not None:
-                # Once per redaction per query, however many receivers share
-                # it. Should masking raise, the receiver gets nothing rather
-                # than the unmasked query: this fails closed.
-                if receiver.redaction not in masked:
-                    masked[receiver.redaction] = redact_query(query, receiver.redaction)
-                delivered = masked[receiver.redaction]
+            redaction = receiver.redaction or URL_QUERIES
+            # Once per redaction per query, however many receivers share it.
+            # Should masking raise, the receiver gets nothing rather than the
+            # unmasked query: this fails closed.
+            if redaction not in masked:
+                masked[redaction] = redact_query(query, redaction)
+            delivered = masked[redaction]
             receiver.receive(delivered)
         except Exception as exc:
             receiver.tracker.record(exc)

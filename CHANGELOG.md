@@ -31,6 +31,14 @@ Removed in 0.8.0.
 - Viewer: no longer shows "Nothing loaded" for a moment while stored sessions
   load.
 
+### Security
+- A URL's query string becomes `?<query>` before any exporter sees a query, also
+  for one without a redaction: in scan and sink paths, expressions and error
+  messages. polars keeps a scanned URL whole, so a presigned S3, signed GCS or
+  Azure SAS URL put its credential into every profile, span plan and share
+  link. `Redaction(url_queries=False)` keeps query strings. The plan
+  fingerprint no longer changes with a presigned URL's signature.
+
 ## [0.6.1] - 2026-10-04
 
 ### Changed
