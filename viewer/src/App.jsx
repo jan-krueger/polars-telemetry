@@ -6,13 +6,14 @@ import NodeDetails from "./components/NodeDetails";
 import Help from "./components/Help";
 import Code from "./components/Code";
 import ShareDialog from "./components/ShareDialog";
+import { SessionSwitcher, SessionsPage } from "./components/Sessions";
 import { byNode, warned } from "./lib/insights";
 import Tip, { TipText } from "./components/Tip";
-import { allSessions, dropAll, dropSession, saveSession, storageUnavailable } from "./lib/storage";
+import { dropSession, listSessions, loadDocuments, saveInfo, saveSession, storageUnavailable } from "./lib/storage";
 import { busy, bytes, compact, diagnostics, num, shapeName, span, tableName } from "./lib/format";
 import { basename } from "./lib/polars";
-import { clock, instant, iso, ranBetween, spansDays } from "./lib/time";
-import { readJsonl, readSession, toJsonl } from "./model/read";
+import { clock, instant, iso, spansDays } from "./lib/time";
+import { readJsonl, readProfiles, sessionInfo, toJsonl } from "./model/read";
 import { fromHash, isNewPage, routeOf, toHash } from "./state/route";
 import { MAX_LINK_CHARS, isShareFragment, openShareFragment, shareFragment } from "./share/link";
 import { documentsFor, sharedSession } from "./share/session";
@@ -28,13 +29,13 @@ const EXAMPLES = [
 
 const VERDICT = { good: "var(--good)", warn: "var(--warn)", crit: "var(--crit)", info: "var(--muted)" };
 
-function Booting() {
+function Booting({ label }) {
   const [slow, setSlow] = useState(false);
   useEffect(() => {
     const timer = setTimeout(() => setSlow(true), 300);
     return () => clearTimeout(timer);
   }, []);
-  return <div className="booting" role="status">{slow ? "Loading sessions…" : null}</div>;
+  return <div className="booting" role="status">{slow ? label : null}</div>;
 }
 
 const Breakable = ({ text }) =>
@@ -70,9 +71,7 @@ export default function App() {
   const { booted, sessions } = state;
   // What did not import, per file; shown until dismissed or the next import.
   const [rejectedFiles, setRejectedFiles] = useState([]);
-  const [confirmingClear, setConfirmingClear] = useState(false);
   const [sharing, setSharing] = useState(null);
-  const [renaming, setRenaming] = useState(null);
   const [alone, setAlone] = useState(null);
   const toggleAlone = (pane) => setAlone((shown) => (shown === pane ? null : pane));
   const [linked, setLinked] = useState(null);
@@ -92,8 +91,8 @@ export default function App() {
   useEffect(() => {
     (async () => {
       // Stored raw and read on every load, so a newer reader improves old sessions.
-      const stored = (await allSessions()) || [];
-      dispatch({ type: "loaded", sessions: stored.map(readSession) });
+      const listed = (await listSessions()) || [];
+      dispatch({ type: "loaded", sessions: listed.map((info) => ({ ...info, profiles: null, raw: null })) });
       if (!isShareFragment(location.hash)) {
         dispatch({ type: "navigated", route: fromHash(location.hash) });
         return;
@@ -137,6 +136,29 @@ export default function App() {
 
   const current = currentSession(state);
   const profiles = current?.profiles ?? [];
+
+  const reading = useRef(null);
+  useEffect(() => {
+    if (!booted || !current || current.profiles || reading.current === current.id) return;
+    const { id, name } = current;
+    reading.current = id;
+    (async () => {
+      const raw = await loadDocuments(id).catch(() => null);
+      reading.current = null;
+      if (!raw) {
+        setRejectedFiles([`${name}: its profiles could not be read from this browser's storage.`]);
+        return;
+      }
+      dispatch({ type: "read", sessionId: id, profiles: readProfiles(raw), raw, forgetOthers: !storageUnavailable() });
+    })();
+  }, [booted, current]);
+
+  useEffect(() => {
+    if (!booted || !current) return;
+    const at = Date.now();
+    dispatch({ type: "opened", sessionId: current.id, at });
+    if (!current.shared) saveInfo(infoOf({ ...current, openedAt: at })).catch(() => {});
+  }, [booted, current?.id]);
   const profile = currentProfile(state);
   const compare = compareProfile(state);
   useEffect(() => setSharing(null), [profile?.query_id, compare?.query_id]);
@@ -171,13 +193,15 @@ export default function App() {
         reopened = already.id;
         continue;
       }
-      const meta = { id: crypto.randomUUID(), name: f.name, importedAt: Date.now(), bytes: f.size };
+      const now = Date.now();
+      const info = sessionInfo({ id: crypto.randomUUID(), name: f.name, importedAt: now, openedAt: now, bytes: f.size },
+                               read.profiles);
       try {
-        await saveSession({ ...meta, profiles: read.raw });
+        await saveSession(info, read.raw);
       } catch (e) {
         rejected.push(`${f.name}: open for this page only, not stored (${e?.message ?? e})`);
       }
-      added.push({ ...meta, profiles: read.profiles, raw: read.raw });
+      added.push({ ...info, profiles: read.profiles, raw: read.raw });
     }
     setRejectedFiles(rejected);
     if (added.length) dispatch({ type: "imported", sessions: added });
@@ -197,6 +221,25 @@ export default function App() {
   }, [importFiles]);
 
   const pick = (queryId) => dispatch({ type: "queryPicked", queryId });
+
+  const remove = async (sessionIds) => {
+    const failed = [];
+    for (const id of sessionIds) {
+      try {
+        await dropSession(id);
+      } catch (e) {
+        failed.push(`${sessions.find((s) => s.id === id)?.name ?? id}: removed from this page, but still stored (${e?.message ?? e})`);
+      }
+    }
+    if (failed.length) setRejectedFiles(failed);
+    dispatch({ type: "removed", sessionIds });
+  };
+
+  const save = async (session) => {
+    const raw = session.raw ?? (await loadDocuments(session.id).catch(() => null));
+    if (raw) download(session.name, raw);
+    else setRejectedFiles([`${session.name}: its profiles could not be read from this browser's storage.`]);
+  };
 
   const copyLink = async (fragment) => {
     const url = location.href.split("#")[0] + fragment;
@@ -218,13 +261,12 @@ export default function App() {
   };
 
   const rename = async (session, typed) => {
-    setRenaming(null);
     const name = typed.trim();
     if (!name || name === session.name) return;
     dispatch({ type: "renamed", sessionId: session.id, name });
     if (session.shared || storageUnavailable()) return;
     try {
-      await saveSession(stored({ ...session, name }));
+      await saveInfo(infoOf({ ...session, name }));
     } catch (e) {
       setRejectedFiles([`${name}: renamed on this page only, not stored (${e?.message ?? e})`]);
     }
@@ -232,7 +274,7 @@ export default function App() {
 
   const keep = async (session) => {
     try {
-      await saveSession(stored(session));
+      await saveSession(infoOf(session), session.raw);
       dispatch({ type: "kept", sessionId: session.id });
     } catch (e) {
       setRejectedFiles([`${session.name}: could not be stored (${e?.message ?? e})`]);
@@ -278,7 +320,6 @@ export default function App() {
   const siblings = profile
     ? profiles.filter((q) => q.fingerprint === profile.fingerprint && q.query_id !== profile.query_id)
     : [];
-  const totalBytes = sessions.reduce((a, s) => a + (s.bytes || 0), 0);
   const delta = (a, b) => {
     if (b == null) return null;
     const pct = b ? ((a - b) / b) * 100 : 0;
@@ -291,11 +332,13 @@ export default function App() {
       <header className="top">
         <div className="brand">polars-telemetry <span>· profile viewer</span></div>
         <div className="toolbar">
-          <span className="hint">
-            {!booted ? "" : sessions.length
-              ? `${sessions.length} session${sessions.length > 1 ? "s" : ""} stored`
-              : storageUnavailable() ? "storage unavailable" : "nothing loaded"}
-          </span>
+          {booted && sessions.length ? (
+            <button className="link hint" onClick={() => dispatch({ type: "browsed", open: true })}>
+              {sessions.length} session{sessions.length > 1 ? "s" : ""} stored
+            </button>
+          ) : (
+            <span className="hint">{!booted ? "" : storageUnavailable() ? "storage unavailable" : "nothing loaded"}</span>
+          )}
           <button className="btn" onClick={chooseFiles}>Open .jsonl</button>
           <input ref={fileInput} type="file" accept=".jsonl,.json" multiple hidden
                  onChange={(e) => { if (e.target.files.length) importFiles([...e.target.files]); e.target.value = ""; }} />
@@ -305,82 +348,11 @@ export default function App() {
       <div className="shell">
         <aside className="rail" ref={queryList}>
           {sessions.length > 0 && (
-            <>
-              <h2>Sessions</h2>
-              {sessions.map((s) => (
-                <div className="sessrow" key={s.id} aria-current={s.id === state.sessionId}>
-                  {renaming === s.id ? (
-                    <div className="pick">
-                      <input className="rename" id={`rename-${s.id}`} aria-label={`New name for ${s.name}`}
-                             defaultValue={s.name} autoFocus onFocus={(e) => e.target.select()}
-                             onBlur={(e) => (e.target.dataset.cancel ? setRenaming(null) : rename(s, e.target.value))}
-                             onKeyDown={(e) => {
-                               if (e.key === "Escape") e.currentTarget.dataset.cancel = "1";
-                               if (e.key === "Enter" || e.key === "Escape") e.currentTarget.blur();
-                             }} />
-                      <SessionMeta session={s} />
-                    </div>
-                  ) : (
-                    <button className="pick" onClick={() => dispatch({ type: "sessionPicked", sessionId: s.id })}
-                            onDoubleClick={() => setRenaming(s.id)}
-                            onKeyDown={(e) => { if (e.key === "F2") setRenaming(s.id); }}>
-                      <Tip content="Double-click to rename">
-                      <div className="nm">{s.name}</div>
-                      </Tip>
-                      <SessionMeta session={s} />
-                    </button>
-                  )}
-                  {s.shared && (
-                    <Tip content="Store this session in this browser">
-                    <button className="link keep" onClick={() => keep(s)}>Keep</button>
-                    </Tip>
-                  )}
-                  <Tip content="Download this session">
-                  <button className="x dl" aria-label={`Download ${s.name}`}
-                          onClick={() => download(s)}>
-                    <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true" fill="none"
-                         stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M8 2.5v8M4.5 7 8 10.5 11.5 7M3 13.5h10" />
-                    </svg>
-                  </button>
-                  </Tip>
-                  <Tip content="Remove this session">
-                  <button className="x" aria-label={`Remove ${s.name}`}
-                          onClick={async () => {
-                            try {
-                              await dropSession(s.id);
-                            } catch (e) {
-                              setRejectedFiles([`${s.name}: removed from this page, but still stored (${e?.message ?? e})`]);
-                            }
-                            dispatch({ type: "removed", sessionId: s.id });
-                          }}>×</button>
-                  </Tip>
-                </div>
-              ))}
-              {confirmingClear ? (
-                <div className="railfoot" role="alert">
-                  <span>Remove all {sessions.length} sessions?</span>
-                  <span className="railfoot-actions">
-                    <button className="link link--crit" onClick={async () => {
-                      try {
-                        await dropAll();
-                      } catch (e) {
-                        setRejectedFiles([`Sessions removed from this page, but still stored (${e?.message ?? e})`]);
-                      }
-                      setConfirmingClear(false); dispatch({ type: "cleared" });
-                    }}>Remove</button>
-                    <button className="link" onClick={() => setConfirmingClear(false)}>Keep</button>
-                  </span>
-                </div>
-              ) : (
-                <div className="railfoot">
-                  <span>{bytes(totalBytes)} stored{storageUnavailable() ? " (this session only)" : ""}</span>
-                  <button className="link" onClick={() => setConfirmingClear(true)}>Clear all</button>
-                </div>
-              )}
-            </>
+            <SessionSwitcher sessions={sessions} current={current} onKeep={keep}
+                             onPick={(sessionId) => dispatch({ type: "sessionPicked", sessionId })}
+                             onBrowse={() => dispatch({ type: "browsed", open: true })} />
           )}
-          {current && (
+          {current?.profiles && (
             <>
               <h2>Queries</h2>
               <input id="query-search" className="search" type="search" value={state.search}
@@ -418,7 +390,15 @@ export default function App() {
             </div>
           )}
           {!booted ? (
-            <Booting />
+            <Booting label="Loading sessions…" />
+          ) : state.browsing ? (
+            <SessionsPage sessions={sessions} currentId={state.sessionId} onKeep={keep}
+                          storageNote={storageUnavailable() ? " (this page only)" : ""}
+                          onPick={(sessionId) => dispatch({ type: "sessionPicked", sessionId })}
+                          onClose={() => dispatch({ type: "browsed", open: false })}
+                          onRename={rename} onDownload={save} onRemove={remove} />
+          ) : current && !current.profiles ? (
+            <Booting label={`Opening ${current.name}…`} />
           ) : !current ? (
             <div className="blank">
               <h3>Nothing loaded</h3>
@@ -506,7 +486,7 @@ polars_telemetry.install(exporter=FileExporter("profiles/session.jsonl"))`} />
                   <ShareDialog sharing={sharing}
                                what={compare ? "query and its comparison run" : "query"}
                                onCopy={copyLink}
-                               onDownload={() => { download(current); setSharing(null); }}
+                               onDownload={() => { save(current); setSharing(null); }}
                                onClose={() => setSharing(null)} />
                 )}
                 <div className="qstats">
@@ -562,8 +542,10 @@ polars_telemetry.install(exporter=FileExporter("profiles/session.jsonl"))`} />
         </main>
 
         <aside className="rail right">
-          <NodeDetails node={selectedNode} compareNode={compareNode}
-                       findings={state.node?.plan === "physical" ? findings.get(state.node.id) : undefined} />
+          {!state.browsing && (
+            <NodeDetails node={selectedNode} compareNode={compareNode}
+                         findings={state.node?.plan === "physical" ? findings.get(state.node.id) : undefined} />
+          )}
         </aside>
       </div>
     </>
@@ -583,26 +565,16 @@ function SortHeader({ sort, by, dispatch, children }) {
 }
 
 /** Save a session as the .jsonl it was imported from. */
-function download(session) {
-  const url = URL.createObjectURL(new Blob([toJsonl(session.raw)], { type: "application/jsonl" }));
+function download(name, raw) {
+  const url = URL.createObjectURL(new Blob([toJsonl(raw)], { type: "application/jsonl" }));
   const link = Object.assign(document.createElement("a"), {
-    href: url, download: session.name.endsWith(".jsonl") ? session.name : `${session.name}.jsonl`,
+    href: url, download: name.endsWith(".jsonl") ? name : `${name}.jsonl`,
   });
   link.click();
   URL.revokeObjectURL(url);
 }
 
-function stored(session) {
-  return { id: session.id, name: session.name, importedAt: session.importedAt,
-           bytes: session.bytes, profiles: session.raw };
-}
-
-function SessionMeta({ session }) {
-  return (
-    <>
-      <div className="mt">{session.profiles.length} profiles · {bytes(session.bytes || 0)}</div>
-      <div className="mt">{session.shared ? "opened from a link, not stored" : ranBetween(session.profiles)
-        ?? `imported ${new Date(session.importedAt).toLocaleDateString()}`}</div>
-    </>
-  );
+/** A session's list entry, as storage keeps it. */
+function infoOf({ id, name, importedAt, openedAt, bytes, count, runIds, ran }) {
+  return { id, name, importedAt, openedAt, bytes, count, runIds, ran };
 }

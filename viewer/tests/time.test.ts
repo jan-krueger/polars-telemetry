@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clock, instant, ranBetween, spansDays } from "../src/lib/time";
+import { ageGroup, clock, instant, ranBetween, ranOf, shortWhen, spansDays } from "../src/lib/time";
 import type { Profile } from "../src/model/profile";
 
 const at = (iso: string) => ({ started_unix_ns: Date.parse(iso) * 1e6 }) as Profile;
@@ -27,9 +27,25 @@ describe("time", () => {
   });
 
   it("spans a session's queries, first to last, in any order", () => {
-    const span = ranBetween([at("2026-10-03T11:42:00Z"), unrecorded, at("2026-10-03T11:30:00Z")], "UTC");
+    const starts = [at("2026-10-03T11:42:00Z"), unrecorded, at("2026-10-03T11:30:00Z")].map((p) => p.started_unix_ns);
+    const span = ranBetween(ranOf(starts), "UTC");
     expect(span).toMatch(/11:30/);
     expect(span).toMatch(/11:42/);
-    expect(ranBetween([unrecorded], "UTC")).toBeNull();
+    expect(ranOf([unrecorded.started_unix_ns])).toBeNull();
+  });
+});
+
+describe("session list times", () => {
+  const now = new Date(2026, 9, 5, 14, 0).getTime();
+  const at = (day: number, hour = 9) => new Date(2026, 9, day, hour, 30).getTime();
+
+  it("groups by local day: today, yesterday, this week, older", () => {
+    expect([at(5), at(4, 23), at(1), at(28 - 30)].map((ms) => ageGroup(ms, now)))
+      .toEqual(["Today", "Yesterday", "This week", "Older"]);
+  });
+
+  it("shows the time for today and the date otherwise", () => {
+    expect(shortWhen(at(5), now)).toMatch(/9:30|09:30/);
+    expect(shortWhen(at(1), now)).toMatch(/2026/);
   });
 });

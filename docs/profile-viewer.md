@@ -23,9 +23,18 @@ for a viewer opened from disk.
 ## Sessions
 
 Each file you open becomes a session, kept in your browser so it is still there
-after a reload. The left sidebar lists sessions with when their queries ran;
-the download button saves one as a `.jsonl` again, and `×` removes it.
-Double-click a session's name, or press F2 on it, to rename it.
+after a reload. The top of the left sidebar names the open session; click it for
+the ones you opened most recently. Opening a file that is already stored
+switches to it rather than storing it twice.
+
+**All sessions**, in that menu or the "sessions stored" count at the top, lists
+every session with its size and when you last opened it. Search it, sort it by
+name, size or date, select several to remove at once, and double-click a name,
+or press F2 on it, to rename it. The download button saves a session as a
+`.jsonl` again.
+
+Only the open session is read into memory, so a browser holding many sessions
+opens as quickly as one holding a few.
 
 Where the browser keeps nothing, such as in a private window or with the page
 opened from disk, the viewer works for the current page only and says so.

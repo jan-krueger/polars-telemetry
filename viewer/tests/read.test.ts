@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { readJsonl, readProfile, readSession, toJsonl } from "../src/model/read";
+import { readJsonl, readProfile, readProfiles, sessionInfo, toJsonl } from "../src/model/read";
 import type { Profile } from "../src/model/profile";
 
 const fixture = JSON.parse(readFileSync(new URL("./fixtures/profile.json", import.meta.url), "utf8"));
@@ -67,23 +67,29 @@ describe("readJsonl", () => {
   });
 });
 
-describe("readSession", () => {
+describe("readProfiles", () => {
   it("drops a stored profile that no longer reads, and keeps the rest", () => {
-    const session = readSession({
-      id: "s", name: "s.jsonl", importedAt: 0, bytes: 0,
-      profiles: [minimal(), { schema: "polars-telemetry/profile@1" }],
+    expect(readProfiles([minimal(), { schema: "polars-telemetry/profile@1" }])).toHaveLength(1);
+  });
+});
+
+describe("sessionInfo", () => {
+  it("lists a session by its profiles without keeping them", () => {
+    const profiles = readProfiles([minimal({ started_unix_ns: 2e18 }), minimal({ started_unix_ns: 1e18 })]);
+    const info = sessionInfo({ id: "s", name: "s.jsonl", importedAt: 5, bytes: 9 }, profiles);
+    expect(info).toEqual({
+      id: "s", name: "s.jsonl", importedAt: 5, openedAt: null, bytes: 9, count: 2,
+      runIds: profiles.map((p) => p.query_id), ran: [1e18, 2e18],
     });
-    expect(session.profiles).toHaveLength(1);
   });
 });
 
 describe("toJsonl", () => {
   it("writes back every stored document, including one that no longer reads", () => {
     const stored = [fixture, minimal(), { schema: "polars-telemetry/profile@1" }];
-    const session = readSession({ id: "s", name: "s.jsonl", importedAt: 0, bytes: 0, profiles: stored });
-    const text = toJsonl(session.raw);
+    const text = toJsonl(stored);
     expect(text.trimEnd().split("\n").map((line) => JSON.parse(line))).toEqual(stored);
-    expect(readJsonl(text).profiles).toEqual(session.profiles.map((p) => ({ ...p, query_id: expect.any(String) })));
+    expect(readJsonl(text).profiles).toEqual(readProfiles(stored).map((p) => ({ ...p, query_id: expect.any(String) })));
   });
 });
 
@@ -125,9 +131,9 @@ describe("malformed numbers", () => {
 
 describe("profiles without a query_id", () => {
   it("get the same id on every load, and an empty id counts as none", () => {
-    const stored = { id: "s", name: "s.jsonl", importedAt: 0, bytes: 0, profiles: [minimal(), minimal({ query_id: "" })] };
-    const first = readSession(stored).profiles.map((p) => p.query_id);
-    const again = readSession(stored).profiles.map((p) => p.query_id);
+    const stored = [minimal(), minimal({ query_id: "" })];
+    const first = readProfiles(stored).map((p) => p.query_id);
+    const again = readProfiles(stored).map((p) => p.query_id);
     expect(first).toEqual(again);
     expect(first).toEqual(["profile-0", "profile-1"]);
   });
@@ -135,8 +141,8 @@ describe("profiles without a query_id", () => {
   it("are numbered the same when imported as when stored", () => {
     const text = [minimal(), minimal()].map((d) => JSON.stringify(d)).join("\n");
     const imported = readJsonl(text);
-    const stored = readSession({ id: "s", name: "s.jsonl", importedAt: 0, bytes: 0, profiles: imported.raw });
-    expect(imported.profiles.map((p) => p.query_id)).toEqual(stored.profiles.map((p) => p.query_id));
+    const stored = readProfiles(imported.raw);
+    expect(imported.profiles.map((p) => p.query_id)).toEqual(stored.map((p) => p.query_id));
   });
 });
 

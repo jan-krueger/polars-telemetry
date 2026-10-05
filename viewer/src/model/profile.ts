@@ -78,19 +78,26 @@ export interface Profile {
   plan: { physical: PlanNode[]; logical: PlanNode[] };
 }
 
-export interface Session {
+/** What the session list knows without reading a session's profiles. */
+export interface SessionInfo {
   id: string;
   name: string;
   importedAt: number;
+  /** When it was last opened in this browser; null until it is. */
+  openedAt: number | null;
   bytes: number;
-  profiles: Profile[];
-  /** The documents as written, for downloading the session again. */
-  raw: unknown[];
-  /** For a session opened from a link and not kept: that link's fragment. */
-  shared?: string;
+  count: number;
+  /** Its profiles' query ids, so a file opened twice is recognised unread. */
+  runIds: string[];
+  /** When its first and last queries started, in ns; null if none recorded it. */
+  ran: [number, number] | null;
 }
 
-/** What IndexedDB holds: the documents as written, normalised on every load. */
-export interface StoredSession extends Omit<Session, "profiles" | "raw" | "shared"> {
-  profiles: unknown[];
+export interface Session extends SessionInfo {
+  /** Null until read: a session is listed at once and read when opened. */
+  profiles: Profile[] | null;
+  /** The documents as written, for downloading the session again. */
+  raw: unknown[] | null;
+  /** For a session opened from a link and not kept: that link's fragment. */
+  shared?: string;
 }
