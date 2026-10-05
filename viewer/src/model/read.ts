@@ -7,7 +7,8 @@
  */
 
 import { nodeLabel, roleOf, type RawNode } from "../lib/polars";
-import type { Finding, FindingLevel, Measure, Metrics, PlanNode, Profile, Session, StoredSession } from "./profile";
+import type { Finding, FindingLevel, Measure, Metrics, PlanNode, Profile, SessionInfo } from "./profile";
+import { ranOf } from "../lib/time";
 
 export const SCHEMA_PREFIX = "polars-telemetry/profile@";
 export const SUPPORTED_VERSIONS: ReadonlySet<number> = new Set([1]);
@@ -131,15 +132,32 @@ export function readJsonl(text: string): { profiles: Profile[]; raw: unknown[]; 
 export const toJsonl = (raw: unknown[]): string =>
   raw.map((doc) => JSON.stringify(doc)).join("\n") + "\n";
 
-/** A stored session, read. Profiles that no longer read are dropped one by one
+/** Stored documents, read. Profiles that no longer read are dropped one by one
  *  rather than taking the whole viewer down. */
-export function readSession(stored: StoredSession): Session {
+export function readProfiles(raw: unknown[]): Profile[] {
   const profiles: Profile[] = [];
-  for (const [position, raw] of stored.profiles.entries()) {
-    const read = readProfile(raw, position);
+  for (const [position, document] of raw.entries()) {
+    const read = readProfile(document, position);
     if ("profile" in read) profiles.push(read.profile);
   }
-  return { ...stored, profiles, raw: stored.profiles };
+  return profiles;
+}
+
+/** The session list's entry for these profiles. */
+export function sessionInfo(
+  base: Pick<SessionInfo, "id" | "name" | "importedAt" | "bytes"> & { openedAt?: number | null },
+  profiles: Profile[],
+): SessionInfo {
+  return {
+    id: base.id,
+    name: base.name,
+    importedAt: base.importedAt,
+    openedAt: base.openedAt ?? null,
+    bytes: base.bytes,
+    count: profiles.length,
+    runIds: profiles.map((p) => p.query_id),
+    ran: ranOf(profiles.map((p) => p.started_unix_ns)),
+  };
 }
 
 const LEVELS: readonly FindingLevel[] = ["warn", "info", "applied"];

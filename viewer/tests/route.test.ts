@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { fromHash, isNewPage, toHash, type Route } from "../src/state/route";
 import { initialState, reducer } from "../src/state/viewer";
-import { readProfile } from "../src/model/read";
+import { readProfile, sessionInfo } from "../src/model/read";
 import type { Profile, Session } from "../src/model/profile";
 
 const profile = (id: string): Profile => {
@@ -19,7 +19,7 @@ const profile = (id: string): Profile => {
   return read.profile;
 };
 const session = (id: string, ...profiles: Profile[]): Session =>
-  ({ id, name: id, importedAt: 0, bytes: 0, profiles, raw: [] });
+  ({ ...sessionInfo({ id, name: id, importedAt: 0, bytes: 0 }, profiles), profiles, raw: [] });
 const loaded = reducer(initialState, {
   type: "loaded", sessions: [session("s1", profile("a"), profile("b")), session("s2", profile("c"))],
 });

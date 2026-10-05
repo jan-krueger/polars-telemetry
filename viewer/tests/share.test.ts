@@ -33,7 +33,7 @@ describe("share links", () => {
   it("open as a session of the queries they carry, in the order they were shared", () => {
     const fragment = shareFragment(examples.slice(0, 2));
     const session = sharedSession(fragment, examples.slice(0, 2), 1000);
-    expect(session.profiles.map((p) => p.query_id)).toEqual(examples.slice(0, 2).map((d) => d.query_id));
+    expect(session.profiles!.map((p) => p.query_id)).toEqual(examples.slice(0, 2).map((d) => d.query_id));
     expect(session).toMatchObject({ id: "shared-1000", name: "tpch/q1, 2 runs", shared: fragment });
   });
 

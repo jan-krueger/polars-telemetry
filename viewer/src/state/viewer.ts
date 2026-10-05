@@ -7,7 +7,7 @@
  * subset and two of them missed some.
  */
 
-import type { PlanNode, Profile, Session } from "../model/profile";
+import type { PlanNode, Profile, Session, SessionInfo } from "../model/profile";
 import { shapeName } from "../lib/format";
 import { cpuMs } from "../lib/graph";
 import { basename } from "../lib/polars";
@@ -21,6 +21,8 @@ export interface NodeRef {
 export interface ViewerState {
   booted: boolean;
   sessions: Session[];
+  /** The page listing every session is open instead of a session's queries. */
+  browsing: boolean;
   sessionId: string | null;
   queryId: string | null;
   compareId: string | null;
@@ -43,7 +45,10 @@ export interface Sort {
 export type Action =
   | { type: "loaded"; sessions: Session[] }
   | { type: "imported"; sessions: Session[] }
-  | { type: "removed"; sessionId: string }
+  | { type: "read"; sessionId: string; profiles: Profile[]; raw: unknown[]; forgetOthers: boolean }
+  | { type: "opened"; sessionId: string; at: number }
+  | { type: "browsed"; open: boolean }
+  | { type: "removed"; sessionIds: string[] }
   | { type: "kept"; sessionId: string }
   | { type: "renamed"; sessionId: string; name: string }
   | { type: "cleared" }
@@ -59,6 +64,7 @@ export type Action =
 export const initialState: ViewerState = {
   booted: false,
   sessions: [],
+  browsing: false,
   sessionId: null,
   queryId: null,
   compareId: null,
@@ -73,7 +79,7 @@ const nothingSelected = { queryId: null, compareId: null, node: null } as const;
 export function reducer(state: ViewerState, action: Action): ViewerState {
   switch (action.type) {
     case "loaded": {
-      const sessions = [...action.sessions].sort((a, b) => b.importedAt - a.importedAt);
+      const sessions = recent(action.sessions);
       return { ...state, ...nothingSelected, booted: true, sessions, sessionId: sessions[0]?.id ?? null };
     }
     case "imported":
@@ -81,13 +87,33 @@ export function reducer(state: ViewerState, action: Action): ViewerState {
       return {
         ...state,
         ...nothingSelected,
+        browsing: false,
         sessions: [...action.sessions, ...state.sessions],
         sessionId: action.sessions[0]!.id,
       };
+    case "read": {
+      // Only the open session is kept in memory; the others are read again
+      // from storage when opened. Link sessions have nowhere to come from.
+      const sessions = state.sessions.map((s) => {
+        if (s.id === action.sessionId) return { ...s, profiles: action.profiles, raw: action.raw };
+        return action.forgetOthers && !s.shared ? { ...s, profiles: null, raw: null } : s;
+      });
+      const next = { ...state, sessions };
+      if (state.sessionId !== action.sessionId) return next;
+      return reducer(next, { type: "navigated", route: { sessionId: state.sessionId, queryId: state.queryId, node: state.node } });
+    }
+    case "opened":
+      return {
+        ...state,
+        sessions: state.sessions.map((s) => (s.id === action.sessionId ? { ...s, openedAt: action.at } : s)),
+      };
+    case "browsed":
+      return { ...state, browsing: action.open };
     case "removed": {
-      const sessions = state.sessions.filter((s) => s.id !== action.sessionId);
-      if (state.sessionId !== action.sessionId) return { ...state, sessions };
-      return { ...state, ...nothingSelected, sessions, sessionId: sessions[0]?.id ?? null };
+      const gone = new Set(action.sessionIds);
+      const sessions = state.sessions.filter((s) => !gone.has(s.id));
+      if (!state.sessionId || !gone.has(state.sessionId)) return { ...state, sessions };
+      return { ...state, ...nothingSelected, sessions, sessionId: recent(sessions)[0]?.id ?? null };
     }
     case "renamed":
       return {
@@ -102,10 +128,10 @@ export function reducer(state: ViewerState, action: Action): ViewerState {
     case "cleared":
       return { ...state, ...nothingSelected, sessions: [], sessionId: null };
     case "sessionPicked":
-      return { ...state, ...nothingSelected, sessionId: action.sessionId };
+      return { ...state, ...nothingSelected, browsing: false, sessionId: action.sessionId };
     case "queryPicked": {
       const profile = findProfile(currentSession(state), action.queryId);
-      return { ...state, queryId: action.queryId, compareId: null, node: profile ? hottest(profile) : null };
+      return { ...state, browsing: false, queryId: action.queryId, compareId: null, node: profile ? hottest(profile) : null };
     }
     case "comparePicked":
       return { ...state, compareId: action.queryId };
@@ -117,11 +143,16 @@ export function reducer(state: ViewerState, action: Action): ViewerState {
       // A link to a session or query that is not here falls back to what is.
       const { route } = action;
       const session = state.sessions.find((s) => s.id === route.sessionId) ?? state.sessions[0] ?? null;
+      // Not read yet: keep what the link asks for until the profiles arrive.
+      if (session && !session.profiles) {
+        return { ...state, ...nothingSelected, browsing: false, sessionId: session.id, queryId: route.queryId, node: route.node };
+      }
       const profile = findProfile(session, route.queryId);
       const node = profile && route.node && findNode(profile, route.node) ? route.node : profile && hottest(profile);
       return {
         ...state,
         ...nothingSelected,
+        browsing: false,
         sessionId: session?.id ?? null,
         queryId: profile?.query_id ?? null,
         node: node || null,
@@ -141,17 +172,21 @@ export function reducer(state: ViewerState, action: Action): ViewerState {
 // --- selectors ------------------------------------------------------------------
 
 /** The session already holding exactly these runs, so a file opened twice is not stored twice. */
-export function sameRuns(sessions: Session[], profiles: Profile[]): Session | null {
-  const key = (ps: Profile[]) => ps.map((p) => p.query_id).sort().join(",");
-  const wanted = key(profiles);
-  return sessions.find((s) => s.profiles.length === profiles.length && key(s.profiles) === wanted) ?? null;
+export function sameRuns(sessions: SessionInfo[], profiles: Profile[]): SessionInfo | null {
+  const key = (ids: string[]) => [...ids].sort().join(",");
+  const wanted = key(profiles.map((p) => p.query_id));
+  return sessions.find((s) => s.runIds.length === profiles.length && key(s.runIds) === wanted) ?? null;
 }
+
+/** Most recently opened first; a session never opened counts from its import. */
+export const recent = <S extends SessionInfo>(sessions: S[]): S[] =>
+  [...sessions].sort((a, b) => (b.openedAt ?? b.importedAt) - (a.openedAt ?? a.importedAt));
 
 export const currentSession = (state: ViewerState): Session | null =>
   state.sessions.find((s) => s.id === state.sessionId) ?? null;
 
 const findProfile = (session: Session | null, queryId: string | null): Profile | null =>
-  (queryId && session?.profiles.find((p) => p.query_id === queryId)) || null;
+  (queryId && session?.profiles?.find((p) => p.query_id === queryId)) || null;
 
 export const currentProfile = (state: ViewerState): Profile | null =>
   findProfile(currentSession(state), state.queryId);

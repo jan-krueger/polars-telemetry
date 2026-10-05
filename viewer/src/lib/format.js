@@ -44,55 +44,42 @@ export function busy(p) {
 
 const JOINS = new Set(["join", "theta_join", "cross_join", "semi_anti_join"]);
 
-/** The largest join's rows out over its larger input, as the exporter computes it. */
-export function joinGrowth(plan) {
-  const byId = new Map(plan.map((n) => [n.id, n]));
-  const consumers = new Map();
-  for (const n of plan) for (const i of n.inputs) consumers.set(i, (consumers.get(i) ?? 0) + 1);
-  let growth;
-  for (const n of plan) {
-    const out = n.metrics?.rows_sent;
-    if (!JOINS.has(roleOf(n)) || typeof out !== "number") continue;
-    const larger = Math.max(0, ...n.inputs.map((i) => {
-      const sent = byId.get(i)?.metrics?.rows_sent;
-      return typeof sent === "number" ? sent / (consumers.get(i) ?? 1) : 0;
-    }));
-    if (larger) growth = Math.max(growth ?? 0, out / larger);
-  }
-  return growth;
+/** A join's rows out over its larger input; an input feeding several consumers counts once per consumer. */
+export function nodeGrowth(node, plan) {
+  const out = node.metrics?.rows_sent;
+  if (!JOINS.has(roleOf(node)) || typeof out !== "number") return undefined;
+  const larger = Math.max(0, ...node.inputs.map((i) => {
+    const input = plan.find((n) => n.id === i);
+    const sent = input?.metrics?.rows_sent;
+    const consumers = plan.filter((n) => n.inputs.includes(i)).length || 1;
+    return typeof sent === "number" ? sent / consumers : 0;
+  }));
+  return larger ? out / larger : undefined;
 }
 
-/** Thresholds turn a measurement into a verdict. */
-export function diagnostics(p) {
-  const d = p.diagnostics || {}, out = [];
-  const push = (k, t, v, u, s, n) => out.push({ k, t, v, u, s, n });
-  const growth = typeof d.join_growth === "number" ? d.join_growth : joinGrowth(p.plan?.physical ?? []);
-  if (growth !== undefined)
-    push("join_growth", "Join growth", num(growth, 2), "×",
-      growth <= 2 ? "good" : growth <= 10 ? "warn" : "crit",
-      growth <= 2 ? "no row explosion" : "more rows than either input");
-  if (d.filter_selectivity !== undefined)
-    push("filter_selectivity", "Filter selectivity", num(d.filter_selectivity * 100, 1), "%",
-      "info", `${num(d.filter_rows_dropped)} rows dropped`);
-  if (d.morsel_skew !== undefined)
-    push("morsel_skew", "Morsel skew", num(d.morsel_skew, 2), "×",
-      d.morsel_skew <= 2 ? "good" : d.morsel_skew <= 4 ? "warn" : "crit",
-      d.morsel_skew <= 2 ? "partitions even" : "largest morsel above the mean");
-  if (d.projection_efficiency !== undefined)
-    push("projection_efficiency", "Projection", num(d.projection_efficiency * 100, 0), "%",
-      d.projection_efficiency <= 0.5 ? "good" : d.projection_efficiency < 1 ? "warn" : "info",
-      d.projection_efficiency >= 1 ? "every column read" : "unread columns never decoded");
-  if (d.predicate_pushed !== undefined)
-    push("predicate_pushed", "Predicate pushdown", d.predicate_pushed ? "yes" : "no", "",
-      d.predicate_pushed ? "good" : "warn",
-      d.predicate_pushed ? "filter inside the scan" : "every row read");
-  if (d.has_table_statistics !== undefined)
-    push("has_table_statistics", "Table statistics", d.has_table_statistics ? "yes" : "no", "",
-      d.has_table_statistics ? "good" : "info",
-      d.has_table_statistics ? "available for pruning" : "none to prune with");
-  if (d.incomplete_nodes)
-    push("done", "Counters incomplete", d.incomplete_nodes, " nodes", "warn",
-      "figures are a floor, not a total");
+/** The largest join's growth in a plan, as the exporter computes it. */
+export function joinGrowth(plan) {
+  const all = plan.map((n) => nodeGrowth(n, plan)).filter((g) => g !== undefined);
+  return all.length ? Math.max(...all) : undefined;
+}
+
+/** What a node's counters say about it, for its kind: kept rows, growth, skew. */
+export function nodeFacts(node, plan) {
+  const m = node.metrics ?? {}, out = [];
+  if (roleOf(node) === "selection" && m.rows_received) {
+    out.push({ key: "filter_selectivity", label: "Rows kept", value: `${num((m.rows_sent / m.rows_received) * 100, 1)}%`,
+               note: `${compact(m.rows_received - m.rows_sent)} dropped` });
+  }
+  const growth = nodeGrowth(node, plan);
+  if (growth !== undefined) {
+    out.push({ key: "join_growth", label: "Growth", value: `${num(growth, 2)}×`,
+               note: growth <= 2 ? "no row explosion" : "more rows than its larger input" });
+  }
+  if (m.morsels_received && m.rows_received) {
+    const skew = m.largest_morsel_received / (m.rows_received / m.morsels_received);
+    out.push({ key: "morsel_skew", label: "Morsel skew", value: `${num(skew, 2)}×`,
+               note: skew <= 2 ? "batches even" : "largest batch above the mean" });
+  }
   return out;
 }
 

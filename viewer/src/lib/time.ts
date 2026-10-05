@@ -41,13 +41,33 @@ export function instant(ns: number, zone?: string): string {
   return `${iso(ns)} · shown in ${shownIn}`;
 }
 
-/** When a session's queries ran, first to last; null if none recorded it. */
-export function ranBetween(profiles: Profile[], zone?: string): string | null {
-  const times = recorded(profiles);
+/** The first and last of these start times, leaving out unrecorded ones. */
+export function ranOf(starts: number[]): [number, number] | null {
+  const times = starts.filter((ns) => ns > 0);
   if (!times.length) return null;
-  const format = new Intl.DateTimeFormat(undefined, { timeZone: zone, dateStyle: "medium", timeStyle: "short" });
   // reduce, not Math.min(...times): a large session would overflow the call stack.
-  const first = times.reduce((a, b) => Math.min(a, b));
-  const last = times.reduce((a, b) => Math.max(a, b));
-  return format.formatRange(toDate(first), toDate(last));
+  return [times.reduce((a, b) => Math.min(a, b)), times.reduce((a, b) => Math.max(a, b))];
+}
+
+/** When a session's queries ran, first to last; null if none recorded it. */
+export function ranBetween(ran: [number, number] | null, zone?: string): string | null {
+  if (!ran) return null;
+  const format = new Intl.DateTimeFormat(undefined, { timeZone: zone, dateStyle: "medium", timeStyle: "short" });
+  return format.formatRange(toDate(ran[0]), toDate(ran[1]));
+}
+
+const midnight = (ms: number): number => new Date(ms).setHours(0, 0, 0, 0);
+
+/** Which group of the session list a moment falls in, seen from `now`. */
+export function ageGroup(ms: number, now: number): "Today" | "Yesterday" | "This week" | "Older" {
+  const days = Math.round((midnight(now) - midnight(ms)) / 86_400_000);
+  return days <= 0 ? "Today" : days === 1 ? "Yesterday" : days < 7 ? "This week" : "Older";
+}
+
+/** A moment as short as is unambiguous from `now`: the time today, else the date. */
+export function shortWhen(ms: number, now: number, zone?: string): string {
+  const today = ageGroup(ms, now) === "Today";
+  return new Intl.DateTimeFormat(undefined, today
+    ? { timeZone: zone, timeStyle: "short" }
+    : { timeZone: zone, dateStyle: "medium" }).format(new Date(ms));
 }

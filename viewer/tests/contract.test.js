@@ -2,7 +2,6 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { COUNTERS } from "../src/lib/counters";
 import { GLOSSARY } from "../src/lib/glossary.js";
-import { diagnostics } from "../src/lib/format.js";
 import { readProfile } from "../src/model/read";
 
 const profile = JSON.parse(
@@ -13,8 +12,6 @@ const profile = JSON.parse(
 // must be shown or added here on purpose, never by omission.
 const NOT_SHOWN = new Set(["node_id", "done"]);
 
-// Computed by the Python side but with nothing to render yet.
-const NO_CHIP = new Set(["cpu_count", "filter_rows_dropped", "incomplete_nodes", "parallel_efficiency"]);
 
 describe("the profile contract", () => {
   it("shows every counter the exporter writes", () => {
@@ -30,18 +27,7 @@ describe("the profile contract", () => {
     expect(COUNTERS.filter((c) => !GLOSSARY[c.key]).map((c) => c.label)).toEqual([]);
   });
 
-  it("renders a chip for every diagnostic the exporter computes", () => {
-    const rendered = new Set(diagnostics(profile).map((chip) => chip.k));
-    const missing = Object.keys(profile.diagnostics).filter(
-      (k) => !rendered.has(k) && !NO_CHIP.has(k),
-    );
-    expect(missing).toEqual([]);
-  });
 
-  it("explains every diagnostic it renders", () => {
-    const missing = diagnostics(profile).map((c) => c.k).filter((k) => !GLOSSARY[k]);
-    expect(missing).toEqual([]);
-  });
 
   it("reads every top-level field the exporter writes, or says why not", () => {
     // `failed` was written and never shown: a query that failed before

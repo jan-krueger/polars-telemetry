@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readProfile } from "../src/model/read";
+import { readProfile, sessionInfo } from "../src/model/read";
 import type { Profile, Session } from "../src/model/profile";
 import { currentProfile, initialState, matches, reducer, sameRuns, sharedPrefix, shapes, sortShapes, title, visibleShapes, type ViewerState } from "../src/state/viewer";
 
@@ -22,7 +22,8 @@ function profile(id: string, fingerprint: string, wall: number, hotNode = 7): Pr
 }
 
 const session = (id: string, ...profiles: Profile[]): Session =>
-  ({ id, name: `${id}.jsonl`, importedAt: Number(id.slice(1)), bytes: 0, profiles, raw: [] });
+  ({ ...sessionInfo({ id, name: `${id}.jsonl`, importedAt: Number(id.slice(1)), bytes: 0 }, profiles), profiles, raw: [] });
+const unread = (s: Session): Session => ({ ...s, profiles: null, raw: null });
 
 const loaded = (...sessions: Session[]): ViewerState =>
   reducer(initialState, { type: "loaded", sessions });
@@ -51,18 +52,18 @@ describe("viewer state", () => {
   });
 
   it("removing the open session opens the next, with nothing selected", () => {
-    const state = reducer(busy(), { type: "removed", sessionId: "s1" });
+    const state = reducer(busy(), { type: "removed", sessionIds: ["s1"] });
     expect([state.sessionId, state.queryId, state.compareId, state.node]).toEqual(["s2", null, null, null]);
   });
 
   it("removing the last session leaves none open", () => {
-    let state = reducer(busy(), { type: "removed", sessionId: "s1" });
-    state = reducer(state, { type: "removed", sessionId: "s2" });
+    let state = reducer(busy(), { type: "removed", sessionIds: ["s1"] });
+    state = reducer(state, { type: "removed", sessionIds: ["s2"] });
     expect(state.sessionId).toBeNull();
   });
 
   it("removing another session keeps the selection", () => {
-    const state = reducer(busy(), { type: "removed", sessionId: "s2" });
+    const state = reducer(busy(), { type: "removed", sessionIds: ["s2"] });
     expect(state.queryId).toBe("a");
     expect(state.compareId).toBe("b");
   });
@@ -96,7 +97,7 @@ describe("viewer state", () => {
     let state = busy();
     const before = currentProfile(state);
     const s1 = state.sessions.find((s) => s.id === "s1")!;
-    state = { ...state, sessions: state.sessions.map((s) => (s === s1 ? { ...s, profiles: [...s.profiles].reverse() } : s)) };
+    state = { ...state, sessions: state.sessions.map((s) => (s === s1 ? { ...s, profiles: [...s.profiles!].reverse() } : s)) };
     expect(currentProfile(state)).toBe(before);
   });
 });
@@ -189,10 +190,50 @@ describe("focus", () => {
   });
 });
 
+describe("sessions read when opened", () => {
+  it("opens on the most recently opened session, else the newest import", () => {
+    const s1 = { ...unread(session("s1")), openedAt: 50 };
+    expect(loaded(s1, unread(session("s2"))).sessionId).toBe("s1");
+  });
+
+  it("a link into a session not read yet waits for its profiles, then checks them", () => {
+    const s1 = session("s1", profile("a", "f1", 5), profile("b", "f1", 9));
+    let state = loaded(unread(s1));
+    state = reducer(state, { type: "navigated", route: { sessionId: "s1", queryId: "b", node: { plan: "physical", id: 3 } } });
+    expect([state.queryId, state.node]).toEqual(["b", { plan: "physical", id: 3 }]);
+    state = reducer(state, { type: "read", sessionId: "s1", profiles: s1.profiles!, raw: [], forgetOthers: true });
+    expect(currentProfile(state)?.query_id).toBe("b");
+    expect(state.node).toEqual({ plan: "physical", id: 7 });
+  });
+
+  it("reading one session forgets the other stored ones, but never a link session", () => {
+    const shared = { ...session("s3", profile("c", "f", 1)), shared: "#share=1.x" };
+    let state = loaded(session("s1", profile("a", "f1", 5)), session("s2", profile("b", "f2", 5)), shared);
+    state = reducer(state, { type: "read", sessionId: "s2", profiles: [profile("b", "f2", 5)], raw: [], forgetOthers: true });
+    expect(state.sessions.map((s) => [s.id, s.profiles !== null])).toEqual(
+      expect.arrayContaining([["s1", false], ["s2", true], ["s3", true]]));
+  });
+
+  it("removes several sessions at once and opens the most recent one left", () => {
+    const state = reducer(busy(), { type: "removed", sessionIds: ["s1", "s9"] });
+    expect(state.sessions.map((s) => s.id)).toEqual(["s2"]);
+    expect(state.sessionId).toBe("s2");
+  });
+});
+
+describe("the sessions page", () => {
+  it("closes when a query or a page from history is opened", () => {
+    const browsing = reducer(busy(), { type: "browsed", open: true });
+    expect(reducer(browsing, { type: "queryPicked", queryId: "b" }).browsing).toBe(false);
+    expect(reducer(browsing, { type: "navigated", route: { sessionId: "s1", queryId: "a", node: null } }).browsing).toBe(false);
+  });
+});
+
 describe("opening a file twice", () => {
   const run = (query_id: string) => ({ query_id }) as Profile;
   const session = (id: string, ids: string[]) =>
-    ({ id, name: id, importedAt: 0, bytes: 0, profiles: ids.map(run), raw: [] }) as Session;
+    ({ id, name: id, importedAt: 0, openedAt: null, bytes: 0, count: ids.length, runIds: ids, ran: null,
+       profiles: null, raw: null }) as Session;
   const open = [session("a", ["1", "2"]), session("b", ["3"])];
 
   it("finds the session holding exactly the same runs, in any order", () => {
