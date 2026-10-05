@@ -221,6 +221,14 @@ describe("sessions read when opened", () => {
   });
 });
 
+describe("the sessions page", () => {
+  it("closes when a query or a page from history is opened", () => {
+    const browsing = reducer(busy(), { type: "browsed", open: true });
+    expect(reducer(browsing, { type: "queryPicked", queryId: "b" }).browsing).toBe(false);
+    expect(reducer(browsing, { type: "navigated", route: { sessionId: "s1", queryId: "a", node: null } }).browsing).toBe(false);
+  });
+});
+
 describe("opening a file twice", () => {
   const run = (query_id: string) => ({ query_id }) as Profile;
   const session = (id: string, ids: string[]) =>

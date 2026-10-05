@@ -131,7 +131,7 @@ export function reducer(state: ViewerState, action: Action): ViewerState {
       return { ...state, ...nothingSelected, browsing: false, sessionId: action.sessionId };
     case "queryPicked": {
       const profile = findProfile(currentSession(state), action.queryId);
-      return { ...state, queryId: action.queryId, compareId: null, node: profile ? hottest(profile) : null };
+      return { ...state, browsing: false, queryId: action.queryId, compareId: null, node: profile ? hottest(profile) : null };
     }
     case "comparePicked":
       return { ...state, compareId: action.queryId };
@@ -145,13 +145,14 @@ export function reducer(state: ViewerState, action: Action): ViewerState {
       const session = state.sessions.find((s) => s.id === route.sessionId) ?? state.sessions[0] ?? null;
       // Not read yet: keep what the link asks for until the profiles arrive.
       if (session && !session.profiles) {
-        return { ...state, ...nothingSelected, sessionId: session.id, queryId: route.queryId, node: route.node };
+        return { ...state, ...nothingSelected, browsing: false, sessionId: session.id, queryId: route.queryId, node: route.node };
       }
       const profile = findProfile(session, route.queryId);
       const node = profile && route.node && findNode(profile, route.node) ? route.node : profile && hottest(profile);
       return {
         ...state,
         ...nothingSelected,
+        browsing: false,
         sessionId: session?.id ?? null,
         queryId: profile?.query_id ?? null,
         node: node || null,
