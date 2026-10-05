@@ -4,6 +4,21 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Deprecated
+Removed in 0.7.0.
+- `polars.filter.selectivity` and `polars.filter.rows_dropped`
+  (`Diagnostics.filter_selectivity`, `Diagnostics.filter_rows_dropped`): with
+  several filters they describe whichever one the plan lists last, so on a
+  large plan they are effectively arbitrary. For all filters of a shape
+  together, divide `polars.node.rows_out` by `polars.node.rows_in` for
+  `polars.node.kind` `Filter`.
+
+### Changed
+- Docs: `polars.join.growth` and `polars.morsel.skew` are the largest across
+  the plan, and now say so.
+
 ## [0.6.1] - 2026-10-04
 
 ### Changed

@@ -28,9 +28,11 @@ class Diagnostics:
     POLARS_MAX_THREADS."""
 
     filter_selectivity: float | None = None
-    """Rows surviving the filter. Low is good when the filter runs early."""
+    """Deprecated, removed in 0.7.0: the share of rows one filter kept, and with
+    several filters whichever the plan lists last."""
 
     filter_rows_dropped: int | None = None
+    """Deprecated, removed in 0.7.0, with `filter_selectivity`."""
 
     join_growth: float | None = None
     """The largest join's rows out over its larger input. Above 2 needs
@@ -40,7 +42,8 @@ class Diagnostics:
     """Columns read over columns in the file."""
 
     morsel_skew: float | None = None
-    """Largest morsel over the mean. Above 1 means uneven partitioning."""
+    """The largest of any node's largest morsel over its mean. Above 1 means
+    uneven partitioning somewhere in the plan."""
 
     predicate_pushed: bool | None = None
     """True when any scan applies a predicate inside the scan."""

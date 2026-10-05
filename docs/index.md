@@ -34,7 +34,7 @@ For every query polars runs:
 - how long it took, how much CPU it used, and how well it spread across cores
 - both plans: scans and their pushed-down filters, joins, group-by keys
 - every node's counters: rows, morsels, polls, IO time and bytes
-- the most expensive node, and diagnostics such as filter selectivity and join
+- the most expensive node, and diagnostics such as parallel efficiency and join
   fan-out
 - the file, line and function that ran it, and your own [label](labels.md)
 
