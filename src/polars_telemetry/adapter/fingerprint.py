@@ -47,7 +47,7 @@ FINGERPRINT_LENGTH = 12
 def _shape(key: str, value: object) -> object:
     if isinstance(value, str):
         if key == "first_source":
-            value = re.split(r"[/\\]", value)[-1]
+            value = re.split(r"[/\\]", value.split("?", 1)[0])[-1]
         return redact(plugin_libraries(value))
     if isinstance(value, list):
         return [_shape(key, item) for item in value]

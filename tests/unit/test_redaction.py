@@ -10,8 +10,10 @@ import pytest
 
 from polars_telemetry import _dispatch
 from polars_telemetry.adapter.build import build_plan, enrich
-from polars_telemetry.model.redaction import Redaction, redact, redact_query
-from polars_telemetry.model.types import Query
+from polars_telemetry.adapter.fingerprint import fingerprint
+from polars_telemetry.export.profile import build_profile
+from polars_telemetry.model.redaction import URL_QUERIES, Redaction, redact, redact_query
+from polars_telemetry.model.types import PlanNode, Query
 from tests.fixture_paths import latest_fixture
 
 FIXTURE = latest_fixture()
@@ -188,7 +190,8 @@ def test_receivers_with_different_redactions_each_get_their_own(isolated, query)
 
     _dispatch.dispatch(query)
 
-    assert raw[0].redaction is None
+    assert raw[0].redaction == URL_QUERIES
+    assert raw[0].redaction.masks == ()
     assert literals[0].redaction == Redaction()
     assert strict[0].redaction == Redaction(paths=True)
 
@@ -229,3 +232,69 @@ def test_a_relative_plugin_path_is_masked_too():
     """register_plugin_function defaults to a path relative to the environment."""
     relative = 'col("v").fill_null(["x"]).lib/python3.12/site-packages/mypkg/mypkg.abi3.so:fold()'
     assert redact(relative, Redaction(paths=True)).endswith(".<path>:fold()")
+
+
+SIGNED = "https://bucket.s3.amazonaws.com/data/orders.parquet?X-Amz-Credential=AKIA%2Fx&X-Amz-Signature=abc123"
+
+
+def _signed(query: Query, url: str = SIGNED) -> Query:
+    def swap(plan: dict[int, PlanNode]) -> dict[int, PlanNode]:
+        return {
+            i: replace(n, properties={**n.properties, "first_source": url})
+            if "first_source" in n.properties
+            else n
+            for i, n in plan.items()
+        }
+
+    return replace(
+        query,
+        plan=swap(query.plan),
+        logical=swap(query.logical),
+        failed=f"object-store error (path: {url})",
+    )
+
+
+def test_a_url_query_string_never_reaches_a_receiver_by_default(isolated, query):
+    plain: list[Query] = []
+    opted_out: list[Query] = []
+    _dispatch.add(plain.append, "plain")
+    keep = Redaction(strings=False, numbers=False, temporal=False, url_queries=False)
+    _dispatch.add(opted_out.append, "full", redaction=keep)
+
+    _dispatch.dispatch(_signed(query))
+
+    assert "Signature" not in _all_text(plain[0])
+    assert "orders.parquet?<query>" in _all_text(plain[0])
+    assert "10.0" in _all_text(plain[0]), "literals stay unless a redaction asks"
+    assert "X-Amz-Signature=abc123" in _all_text(opted_out[0])
+
+
+def test_url_queries_are_masked_in_sinks_and_expressions_but_not_counted_as_masking():
+    text = 'col("u").str.contains(["s3://b/k?sig=1"]) sink to gs://b/out.parquet?X-Goog-Signature=2'
+    assert (
+        redact(text, URL_QUERIES)
+        == 'col("u").str.contains(["s3://b/k?<query>"]) sink to gs://b/out.parquet?<query>'
+    )
+    assert redact("/local/data.parquet", URL_QUERIES) == "/local/data.parquet"
+    assert URL_QUERIES.masks == ()
+
+
+def test_a_default_profile_says_nothing_was_masked(isolated, query):
+    plain: list[Query] = []
+    _dispatch.add(plain.append, "plain")
+    _dispatch.dispatch(_signed(query))
+    assert build_profile(plain[0])["redacted"] is None
+
+
+def test_a_presigned_url_does_not_change_the_fingerprint(query):
+    first = fingerprint(_signed(query).logical)
+    again = fingerprint(_signed(query, SIGNED.replace("abc123", "def456")).logical)
+    assert first == again
+
+
+def test_the_strictest_redaction_keeps_url_queries_masked_if_any_does():
+    from polars_telemetry.model.redaction import strictest
+
+    combined = strictest(Redaction(url_queries=False), Redaction(paths=True))
+    assert combined is not None
+    assert combined.url_queries

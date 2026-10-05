@@ -43,6 +43,7 @@ polars_telemetry.install(Config(redaction=Redaction()))
 | `call_site` | off | the file, line and function that ran the query | dropped |
 | `labels` | off | labels set with `label()` | dropped |
 | `custom` | none | your own rule, applied to every expression and error message after the others | whatever it returns |
+| `url_queries` | on, **even without a redaction** | a URL's query string, in paths, expressions and error messages | `?<query>` |
 
 Masking keeps the structure and column names, so you can still see which
 filter was slow:
@@ -52,6 +53,22 @@ col("email") == "someone@example.com"   ->   col("email") == "<str>"
 col("amount") > 60.0                    ->   col("amount") > <num>
 col("placed") >= 2024-01-01             ->   col("placed") >= <date>
 ```
+
+### URL query strings
+
+A presigned S3 URL, a signed GCS URL or an Azure SAS URL carries its credential
+in the query string, and polars keeps the whole URL in the plan. So the query
+string is masked for every exporter, also one without a redaction:
+`https://bucket.s3.amazonaws.com/data/orders.parquet?<query>`. The bucket and
+path stay; `s3://` paths and credentials passed as `storage_options` were never
+in the plan. To keep query strings, say so explicitly:
+
+```python
+Redaction(strings=False, numbers=False, temporal=False, url_queries=False)
+```
+
+It is not listed as masking in a profile's `redacted` field, which records
+only what you chose to mask.
 
 It works on polars' text form of expressions, so treat it as a precaution, not
 a compliance guarantee. `include_plan` stays off by default, and keeps the

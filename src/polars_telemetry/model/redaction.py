@@ -55,6 +55,11 @@ class Redaction:
     """Your own rule, applied to every expression and error message after the
     masks above."""
 
+    url_queries: bool = True
+    """A URL's query string becomes `?<query>`: in a presigned or SAS URL it is a
+    credential. On for every receiver, with or without a redaction, unless a
+    redaction turns it off."""
+
     @property
     def masks(self) -> tuple[str, ...]:
         """What this masks, by field name, for a reader to show."""
@@ -63,6 +68,8 @@ class Redaction:
 
 
 LITERALS = Redaction()
+URL_QUERIES = Redaction(strings=False, numbers=False, temporal=False)
+"""What a receiver without a redaction of its own still gets masked."""
 
 _SWITCHES = ("strings", "numbers", "temporal", "paths", "call_site", "labels")
 
@@ -82,6 +89,7 @@ def strictest(*redactions: Redaction | None) -> Redaction | None:
     return Redaction(
         **{switch: any(getattr(r, switch) for r in given) for switch in _SWITCHES},
         custom=every_rule if rules else None,
+        url_queries=any(r.url_queries for r in given),
     )
 
 
@@ -121,6 +129,14 @@ def plugin_libraries(text: str) -> str:
     return PLUGIN_PATH.sub(lambda match: match["library"], text)
 
 
+_URL_QUERY = re.compile(r"(\b[A-Za-z][A-Za-z0-9+.\-]*://[^\s\"'?#]*)\?[^\s\"'#),\]]*")
+
+
+def url_queries(text: str) -> str:
+    """Text with every URL's query string replaced by `?<query>`."""
+    return _URL_QUERY.sub(r"\1?<query>", text)
+
+
 # Plan properties holding a file path rather than an expression.
 _PATH_KEYS = frozenset({"first_source", "dest", "target", "path", "paths", "sources"})
 
@@ -131,6 +147,10 @@ def redact(text: str, redaction: Redaction = LITERALS) -> str:
     Works on polars' text form of expressions, so it is a precaution rather
     than a guarantee. Idempotent unless `custom` is not.
     """
+    if redaction.url_queries:
+        text = url_queries(text)
+    if not (redaction.strings or redaction.numbers or redaction.temporal or redaction.paths):
+        return redaction.custom(text) if redaction.custom is not None else text
 
     def mask(match: re.Match[str]) -> str:
         kind, value = match.lastgroup, match.group(0)
@@ -166,7 +186,9 @@ def _quoted(text: str) -> list[tuple[int, int]]:
 
 def _path_text(value: str, redaction: Redaction) -> str:
     # "Memory" is a sink's destination too, and is no path.
-    return "<path>" if redaction.paths and any(c in value for c in "/\\.") else value
+    if redaction.paths and any(c in value for c in "/\\."):
+        return "<path>"
+    return url_queries(value) if redaction.url_queries else value
 
 
 def _path(value: object, redaction: Redaction) -> object:

@@ -149,6 +149,9 @@ which predicate was slow is usually the point.
 
 - `Config(redaction=Redaction())` masks literal values: text, numbers, dates
   and times. `Redaction(paths=True, call_site=True, labels=True)` masks more.
+- A URL's query string, which for a presigned or SAS URL is a credential,
+  becomes `?<query>` for every exporter, unless a redaction sets
+  `url_queries=False`.
 - `redacted(exporter, ...)` gives one exporter its own setting, so a shared
   backend can get a masked copy while a local file keeps full detail.
 - Literals are never used as metric attributes, at any setting.

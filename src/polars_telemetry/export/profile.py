@@ -91,7 +91,9 @@ def build_profile(query: Query, *, diagnostics: Diagnostics | None = None) -> di
             }
         ),
         "failed": query.failed,
-        "redacted": list(query.redaction.masks) if query.redaction is not None else None,
+        "redacted": list(query.redaction.masks)
+        if query.redaction is not None and query.redaction.masks
+        else None,
         "diagnostics": {
             field: getattr(diagnostics, field)
             for field in Diagnostics.__dataclass_fields__
