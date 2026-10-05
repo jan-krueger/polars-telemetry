@@ -3,14 +3,13 @@ import "@xyflow/react/dist/style.css";
 import "./styles.css";
 import PlanPane from "./components/PlanPane";
 import NodeDetails from "./components/NodeDetails";
-import Help from "./components/Help";
 import Code from "./components/Code";
 import ShareDialog from "./components/ShareDialog";
 import { SessionSwitcher, SessionsPage } from "./components/Sessions";
 import { byNode, warned } from "./lib/insights";
 import Tip, { TipText } from "./components/Tip";
 import { dropSession, listSessions, loadDocuments, saveInfo, saveSession, storageUnavailable } from "./lib/storage";
-import { busy, bytes, compact, diagnostics, num, shapeName, span, tableName } from "./lib/format";
+import { busy, bytes, compact, num, shapeName, span, tableName } from "./lib/format";
 import { basename } from "./lib/polars";
 import { clock, instant, iso, spansDays } from "./lib/time";
 import { readJsonl, readProfiles, sessionInfo, toJsonl } from "./model/read";
@@ -500,15 +499,11 @@ polars_telemetry.install(exporter=FileExporter("profiles/session.jsonl"))`} />
                   {profile.result_rows != null && (
                     <span>· <b>{compact(profile.result_rows)}</b> rows out{delta(profile.result_rows, compare?.result_rows)}</span>
                   )}
-                  <span className="chips">
-                    {diagnostics(profile).map((d) => (
-                      <span className="chipd" key={d.t}>
-                        <i className="dot" style={{ background: VERDICT[d.s] }} />
-                        <span className="lb">{d.t}</span><b>{d.v}{d.u}</b>
-                        <Help term={d.k} extra={d.n} />
-                      </span>
-                    ))}
-                  </span>
+                  {profile.diagnostics?.incomplete_nodes ? (
+                    <Tip content={<TipText term="Counters incomplete">{profile.diagnostics.incomplete_nodes} nodes had not finished reporting when the query ended, so their figures are a floor, not a total.</TipText>}>
+                      <span className="masked" tabIndex={0}>· counters incomplete</span>
+                    </Tip>
+                  ) : null}
                   {profile.redacted?.length ? (
                     <Tip content={<TipText term="Masked before export">Values such as {'"<str>"'} and {"<num>"} are placeholders, not your data.</TipText>}>
                       <span className="masked" tabIndex={0}>
@@ -544,6 +539,7 @@ polars_telemetry.install(exporter=FileExporter("profiles/session.jsonl"))`} />
         <aside className="rail right">
           {!state.browsing && (
             <NodeDetails node={selectedNode} compareNode={compareNode}
+                         plan={state.node?.plan === "physical" ? profile?.plan.physical : undefined}
                          findings={state.node?.plan === "physical" ? findings.get(state.node.id) : undefined} />
           )}
         </aside>

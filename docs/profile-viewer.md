@@ -57,6 +57,10 @@ had were busy on average (node CPU ÷ wall time, as a bar against the thread
 count), and the rows it returned. Hover the figures for exact times, planning
 and CPU.
 
+A selected node's metrics start with what they say about that node: the share
+of rows a filter kept, a join's rows out against its larger input, and how
+uneven its batches were.
+
 Each query shows the logical plan on the left and the physical plan on the
 right. Drag to pan, scroll to zoom; the minimap shows where you are.
 

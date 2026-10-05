@@ -2,7 +2,7 @@ import { PROP_LABELS, GLOSSARY } from "../lib/glossary";
 import { visibleCounters } from "../lib/counters";
 import { ROLES, conjunction, exprLines, roleOf } from "../lib/polars";
 import { impact, measured, ruleDocs } from "../lib/insights";
-import { bytes, ms, num } from "../lib/format";
+import { bytes, ms, nodeFacts, num } from "../lib/format";
 import Help from "./Help";
 import Tip, { TipText } from "./Tip";
 import Code from "./Code";
@@ -62,7 +62,7 @@ function Field({ name, value: raw }) {
   return <div className="field"><div className="lbl">{label}</div><Expr lines={lines} /></div>;
 }
 
-export default function NodeDetails({ node, compareNode, findings }) {
+export default function NodeDetails({ node, plan = [], compareNode, findings }) {
   if (!node) return <div className="empty">Select a node in a plan.</div>;
   const m = node.metrics, other = compareNode?.metrics;
   const props = Object.entries(node.properties || {})
@@ -120,6 +120,12 @@ export default function NodeDetails({ node, compareNode, findings }) {
               </span>
             </Tip>
           </div>
+          {nodeFacts(node, plan).map((f) => (
+            <div className="mrow mrow--fact" key={f.key}>
+              <span className="k">{f.label}<Help term={f.key} /></span>
+              <span className="v">{f.value} <span className="u">{f.note}</span></span>
+            </div>
+          ))}
           {visibleCounters(m).map(({ label, key, unit }) => {
             const raw = m[key];
             const v = unit === "ns" ? ms(raw / 1e6)

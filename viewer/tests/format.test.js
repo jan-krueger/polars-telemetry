@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { busy, compact, diagnostics, joinGrowth, shapeName, span } from "../src/lib/format.js";
+import { busy, compact, joinGrowth, nodeFacts, shapeName, span } from "../src/lib/format.js";
 
 const profile = (over = {}) => ({
   schema: "polars-telemetry/profile@1",
@@ -11,16 +11,6 @@ const profile = (over = {}) => ({
 describe("shapeName", () => {
   it("never throws on a profile that passed validation", () => {
     expect(() => shapeName(profile())).not.toThrow();
-  });
-});
-
-describe("diagnostics", () => {
-  it("renders nothing when the profile carries none", () => {
-    expect(diagnostics({})).toEqual([]);
-  });
-
-  it("leaves parallel efficiency to the threads-busy bar", () => {
-    expect(diagnostics({ diagnostics: { parallel_efficiency: 0.2, cpu_count: 8 } })).toEqual([]);
   });
 });
 
@@ -76,11 +66,13 @@ describe("join growth", () => {
     expect(joinGrowth(plan)).toBe(1);
   });
 
-  it("is computed for profiles that predate it, and never shown from the deprecated amplification", () => {
-    const old = { diagnostics: { join_amplification: 54 }, plan: { physical: [node(1, "MultiScan", [], 110_001), node(2, "MultiScan", [], 54), node(3, "CrossJoin", [1, 2], 5_940_054)] } };
-    const chips = diagnostics(old);
-    expect(chips.map((c) => c.k)).toEqual(["join_growth"]);
-    expect(chips[0]).toMatchObject({ v: "54.00", s: "crit" });
+  it("is a node's own figure, next to its rows kept and morsel skew", () => {
+    const plan = [node(1, "MultiScan", [], 2_000), node(2, "MultiScan", [], 1_000), node(3, "EquiJoin", [1, 2], 10_000),
+      { id: 4, kind: "Filter", inputs: [3], metrics: { rows_received: 10_000, rows_sent: 2_500, morsels_received: 10, largest_morsel_received: 3_000 } }];
+    expect(nodeFacts(plan[2], plan).map((f) => [f.key, f.value])).toEqual([["join_growth", "5.00×"]]);
+    expect(nodeFacts(plan[3], plan).map((f) => [f.key, f.value, f.note])).toEqual([
+      ["filter_selectivity", "25.0%", "7,500 dropped"], ["morsel_skew", "3.00×", "largest batch above the mean"]]);
+    expect(nodeFacts(plan[0], plan)).toEqual([]);
   });
 });
 

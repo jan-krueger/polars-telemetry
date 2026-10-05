@@ -98,11 +98,6 @@ pre.snip b{color:var(--ink);font-weight:500}
 .busy-bar span{display:block;height:100%}
 .dl{font-size:11px;font-variant-numeric:tabular-nums}
 .delta-up{color:var(--up)} .delta-down{color:var(--down)}
-.chips{display:inline-flex;gap:4px 12px;flex-wrap:wrap;margin-left:4px;padding-left:12px;border-left:1px solid var(--border)}
-.chipd{display:inline-flex;align-items:center;gap:5px;font-size:12px}
-.chipd b{font-variant-numeric:tabular-nums;font-weight:600}
-.chipd .lb{color:var(--muted)}
-.dot{width:7px;height:7px;border-radius:50%;flex:none}
 .picker{background:var(--surface-2);border:1px solid var(--border);border-radius:6px;
   padding:4px 8px;font-size:12px;max-width:100%}
 
