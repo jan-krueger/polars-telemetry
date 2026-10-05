@@ -28,6 +28,15 @@ const EXAMPLES = [
 
 const VERDICT = { good: "var(--good)", warn: "var(--warn)", crit: "var(--crit)", info: "var(--muted)" };
 
+function Booting() {
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setSlow(true), 300);
+    return () => clearTimeout(timer);
+  }, []);
+  return <div className="booting" role="status">{slow ? "Loading sessions…" : null}</div>;
+}
+
 const Breakable = ({ text }) =>
   text.split(/(?<=[/._])/).map((part, i) => <span key={i}>{i ? <wbr /> : null}{part}</span>);
 
@@ -408,7 +417,9 @@ export default function App() {
               <button className="x" aria-label="Dismiss" onClick={() => setRejectedFiles([])}>×</button>
             </div>
           )}
-          {!current ? (
+          {!booted ? (
+            <Booting />
+          ) : !current ? (
             <div className="blank">
               <h3>Nothing loaded</h3>
               <p>Profiles stay in this browser. Nothing is uploaded.</p>
