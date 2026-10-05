@@ -71,15 +71,17 @@ The single most expensive node, which is usually the whole answer.
 ### Diagnostics
 
 Derived from counters already collected. Absent when the plan has no node of
-the relevant kind.
+the relevant kind. For what all filters of a shape keep together, divide
+`polars.node.rows_out` by `polars.node.rows_in` with `polars.node.kind` set to
+`Filter`.
 
 | Attribute | Type | What it tells you |
 | --- | --- | --- |
-| `polars.filter.selectivity` | float | Rows surviving the filter, 0–1 |
-| `polars.filter.rows_dropped` | int | Rows removed before the rest of the plan |
-| `polars.join.growth` | float | The largest join's rows out over its larger input; above 2 means many-to-many keys |
+| `polars.join.growth` | float | The largest join's rows out over its larger input, across the plan; above 2 means many-to-many keys |
 | `polars.projection.efficiency` | float | Columns read over columns in the file |
-| `polars.morsel.skew` | float | Largest morsel over the mean; above 1 is uneven |
+| `polars.morsel.skew` | float | The largest of any node's largest morsel over its mean; above 1 is uneven |
+| `polars.filter.selectivity` | float | **Deprecated**, removed in 0.7.0: one filter's rows kept, 0–1, and with several filters whichever the plan lists last |
+| `polars.filter.rows_dropped` | int | **Deprecated**, removed in 0.7.0, with `polars.filter.selectivity` |
 | `polars.scan.predicate_pushed` | bool | True if **any** scan filters inside the scan |
 | `polars.scan.row_groups_skipped` | bool | Whether parquet row groups were skipped |
 | `polars.scan.has_statistics` | bool | Whether the optimiser had table statistics |
