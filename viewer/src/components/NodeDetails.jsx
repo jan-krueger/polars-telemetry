@@ -123,7 +123,8 @@ export default function NodeDetails({ node, plan = [], compareNode, findings }) 
           {nodeFacts(node, plan).map((f) => (
             <div className="mrow mrow--fact" key={f.key}>
               <span className="k">{f.label}<Help term={f.key} /></span>
-              <span className="v">{f.value} <span className="u">{f.note}</span></span>
+              <span className="v">{f.value}</span>
+              <span className="fact-note">{f.note}</span>
             </div>
           ))}
           {visibleCounters(m).map(({ label, key, unit }) => {
