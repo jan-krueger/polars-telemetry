@@ -28,11 +28,11 @@ class Diagnostics:
     POLARS_MAX_THREADS."""
 
     filter_selectivity: float | None = None
-    """Deprecated, removed in 0.7.0: the share of rows one filter kept, and with
+    """Deprecated, removed in 0.8.0: the share of rows one filter kept, and with
     several filters whichever the plan lists last."""
 
     filter_rows_dropped: int | None = None
-    """Deprecated, removed in 0.7.0, with `filter_selectivity`."""
+    """Deprecated, removed in 0.8.0, with `filter_selectivity`."""
 
     join_growth: float | None = None
     """The largest join's rows out over its larger input. Above 2 needs

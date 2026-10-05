@@ -4,10 +4,10 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.7.0] - 2026-10-05
 
 ### Deprecated
-Removed in 0.7.0.
+Removed in 0.8.0.
 - `polars.filter.selectivity` and `polars.filter.rows_dropped`
   (`Diagnostics.filter_selectivity`, `Diagnostics.filter_rows_dropped`): with
   several filters they describe whichever one the plan lists last, so on a
@@ -18,6 +18,18 @@ Removed in 0.7.0.
 ### Changed
 - Docs: `polars.join.growth` and `polars.morsel.skew` are the largest across
   the plan, and now say so.
+- Viewer: a node's metrics start with what they say about that node, the share
+  of rows a filter kept, a join's growth over its larger input and its morsel
+  skew, in place of the query-wide diagnostics above the plans.
+- Viewer: the open session sits at the top of the sidebar, with the recent ones
+  a click away; **All sessions** lists every session to search, sort, rename,
+  download or remove, several at once. Only the open session is read from
+  storage, so a browser holding many sessions opens as fast as one holding a
+  few. Sessions stored by an earlier viewer are converted once, on first load.
+
+### Fixed
+- Viewer: no longer shows "Nothing loaded" for a moment while stored sessions
+  load.
 
 ## [0.6.1] - 2026-10-04
 
@@ -567,6 +579,7 @@ All three are removed in 0.4.0.
   and collapsed most nodes onto identical windows. The same counters read once
   at query end are exact and cost nothing measurable.
 
+[0.7.0]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.7.0
 [0.6.1]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.6.1
 [0.6.0]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.6.0
 [0.5.1]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.5.1
