@@ -62,13 +62,13 @@ orders.group_by("region").agg(pl.col("amount").sum()).collect()
 ```
 
 ```text
-polars query 01a111e2 ok wall=1.95ms planning=0.53ms cpu=1.50ms parallelism=0.77x nodes=5 rows_out=2
+polars query 1a8cfdfd ok wall=1.92ms planning=0.47ms cpu=1.57ms parallelism=0.82x nodes=5 rows_out=2
   at report.py:8 in <module>()
-  GroupBy               0.87ms  in=           3  out=           2
-  InMemorySource        0.50ms  in=           0  out=           3
-  InMemorySink            87us  in=           2  out=           0
-  SimpleProjection        27us  in=           3  out=           3
-  SimpleProjection        20us  in=           2  out=           2
+  GroupBy               0.89ms  in=           3  out=           2
+  InMemorySource        0.52ms  in=           0  out=           3
+  SimpleProjection        74us  in=           3  out=           3
+  InMemorySink            61us  in=           2  out=           0
+  SimpleProjection        23us  in=           2  out=           2
 ```
 
 `install()` returns what was installed, or `None` when this polars cannot be

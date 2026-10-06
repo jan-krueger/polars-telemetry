@@ -57,8 +57,8 @@ class DogStatsdExporter:
         metric_names: Renames metrics, from their names in
             [Spans and metrics](../reference/spans-and-metrics.md). A mapping
             or a function; a name mapped to None is not sent.
-        tag_names: Renames tag keys: `engine`, `fingerprint`, `node_kind` and
-            `direction`. A key mapped to None is not sent, such as
+        tag_names: Renames tag keys: `engine`, `fingerprint`, `node_kind`,
+            `direction`, `rule` and `level`. A key mapped to None is not sent, such as
             `{"fingerprint": None}` to keep one series per query shape off a
             bill.
         tag_labels: Also tag every metric with the query's label. Labels are

@@ -78,7 +78,7 @@ polars.node.rows_out:2696064|c|#node_kind:GroupBy,engine:streaming
 
 | Tag | On | Values |
 | --- | --- | --- |
-| `engine` | every metric | `streaming`, `in-memory`, `unknown` |
+| `engine` | every metric except `polars.query.insights` | `streaming`, `in-memory`, `unknown` |
 | `fingerprint` | query metrics | one per query shape |
 | `node_kind` | node metrics | polars' node kinds, such as `GroupBy` |
 | `direction` | `io_bytes`, `largest_morsel` | `requested`, `received`, `sent` |
@@ -93,8 +93,8 @@ OpenTelemetry exporter; the Datadog Agent accepts OTLP too.
 | Option | Default | Effect |
 | --- | --- | --- |
 | `client` | `datadog.statsd` | The `DogStatsd` to send through |
-| `metric_names` | as listed | Rename metrics, by a mapping or a function; a name mapped to `None` is not sent |
-| `tag_names` | as listed | Rename tag keys; a key mapped to `None` is not sent |
+| `metric_names` | the names in [Spans and metrics](../reference/spans-and-metrics.md#metrics) | Rename metrics, by a mapping or a function; a name mapped to `None` is not sent; an unknown name raises `ValueError` |
+| `tag_names` | the keys in the table above | Rename tag keys; a key mapped to `None` is not sent; an unknown key raises `ValueError` |
 | `tag_labels` | `False` | Tag every metric with the query's label |
 | `distributions` | `True` | Times and ratios as distributions (`|d`); `False` sends histograms (`|h`) |
 
@@ -126,6 +126,6 @@ thread and sent from the client's own.
 ## When it fails
 
 Over UDP, nothing fails: with no Agent listening, packets are lost silently.
-An error from the client is logged once, and after five errors the exporter is
-disabled. The client holds up to 0.3 s of values; `uninstall()` and the
-process's exit send them.
+An error from the client is handled as for
+[every exporter](index.md#failures-stay-contained). The client holds up to
+0.3 s of values; `uninstall()` and the process's exit send them.

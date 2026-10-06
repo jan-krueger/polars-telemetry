@@ -30,18 +30,18 @@ mid-write still reads up to the last complete line.
 ```json
 {
   "schema": "polars-telemetry/profile@1",
-  "polars_version": "1.44.2", "polars_telemetry_version": "0.2.0",
-  "query_id": "01a10139-b376-79e1-a019-fdd89782ff8f",
-  "label": "nightly/revenue_by_region",
-  "fingerprint": "f7d144838d88",
-  "started_unix_ns": 1791021921142995890,
-  "wall_ms": 20.49, "cpu_ms": 81.71, "result_rows": 4,
-  "call_site": { "filepath": "/srv/app/reports.py", "lineno": 23,
-                 "function": "revenue_by_region" },
+  "polars_version": "1.44.2", "polars_telemetry_version": "0.8.0",
+  "query_id": "01a111e4-c72d-78a1-86fc-873485d15878",
+  "label": "orders_by_region",
+  "fingerprint": "c4833db25e35",
+  "started_unix_ns": 1791301568301453578,
+  "wall_ms": 8.7752, "planning_ms": 0.9702, "telemetry_ms": 0.1893,
+  "cpu_ms": 34.1368, "result_rows": 2,
+  "call_site": { "filepath": "/srv/app/reports.py", "lineno": 7, "function": "<module>" },
   "failed": null, "redacted": null,
-  "trace_id": "...", "span_id": "...",
-  "diagnostics": { "parallel_efficiency": 0.33, "morsel_skew": 1.46, ... },
-  "plan": { "physical": [ ... ], "logical": [ ... ] }
+  "diagnostics": { "parallel_efficiency": 0.33, "cpu_count": 12, "morsel_skew": 1.5, ... },
+  "plan": { "physical": [ ... ], "logical": [ ... ] },
+  "insights": { "schema": "insights@1", "findings": [ ... ] }
 }
 ```
 
@@ -51,12 +51,14 @@ mid-write still reads up to the last complete line.
 | `polars_version`, `polars_telemetry_version` | What produced it; polars' counters change independently of the format |
 | `label` | From [`label()`](../labels.md), else `null` |
 | `fingerprint` | The plan's shape, without literals: equal for runs of the same query |
+| `wall_ms`, `planning_ms`, `telemetry_ms`, `cpu_ms` | Wall time; of it, polars' planning and this package's own work before execution; node CPU |
 | `call_site` | The file, line and function that ran the query, else `null` |
-| `trace_id`, `span_id` | Present when a span was active, linking the profile to its trace |
+| `trace_id`, `span_id` | The trace and span that were active when the query ran (with the OpenTelemetry exporter, the parent of `polars.collect`), else absent |
 | `redacted` | What was masked before writing, such as `["strings", "numbers"]`, else `null` |
 | `diagnostics` | Derived figures, as on the [span](../reference/spans-and-metrics.md#diagnostics) |
-| `plan.physical` | Physical nodes with their properties, `role`, and all 19 counters |
+| `plan.physical` | Physical nodes with `kind`, `role`, `inputs`, `properties` and `metrics`: every polars counter, `done`, and on polars 2 [custom node metrics](../reference/spans-and-metrics.md#custom-node-metrics) |
 | `plan.logical` | The logical plan's nodes, with your own column names |
+| `insights` | The [findings](../insights.md), when `Config(insights=True)`, the default |
 
 ## Options
 
@@ -71,9 +73,9 @@ Masking is set on `install()`'s config, or for this file alone with
 
 ## Your data
 
-Everything the plans contain, literals included, which is what makes a
-profile useful. The file stays where it is written; the viewer reads it in the
-browser and uploads nothing. See [Data and privacy](../privacy.md).
+Everything the plans contain, literals included; URL query strings are masked.
+The file stays where it is written, and the viewer uploads nothing. See
+[Data and privacy](../privacy.md).
 
 ## Cost
 
