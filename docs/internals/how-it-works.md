@@ -2,13 +2,13 @@
 
 ## The hook
 
-polars imports a module named `polars_cloud` and reads `QueryCloudObserver` off
-it **by name**, then duck-types the result. It never checks the type. So this
+polars imports a module named `polars_cloud`, reads `QueryCloudObserver` from
+it **by name** and duck-types the result without checking its type. This
 package supplies that name.
 
 If the real `polars-cloud` is installed, its factory is kept and forwarded to.
-Otherwise a module is registered in `sys.modules` under that name — we never
-publish a distribution called `polars_cloud`, which would collide with theirs.
+Otherwise a module is registered under that name in `sys.modules`. No
+distribution called `polars_cloud` is published; it would collide with theirs.
 
 The protocol, checked against every polars version in CI by `tests/contract`:
 
@@ -28,36 +28,40 @@ nodes without any name matching.
 
 ## Failure isolation
 
-Instrumentation runs inside your data path, so nothing here may surface as an
-exception in your query. Every callback is wrapped: errors are counted, each
-distinct one logged once, and past a threshold the hook disarms itself for the
-rest of the process.
+No instrumentation error surfaces as an exception in your query. Every
+callback is wrapped: errors are counted, each distinct one logged once, and
+past a threshold the hook disarms itself for the rest of the process.
 
 ```text
 polars-telemetry: disabling observer after 5 errors. Queries are unaffected.
 ```
 
-`on_query_planned` is a special case — polars calls `close()` on whatever it
-returns, so it always returns a guard even when it has failed internally.
+`on_query_planned` always returns a guard, even when it failed internally,
+because polars calls `close()` on whatever it returns.
 
 ## Why there are no per-node spans
 
-The counters polars reports are cumulative, and no field of a metrics record is
-a timestamp. A node interval could therefore only be *sampled*, which costs 4.7%
-of query wall time at 25 ms and 15.1% at 5 ms — and still resolves poorly:
-on a 48 ms query sampled at 5 ms, eight of eleven nodes collapsed onto two
-identical windows.
+polars' counters are cumulative, and no field of a metrics record is a
+timestamp. A node interval could only be *sampled*:
 
-Read once at query end, the same counters are exact and cost nothing
-measurable. If polars exposes per-node timestamps, node spans become exact and
-free, and they go back in.
+| Sampling interval | Cost (share of query wall time) |
+| --- | --- |
+| 25 ms | 4.7% |
+| 5 ms | 15.1% |
+
+Sampling also resolves poorly: on a 48 ms query sampled at 5 ms, eight of
+eleven nodes collapsed onto two identical windows.
+
+Read once at query end, the counters are exact and cost nothing measurable.
+If polars exposes per-node timestamps, node spans become exact and free, and
+they go back in.
 
 ## Overhead
 
-The instrumentation itself, measured with an exporter that does nothing, stays
-below measurement noise on a 3M-row join and aggregation, interleaved against
-an uninstrumented run on the same engine. The nightly canary runs this bench
+With a no-op exporter, the instrumentation stays below measurement noise on a
+3M-row join and aggregation, interleaved against an uninstrumented run on the
+same engine. The nightly canary runs this bench
 (`tests/bench/test_overhead.py`) and opens an issue when it is over budget.
 
-Exporters add their own cost on top, on the thread that ran the query. Each
+Exporters add their own cost, on the thread that ran the query; each
 [exporter's page](../exporters/index.md) states it.

@@ -26,8 +26,8 @@ The span is named `polars.collect`.
 
 ### Call site
 
-Where in your code the query ran, under OpenTelemetry's own code attributes, so
-a backend that already understands them links a query to its source.
+Where in your code the query ran, as OpenTelemetry's code attributes; a backend
+that supports them links the query to its source.
 
 | Attribute | Type | Notes |
 | --- | --- | --- |
@@ -50,12 +50,12 @@ A hash of node kinds, topology and column identity — **not** literal values. S
 grouping column produces a different one. A scanned file counts by its name,
 with numbers and dates masked: `data-2024-01-01.parquet` and
 `data-2024-01-02.parquet` in any directory are the same shape, `orders.parquet`
-is another. It is bounded by your code paths, which is what makes it safe as a
-metric dimension where `polars.query_id` is not.
+is another. It is bounded by your code paths, so it is safe as a metric
+dimension; `polars.query_id` is not.
 
 ### Hot node
 
-The single most expensive node, which is usually the whole answer.
+The single most expensive node.
 
 | Attribute | Type | Notes |
 | --- | --- | --- |
@@ -65,8 +65,8 @@ The single most expensive node, which is usually the whole answer.
 
 ### Diagnostics
 
-Derived from counters already collected. Absent when the plan has no node of
-the relevant kind. For what all filters of a shape keep together, divide
+Derived from the collected counters. Absent when the plan has no node of the
+relevant kind. For what all filters of a shape keep together, divide
 `polars.node.rows_out` by `polars.node.rows_in` with `polars.node.kind` set to
 `Filter`.
 
@@ -114,8 +114,8 @@ not a total — polars called `close()` before the engine had finished flushing.
 | --- | --- | --- |
 | `polars.plan` | str | The whole plan and its counters as JSON |
 
-Off by default; enable with `Config(include_plan=True)`. It is kilobytes per
-span. The JSON is `{"physical": [...], "logical": [...]}`: each node has `id`,
+Off by default; enable with `Config(include_plan=True)`. Kilobytes per span.
+The JSON is `{"physical": [...], "logical": [...]}`: each node has `id`,
 `kind` and `inputs`; physical nodes add `done`, the counters under the names in
 `export.attributes.PLAN_JSON_FIELDS` (times in ms), and from polars 2 `custom`.
 

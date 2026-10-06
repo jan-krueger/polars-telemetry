@@ -33,9 +33,9 @@ that fail.
 polars-telemetry: polars sent a plan node of kind 'X', which this version does not recognise
 ```
 
-A newer polars added or renamed an operator. Queries are unaffected, and the
-node still appears in spans and profiles; only attributes that depend on
-knowing what it does are missing. Updating polars-telemetry usually fixes it.
+A newer polars added or renamed an operator. Queries are unaffected and the
+node still appears in spans and profiles; only attributes that depend on its
+kind are missing. Updating polars-telemetry usually fixes it.
 
 ## "disabling … after 5 errors"
 
@@ -44,8 +44,8 @@ knowing what it does are missing. Updating polars-telemetry usually fixes it.
 | an exporter, such as `ConsoleExporter` | that exporter is off for the rest of the process; the others continue. See [Failures stay contained](exporters/index.md#failures-stay-contained) |
 | the observer | all telemetry is off for the rest of the process |
 
-Your queries were not affected. The first error of each kind was logged
-before this message: look there for the cause.
+Queries are unaffected. The first error of each kind was logged before this
+message, with the cause.
 
 ## My Config or exporter change has no effect
 
@@ -67,6 +67,6 @@ specific engine.
 
 ## The viewer forgets my sessions
 
-The browser is not keeping site data, as in a private window or with the page
-opened from disk. The viewer says so in the sidebar. Open the files again, or
+The browser keeps no site data, as in a private window or with the page
+opened from disk; the viewer says so in the sidebar. Open the files again, or
 use the [hosted viewer](viewer/index.html). See [Sessions](profile-viewer.md#sessions).

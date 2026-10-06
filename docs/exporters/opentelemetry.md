@@ -12,8 +12,8 @@ sends them.
 ## Set up
 
 The package depends on the OpenTelemetry API only. Your application installs
-the SDK and decides where data goes; `polars-telemetry[otlp]` adds the SDK and
-the OTLP exporter.
+the SDK and decides where data goes; the `otlp` extra adds the SDK and the OTLP
+exporter.
 
 ```bash
 pip install 'polars-telemetry[otlp]'
@@ -74,9 +74,9 @@ polars.collect
     polars.insight.fix           drop the `unique`/`group_by` if keys are unique by construction, or dedup at the source
 ```
 
-Each [finding](../insights.md) is a `polars.insight` event on the span. The
-span's status is `ERROR` with polars' message when the query failed. There are
-no child spans per node: polars reports no per-node timestamps.
+Each [finding](../insights.md) is a `polars.insight` event on the span. A
+failed query sets status `ERROR` with polars' message. No child spans per node:
+polars reports no per-node timestamps.
 
 Metrics: query timings by plan fingerprint and engine, node counters by node
 kind, and finding counts by rule. Every name, unit and dimension:
@@ -106,16 +106,16 @@ carry it. See [Data and privacy](../privacy.md#what-can-carry-your-data).
 
 ## Cost
 
-About 0.1 ms per query for the span. The metrics cost about 9 µs per value
-recorded: one per node for each time and ratio, and one per node kind for each
-count, since counts are summed first. That is most of the cost on a large plan:
-about 2.4 ms for a 22-node TPC-H query. `node_metrics=False` removes it, along
-with everything derived from the counters. This runs on the thread that ran the
-query, after it finished.
+About 0.1 ms per query for the span. Metrics cost about 9 µs per value
+recorded: one per node for each time and ratio, one per node kind for each
+count (counts are summed first). On a large plan they dominate: about 2.4 ms
+for a 22-node TPC-H query. `node_metrics=False` removes it, with everything
+derived from the counters. All of it runs on the query's thread, after the
+query finishes.
 
 ## When it fails
 
-Without an OpenTelemetry SDK, the API's providers do nothing: no error, and
-nothing is sent. A collector that is down is the SDK's to handle; its batch
+Without an OpenTelemetry SDK, the API's providers do nothing: no error,
+nothing sent. A collector that is down is the SDK's to handle; its batch
 processor drops and logs. An error inside this exporter is handled as for
 [every exporter](index.md#failures-stay-contained).

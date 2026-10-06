@@ -49,9 +49,9 @@ as it finishes, and the findings go to every exporter:
 
 ## How findings are ranked
 
-Every rule detects a fact that does not depend on how much data ran: a ratio,
-a node kind, a count of calls. A small test run therefore shows the same
-findings as the production run it stands in for.
+Rules detect facts independent of data volume: a ratio, a node kind, a count
+of calls. A small test run shows the same findings as the production run it
+stands in for.
 
 How much a finding matters is its **impact**, the larger of two shares:
 
@@ -69,53 +69,55 @@ judge.
 ### `in_memory_fallback`
 
 A node the streaming engine cannot run: polars hands its whole input to the
-in-memory engine, in one call, and the pipeline waits for it. polars marks the
-same nodes in its own plan graph. Median, quantile or mode in a group-by are
-common causes, and before polars 2.0 so was `rank().over()`. With `Config(describe_fallbacks=True)`, the default, the node's
-**Runs** property in the viewer shows the expression.
+in-memory engine in one call, and the pipeline waits for it. polars marks the
+same nodes in its own plan graph. Common causes: median, quantile or mode in a
+group-by, and before polars 2.0 `rank().over()`. With
+`Config(describe_fallbacks=True)`, the default, the node's **Runs** property in
+the viewer shows the expression.
 
 ### `exploding_join`
 
 A join that emits more than twice its larger input. A one-to-many join stays
 within both inputs together, so this takes keys that repeat on both sides.
-Its impact counts the nodes that process the extra rows.
+Impact counts the nodes that process the extra rows.
 
 ### `cross_join`
 
-A cross join where both sides have more than one row. When a filter follows
-it, the finding says how many of the pairs survive; an equality key or
-`join_where` usually avoids building them. A cross join against a single row
-is a broadcast and not reported.
+A cross join where both sides have more than one row; one against a single row
+is a broadcast and not reported. If a filter follows, the finding says how many
+pairs survive; an equality key or `join_where` usually avoids building them.
 
 ### `repeated_string_scan`
 
 `str.contains`, or `str.replace` / `str.replace_all`, called on one column four
-or more times within a node, each call another pass over the data.
-`str.contains_any` or one regular expression can do the work of many `contains`
-in one pass.
+or more times within a node, each call a separate pass over the data.
+`str.contains_any` or one regular expression replaces many `contains` with one
+pass.
 
-A chain of replacements merges into `str.replace_many` only where that gives
-the same result. `replace_many` scans once: a replacement never feeds a later
-pattern (`straße → str.` then `. → ""`), and of two patterns that overlap
-(`straße` and `ß`) only one can match. The finding splits the chain, in order,
-into the fewest groups free of both, and its fix names how many
-`replace_many` calls that takes. polars does not record `literal=True` or
-`replace` against `replace_all` in the plan, so the fix holds for literal
-`replace_all` calls; patterns that only escape punctuation (`\.`) count as
-literal.
+`str.replace_many` scans once, so a chain of replacements merges into it only
+where that gives the same result:
+
+- no replacement feeds a later pattern (`straße → str.` then `. → ""`);
+- no two patterns overlap (`straße` and `ß`), since only one can match.
+
+The finding splits the chain, in order, into the fewest groups free of both,
+and its fix names how many `replace_many` calls that takes. polars does not
+record `literal=True` or `replace` against `replace_all` in the plan, so the fix
+holds for literal `replace_all` calls; patterns that only escape punctuation
+(`\.`) count as literal.
 
 ### `redundant_aggregation`
 
 A deduplication, a `unique()` or a group-by that only keeps values with
-`first()` or `last()`, that removes at most one row in ten thousand. Reported
-only when the query asks for deduplication itself: polars also deduplicates
-internally, for `n_unique()` for one, and that is not the query's to change.
+`first()` or `last()`, that removes at most one row in ten thousand. Only
+deduplication the query asks for is reported; polars' internal deduplication,
+such as for `n_unique()`, is not the query's to change.
 
 ### `python_udf`
 
 A Python function in the plan: `map_elements`, `map_batches` or
 `LazyFrame.map_batches`. polars cannot look inside it, so nothing is pushed
-through it, and it runs under the GIL. A frame-level function also takes the
+through it; it runs under the GIL. A frame-level function also takes the
 whole input in one call, which `longest_step` shows.
 
 ### `datetime_format_inferred`
@@ -131,18 +133,16 @@ that feeds several consumers is done once and not counted. Impact is the CPU of
 every copy but one. polars shares identical subplans itself unless something
 in them is not deterministic; before polars 2.0 that includes every plugin
 call, which `plugin_calls` counts (see [`repeated_plugin_call`](#repeated_plugin_call)).
-Whether a copy is deliberate is for you to judge.
 
 ### `repeated_plugin_call`
 
 The same plugin call, on the same input with the same arguments, more than once
-in one node. Before polars 2.0, pre-releases included, polars never shares
-plugin calls between expressions
-([polars#29165](https://github.com/pola-rs/polars/issues/29165)), so the fix
-there is to compute the call once and reference the column. From polars
-2.0 a plugin is shared unless it is registered with `is_deterministic=False`
-([polars#29428](https://github.com/pola-rs/polars/pull/29428)); the finding
-then suggests registering it as deterministic, if it is.
+in one node.
+
+| polars | Plugin calls shared between expressions | Fix |
+| --- | --- | --- |
+| before 2.0, pre-releases included | never ([polars#29165](https://github.com/pola-rs/polars/issues/29165)) | compute the call once and reference the column |
+| 2.0 and later | unless registered with `is_deterministic=False` ([polars#29428](https://github.com/pola-rs/polars/pull/29428)) | register it as deterministic, if it is |
 
 ## Your data in findings
 

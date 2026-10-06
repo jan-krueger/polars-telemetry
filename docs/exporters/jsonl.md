@@ -18,9 +18,9 @@ from polars_telemetry.export.file import FileExporter
 polars_telemetry.install(exporter=FileExporter("profiles/session.jsonl"))
 ```
 
-To collect only a block of code instead of the whole process, use
-[`profile()`](../labels.md#scope-a-block-of-code) and `session.write(path)`,
-which writes the same format.
+To collect one block of code instead of the whole process, use
+[`profile()`](../labels.md#scope-a-block-of-code) and `session.write(path)`;
+same format.
 
 ## What you get
 
@@ -84,6 +84,6 @@ thread that ran the query. A profile is 2–25 KB.
 
 ## When it fails
 
-A profile that cannot be built or written is skipped. The first such error is
-logged; the exporter keeps trying on the next query, so a full disk or a
-missing permission recovers once fixed.
+A profile that cannot be built or written is skipped and the first such error
+logged. The exporter retries on the next query, so a full disk or a missing
+permission recovers once fixed.

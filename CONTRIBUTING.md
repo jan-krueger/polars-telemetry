@@ -9,14 +9,13 @@ stack).
 uv sync --all-groups
 ```
 
-Dependencies newer than 7 days are ignored by resolution (`exclude-newer`), so
-a freshly compromised release cannot be pulled in by a routine sync.
+Resolution ignores dependencies newer than 7 days (`exclude-newer`), so a
+routine sync cannot pull in a freshly compromised release.
 
 ## Tasks
 
-Every task is a nox session, and CI calls the same ones — so there is a single
-definition of what "lint" means. nox is in the dev group, so there is nothing
-extra to install.
+Every task is a nox session; CI calls the same sessions. nox is in the dev
+group.
 
 ```bash
 uv run nox -l              # list sessions
@@ -42,8 +41,8 @@ arrives over DogStatsD. Send it histograms, which Telegraf summarises:
 `DogStatsdExporter(DogStatsd(port=8125, ...), distributions=False)`.
 
 Sessions declared `venv_backend="none"` run in the environment nox was started
-from, which is why they are invoked through `uv run`. Only `matrix` and
-`canary` build their own environments, because they install a specific polars.
+from, so invoke them through `uv run`. Only `matrix` and `canary` build their
+own environments, to install a specific polars.
 
 Arguments pass through after `--`:
 
@@ -62,15 +61,11 @@ uv run nox -s capture -- 1.44.2
 | `integration` | requires a running OTel collector |
 | `bench` | overhead, gated on a budget |
 
-`tests/unit/test_docs.py` requires every semconv name and unit in
-`docs/reference/spans-and-metrics.md`, every `Config` option in the option
-tables of `README.md` and `docs/reference/configuration.md`, and every insight
-rule as a heading in `docs/insights.md`. `tests/unit/test_doc_links.py` requires
-every docs address linked from `README.md`, `viewer/src` and `src` to resolve.
-`tests/unit/test_doc_claims.py` runs the quick-start snippets and compares the
-CLI summary they print, checks the supported polars versions against
-`compat.SUPPORTED` and the CLI options against `docs/insights.md`, and fails on
-counts in prose such as "nine rules".
+| Docs test | Requires |
+| --- | --- |
+| `tests/unit/test_docs.py` | every semconv name and unit in `docs/reference/spans-and-metrics.md`; every `Config` option in the option tables of `README.md` and `docs/reference/configuration.md`; every insight rule as a heading in `docs/insights.md` |
+| `tests/unit/test_doc_links.py` | every docs address linked from `README.md`, `viewer/src` and `src` to resolve |
+| `tests/unit/test_doc_claims.py` | the quick-start snippets to run and print the expected CLI summary; the supported polars versions to match `compat.SUPPORTED`; the CLI options to match `docs/insights.md`; no counts in prose, as matched by `COUNTED` |
 
 ## Insight rules
 
@@ -101,12 +96,12 @@ with a case in `tests/contract/test_live.py`.
 ## The viewer
 
 `viewer/` is a Vite + React app built to a single HTML file. `docs/viewer/` is
-build output and is not committed — the `docs-build` session builds the viewer
-first, so a docs build never ships a stale one.
+build output and is not committed; the `docs-build` session builds the viewer
+first.
 
 `uv run nox -s viewer-test` runs its unit tests and a check that no bare CSS
-selector is shared between components — the shape of a bug that silently
-restyled an element once. CI runs it on Node 22.12, the oldest supported.
+selector is shared between components. CI runs it on Node 22.12, the oldest
+supported.
 
 `uv run nox -s viewer-fixture` regenerates `viewer/tests/fixtures/profile.json`
 from the captured polars payloads, so the viewer's contract test cannot drift
@@ -115,6 +110,21 @@ from what the exporter writes.
 It is not versioned or published to an index. It deploys with the docs site
 whenever `docs/`, `viewer/`, `mkdocs.yml`, `pyproject.toml`, `uv.lock` or the
 pages workflow change on `main`.
+
+## Writing docs
+
+- Show what to type, then what it prints. Paste real output from running the
+  snippet, never an edited or invented one.
+- The quick starts need nothing beyond `pip install polars-telemetry`; anything
+  that needs an extra or a collector comes after.
+- One page owns each fact; other pages link to it.
+- Short, active sentences. Leave out motivation, history and hedging unless the
+  reader acts on it.
+- Options, comparisons and lists of cases go in tables.
+- Don't count rules, exporters or metrics in prose; the numbers go stale.
+- Headings are addresses. Don't rename one that is linked from code, the viewer
+  or another page.
+- `uv run nox -s docs-build` builds strictly: a broken link or anchor fails.
 
 ## Releasing
 
@@ -145,13 +155,13 @@ viewer deploy from `main` as described above.
 
 ### One-time setup
 
-Four things live outside the repository and have to be set by hand.
+These live outside the repository and are set by hand.
 
 **GitHub environments** — `testpypi` and `pypi` under **Settings →
 Environments**. For each, under *Deployment branches and tags*, add the pattern
 `v*` with the ref type set to **Tag**. The selector defaults to *Branch*, which
-silently blocks every tag-triggered deploy. A required reviewer on `pypi` turns
-publishing into a deliberate act rather than a consequence of pushing a tag.
+silently blocks every tag-triggered deploy. A required reviewer on `pypi` makes
+publishing need an approval, not just a pushed tag.
 
 **Trusted publishers** — a *pending* publisher on both
 [pypi.org](https://pypi.org/manage/account/publishing/) and

@@ -31,10 +31,10 @@ statsd = DogStatsd(
 polars_telemetry.install(exporter=DogStatsdExporter(statsd))
 ```
 
-Everything about where the metrics go, such as the host, a Unix socket, a
-`namespace` prefix, `constant_tags`, or the `DD_ENV`, `DD_SERVICE` and
-`DD_VERSION` variables, is the client's configuration. With no client,
-`datadog.statsd` is used, the one `datadog.initialize()` configures.
+The client's configuration decides where the metrics go: the host, a Unix
+socket, a `namespace` prefix, `constant_tags`, the `DD_ENV`, `DD_SERVICE` and
+`DD_VERSION` variables. With no client, the exporter uses `datadog.statsd`,
+which `datadog.initialize()` configures.
 
 !!! warning "Turn buffering on"
     With the client's defaults every value is its own packet, which costs
@@ -43,8 +43,8 @@ Everything about where the metrics go, such as the host, a Unix socket, a
 ### Into InfluxDB through Telegraf
 
 Telegraf's `statsd` input reads the tags as line-protocol tags. Send
-histograms rather than distributions: Telegraf summarises histograms per flush,
-but keeps only one sample of a distribution.
+histograms: Telegraf summarises them per flush, but keeps only one sample of a
+distribution.
 
 ```python
 DogStatsdExporter(statsd, distributions=False)
@@ -85,8 +85,8 @@ polars.node.rows_out:2696064|c|#node_kind:GroupBy,engine:streaming
 | `rule`, `level` | `polars.query.insights` | an [insight rule](../insights.md) id; `warn` or `info` |
 | `label` | every metric, if `tag_labels=True` | your [labels](../labels.md) |
 
-There are no spans: StatsD carries metrics only. For traces, use the
-OpenTelemetry exporter; the Datadog Agent accepts OTLP too.
+No spans: StatsD carries metrics only. For traces, use the OpenTelemetry
+exporter; the Datadog Agent accepts OTLP too.
 
 ## Options
 
@@ -111,17 +111,17 @@ DogStatsdExporter(
 None: metrics never carry literals, paths or call sites. Labels are only sent
 with `tag_labels=True`.
 
-Datadog bills each distinct combination of metric and tags as a custom
-metric. Node metrics are bounded by the node kinds polars has. Query metrics
-grow with the number of query shapes you run, through `fingerprint`; drop it
-with `tag_names={"fingerprint": None}` if that number is large. Only turn on
-`tag_labels` when your labels come from a small, fixed set.
+Datadog bills each distinct metric and tag combination as a custom metric.
+Node metrics are bounded by polars' node kinds. Query metrics grow with the
+number of query shapes, through `fingerprint`; if that is large, drop it with
+`tag_names={"fingerprint": None}`. Turn on `tag_labels` only for labels from a
+small, fixed set.
 
 ## Cost
 
 About 0.1 ms per query on a small plan and 1 ms on a 22-node one, with
-buffering and the background sender on. The values are queued on the query's
-thread and sent from the client's own.
+buffering and the background sender on. Values are queued on the query's thread
+and sent from the client's.
 
 ## When it fails
 

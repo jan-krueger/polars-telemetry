@@ -34,10 +34,9 @@ What `install()` returns: [Getting started](../getting-started.md#watch-every-qu
 
 ## Breaking changes
 
-A nightly CI job installs the newest polars — pre-releases included — and runs
-the live contract test against it, opening an issue on failure. The intent is
-to learn about a breaking change while it is still a release candidate.
+A nightly CI job runs the live contract test against the newest polars,
+pre-releases included, and opens an issue on failure.
 
-Everything rests on a private arrangement between two first-party packages. If
-polars removes or changes it, the probe degrades or declines, and the package
-keeps your queries running while emitting less — or nothing.
+The hook is a private arrangement between two first-party packages. If polars
+removes or changes it, the probe degrades or declines; queries keep running
+while the package emits less, or nothing.
