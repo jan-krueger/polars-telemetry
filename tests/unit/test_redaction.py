@@ -298,3 +298,57 @@ def test_the_strictest_redaction_keeps_url_queries_masked_if_any_does():
     combined = strictest(Redaction(url_queries=False), Redaction(paths=True))
     assert combined is not None
     assert combined.url_queries
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        'col("s") == "x", zq7SECRET"',
+        '(col("s") == "x") & (zq7SECRET")',
+        'col("s") == "x".zq7SECRET"',
+        'col("s") == "x" == zq7SECRET"',
+        'col("s") == "col("s") zq7SECRET"',
+        'col("s").str.contains(["a")zq7SECRET"])',
+        'col("s").str.contains(["q7x,⚡",col(" |zq7SECRET"])',
+        'col("s") == "q",col(")zq7SECRET"',
+        '(col("s") == "x" |col(" zq7SECRET") & (col("t") == "y")',
+        '(col("s") == "x" &]&col("zq7SECRET") & (col("t") == "y")',
+        '(col("t") == "x" &==ücol(" |zq7SECRET")',
+    ],
+)
+def test_a_quote_inside_a_text_value_never_lets_the_value_out(text):
+    assert "zq7SECRET" not in redact(text)
+
+
+@pytest.mark.parametrize(
+    ("text", "masked"),
+    [
+        ('col("a") == "x" & col("b") == "y"', 'col("a") == "<str>" & col("b") == "<str>"'),
+        ('[(col("ham")) == ("a")]', '[(col("ham")) == ("<str>")]'),
+        ('col("s").is_in([["a", "b"]])', 'col("s").is_in([["<str>", "<str>"]])'),
+        ('col("x").name.prefix("p_")', 'col("x").name.prefix("p_")'),
+        ('col("s").struct.field("f")', 'col("s").struct.field("f")'),
+        (
+            'AGGREGATE\n  [col("v").sum()] BY [col("k")]',
+            'AGGREGATE\n  [col("v").sum()] BY [col("k")]',
+        ),
+    ],
+)
+def test_text_without_ambiguous_quotes_is_masked_as_before(text, masked):
+    assert redact(text) == masked
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "No such file or directory (os error 2): .../data/zq7CLIENT/orders.parquet",
+        "Error performing HEAD https://bucket.example/zq7CLIENT/orders.parquet in 2.7s",
+        r"failed to open C:\Users\zq7CLIENT\orders.csv",
+        "cannot read exports/zq7CLIENT/orders.csv",
+        "~/zq7CLIENT/orders.csv missing",
+    ],
+)
+def test_paths_masks_paths_and_urls_in_error_messages(query, message):
+    failed = replace(query, failed=message)
+    assert "zq7CLIENT" not in (redact_query(failed, Redaction(paths=True)).failed or "")
+    assert "zq7CLIENT" in (redact_query(failed, Redaction()).failed or "")

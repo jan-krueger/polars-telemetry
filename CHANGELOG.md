@@ -10,6 +10,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `repeated_string_scan` counts identical calls once, as Polars computes them
   once: three different patterns, one of them used twice, are three passes, not
   four. It reported 119 false warnings on the MIMIC-IV MEDS extraction.
+- Masking text values no longer lets part of a value through when it contains
+  a double quote: Polars prints values unescaped, so `x", secret` ended the
+  value early and left `secret` in the plan. An expression whose quotes are
+  ambiguous is now masked from its first text value on.
+- `Redaction(paths=True)` also masks paths and URLs in a failed query's error
+  message, which Polars writes in full, as in "No such file or directory".
 
 ## [0.8.2] - 2026-10-06
 

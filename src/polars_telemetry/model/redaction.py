@@ -42,8 +42,9 @@ class Redaction:
     `<time>` and `<duration>`."""
 
     paths: bool = False
-    """File paths that are scanned or written become `<path>`, and so does a
-    plugin's library path in an expression."""
+    """File paths that are scanned or written become `<path>`, and so do a
+    plugin's library path in an expression and any path or URL in an error
+    message."""
 
     call_site: bool = False
     """Drop the file, line and function that ran the query."""
@@ -100,7 +101,9 @@ _START = r"(?<![\w.])"
 
 # polars prints string literals raw, without escaping quotes or backslashes,
 # so a literal ends only at a quote that something a literal can precede
-# follows. A literal with no such end runs to the end of the text.
+# follows. A literal with no such end runs to the end of the text. A quote
+# inside a literal makes that reading ambiguous; `_consistent` notices, and
+# everything from the first literal on is masked rather than guessed at.
 _STRING_END = re.compile(r'"(?=$|[)\],.]| [&|=!<>+\-*/%])')
 
 # Longest form first, so a date is never read as three numbers.
@@ -114,7 +117,14 @@ _TOKEN = re.compile(
 )
 
 # Quoted text directly after these is a column or alias name, not user data.
-_NAME_CONTEXT = re.compile(r"(?:col|alias|name|nth|field|prefix|suffix)\($")
+_NAME_CONTEXT = re.compile(
+    r"(?:(?<![\w.])(?:col|nth|field)|\.(?:alias|name|field|prefix|suffix))\($"
+)
+
+# What may follow a closed literal or name in polars' text: more closing
+# brackets, then nothing, a separator with its space, a method's dot, a line
+# break, or an operator or keyword with a space on each side.
+_AFTER_CLOSE = re.compile(r"[)\]]*(?:$|, |\.|\n| (?:[&|=!<>+\-*/%]+|[A-Za-z]+) )")
 
 # A plugin function in expression text: a method dot, its shared library's path,
 # absolute or relative to the environment, then `:name(`.
@@ -135,6 +145,21 @@ _URL_QUERY = re.compile(r"(\b[A-Za-z][A-Za-z0-9+.\-]*://[^\s\"'?#]*)\?[^\s\"'#),
 def url_queries(text: str) -> str:
     """Text with every URL's query string replaced by `?<query>`."""
     return _URL_QUERY.sub(r"\1?<query>", text)
+
+
+# A path or URL inside an error message: a scheme, a drive, or slashes
+# without spaces, as polars and the object store write them.
+_MESSAGE_PATH = re.compile(
+    r"\b[A-Za-z][A-Za-z0-9+.\-]*://[^\s\"'<>)]+"
+    r"|\b[A-Za-z]:\\[^\s\"'<>)]+"
+    r"|(?<![\w<])(?:\.{1,3}/|~/|/)[^\s\"'<>)]+"
+    r"|(?<![\w<./])[\w.\-]+(?:/[\w.\-]+)+"
+)
+
+
+def message_paths(text: str) -> str:
+    """An error message with every path or URL in it replaced by `<path>`."""
+    return _MESSAGE_PATH.sub("<path>", text)
 
 
 # Plan properties holding a file path rather than an expression.
@@ -163,10 +188,13 @@ def redact(text: str, redaction: Redaction = LITERALS) -> str:
             segment = PLUGIN_PATH.sub("<path>", segment)
         return _TOKEN.sub(mask, segment)
 
+    spans = _quoted(text)
+    if redaction.strings and not _consistent(text, spans):
+        first = next((start for start, _, named in spans if not named), len(text))
+        spans = [span for span in spans if span[0] < first] + [(first, len(text), False)]
     parts, last = [], 0
-    for start, end in _quoted(text):
+    for start, end, named in spans:
         parts.append(unquoted(text[last:start]))
-        named = _NAME_CONTEXT.search(text[max(0, start - 8) : start])
         parts.append('"<str>"' if redaction.strings and not named else text[start:end])
         last = end
     parts.append(unquoted(text[last:]))
@@ -174,14 +202,28 @@ def redact(text: str, redaction: Redaction = LITERALS) -> str:
     return redaction.custom(masked) if redaction.custom is not None else masked
 
 
-def _quoted(text: str) -> list[tuple[int, int]]:
+def _quoted(text: str) -> list[tuple[int, int, bool]]:
+    """Each quoted span, and whether it is a column or alias name."""
     spans, position = [], 0
     while (start := text.find('"', position)) != -1:
         end = _STRING_END.search(text, start + 1)
         stop = end.end() if end else len(text)
-        spans.append((start, stop))
+        named = _NAME_CONTEXT.search(text[max(0, start - 8) : start]) is not None
+        spans.append((start, stop, named))
         position = stop
     return spans
+
+
+def _consistent(text: str, spans: list[tuple[int, int, bool]]) -> bool:
+    """Every span closes, holds no quote, and a name is followed by its `)`."""
+    for start, stop, named in spans:
+        if stop - start < 2 or text[stop - 1] != '"' or '"' in text[start + 1 : stop - 1]:
+            return False
+        if named and not text.startswith(")", stop):
+            return False
+        if not _AFTER_CLOSE.match(text, stop):
+            return False
+    return True
 
 
 def _path_text(value: str, redaction: Redaction) -> str:
@@ -237,6 +279,10 @@ def _node(node: PlanNode, redaction: Redaction) -> PlanNode:
     return replace(node, **changes)  # type: ignore[arg-type]
 
 
+def _message(text: str, redaction: Redaction) -> str:
+    return redact(message_paths(text) if redaction.paths else text, redaction)
+
+
 def redact_query(query: Query, redaction: Redaction = LITERALS) -> Query:
     """The same query with what `redaction` names masked or dropped.
 
@@ -248,7 +294,7 @@ def redact_query(query: Query, redaction: Redaction = LITERALS) -> Query:
         query,
         plan={node_id: _node(node, redaction) for node_id, node in query.plan.items()},
         logical={node_id: _node(node, redaction) for node_id, node in query.logical.items()},
-        failed=redact(query.failed, redaction) if query.failed is not None else None,
+        failed=_message(query.failed, redaction) if query.failed is not None else None,
         call_site=None if redaction.call_site else query.call_site,
         label=None if redaction.labels else query.label,
         redaction=redaction,
