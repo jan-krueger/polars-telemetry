@@ -39,7 +39,7 @@ polars_telemetry.install(Config(redaction=Redaction()))
 | `strings` | on | quoted text, except column and alias names | `"<str>"` |
 | `numbers` | on | numbers, including `1.0000e-9` | `<num>` |
 | `temporal` | on | dates, datetimes, times, durations | `<date>`, `<datetime>`, `<time>`, `<duration>` |
-| `paths` | off | files scanned or written, and a plugin's library path in an expression | `<path>` |
+| `paths` | off | files scanned or written, a plugin's library path in an expression, and paths and URLs in error messages | `<path>` |
 | `call_site` | off | the file, line and function that ran the query | dropped |
 | `labels` | off | labels set with `label()` | dropped |
 | `custom` | none | your own rule, applied to every expression and error message after the others | whatever it returns |

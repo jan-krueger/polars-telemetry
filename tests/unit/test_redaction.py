@@ -336,3 +336,19 @@ def test_a_quote_inside_a_text_value_never_lets_the_value_out(text):
 )
 def test_text_without_ambiguous_quotes_is_masked_as_before(text, masked):
     assert redact(text) == masked
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "No such file or directory (os error 2): .../data/zq7CLIENT/orders.parquet",
+        "Error performing HEAD https://bucket.example/zq7CLIENT/orders.parquet in 2.7s",
+        r"failed to open C:\Users\zq7CLIENT\orders.csv",
+        "cannot read exports/zq7CLIENT/orders.csv",
+        "~/zq7CLIENT/orders.csv missing",
+    ],
+)
+def test_paths_masks_paths_and_urls_in_error_messages(query, message):
+    failed = replace(query, failed=message)
+    assert "zq7CLIENT" not in (redact_query(failed, Redaction(paths=True)).failed or "")
+    assert "zq7CLIENT" in (redact_query(failed, Redaction()).failed or "")

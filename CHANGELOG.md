@@ -14,6 +14,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   a double quote: Polars prints values unescaped, so `x", secret` ended the
   value early and left `secret` in the plan. An expression whose quotes are
   ambiguous is now masked from its first text value on.
+- `Redaction(paths=True)` also masks paths and URLs in a failed query's error
+  message, which Polars writes in full, as in "No such file or directory".
 
 ## [0.8.2] - 2026-10-06
 

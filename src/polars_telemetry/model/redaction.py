@@ -42,8 +42,9 @@ class Redaction:
     `<time>` and `<duration>`."""
 
     paths: bool = False
-    """File paths that are scanned or written become `<path>`, and so does a
-    plugin's library path in an expression."""
+    """File paths that are scanned or written become `<path>`, and so do a
+    plugin's library path in an expression and any path or URL in an error
+    message."""
 
     call_site: bool = False
     """Drop the file, line and function that ran the query."""
@@ -144,6 +145,21 @@ _URL_QUERY = re.compile(r"(\b[A-Za-z][A-Za-z0-9+.\-]*://[^\s\"'?#]*)\?[^\s\"'#),
 def url_queries(text: str) -> str:
     """Text with every URL's query string replaced by `?<query>`."""
     return _URL_QUERY.sub(r"\1?<query>", text)
+
+
+# A path or URL inside an error message: a scheme, a drive, or slashes
+# without spaces, as polars and the object store write them.
+_MESSAGE_PATH = re.compile(
+    r"\b[A-Za-z][A-Za-z0-9+.\-]*://[^\s\"'<>)]+"
+    r"|\b[A-Za-z]:\\[^\s\"'<>)]+"
+    r"|(?<![\w<])(?:\.{1,3}/|~/|/)[^\s\"'<>)]+"
+    r"|(?<![\w<./])[\w.\-]+(?:/[\w.\-]+)+"
+)
+
+
+def message_paths(text: str) -> str:
+    """An error message with every path or URL in it replaced by `<path>`."""
+    return _MESSAGE_PATH.sub("<path>", text)
 
 
 # Plan properties holding a file path rather than an expression.
@@ -263,6 +279,10 @@ def _node(node: PlanNode, redaction: Redaction) -> PlanNode:
     return replace(node, **changes)  # type: ignore[arg-type]
 
 
+def _message(text: str, redaction: Redaction) -> str:
+    return redact(message_paths(text) if redaction.paths else text, redaction)
+
+
 def redact_query(query: Query, redaction: Redaction = LITERALS) -> Query:
     """The same query with what `redaction` names masked or dropped.
 
@@ -274,7 +294,7 @@ def redact_query(query: Query, redaction: Redaction = LITERALS) -> Query:
         query,
         plan={node_id: _node(node, redaction) for node_id, node in query.plan.items()},
         logical={node_id: _node(node, redaction) for node_id, node in query.logical.items()},
-        failed=redact(query.failed, redaction) if query.failed is not None else None,
+        failed=_message(query.failed, redaction) if query.failed is not None else None,
         call_site=None if redaction.call_site else query.call_site,
         label=None if redaction.labels else query.label,
         redaction=redaction,
