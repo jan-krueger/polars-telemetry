@@ -31,10 +31,9 @@ installed.
 
 ## Scope a block of code
 
-`profile()` collects the queries a block of code runs, without setting up an
-exporter for the whole process. polars 2 removed `LazyFrame.profile()`; this
-covers the same ground, for every query a block runs, on either version. Useful in a test, a notebook cell, or around
-one function you suspect:
+`profile()` collects the queries a block of code runs, without an exporter for
+the whole process, on any polars version; polars 2 removed
+`LazyFrame.profile()`.
 
 ```python
 from polars_telemetry import profile
@@ -56,8 +55,10 @@ session.write("profiles/report.jsonl")  # open this in the viewer
 | `session.write(path)` | a session file the [viewer](profile-viewer.md) opens |
 
 If nothing is installed, the block installs instrumentation and removes it
-afterwards. If an application has already installed exporters, they keep
-receiving every query; the block collects alongside them. Blocks may nest.
+afterwards; `profile(config)` sets its `Config` then. If an application has
+already installed exporters, they keep receiving every query, the block
+collects alongside them, and the session masks the stricter of the two
+redactions. Blocks may nest.
 
 !!! note "The scope is the process, not the thread"
     A block collects every query that finishes while it is open, including

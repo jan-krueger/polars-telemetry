@@ -2,6 +2,9 @@
 
 ## Setup
 
+Needs uv, Node 22.12 or newer (viewer and docs) and Docker Compose (the local
+stack).
+
 ```bash
 uv sync --all-groups
 ```
@@ -39,9 +42,8 @@ arrives over DogStatsD. Send it histograms, which Telegraf summarises:
 `DogStatsdExporter(DogStatsd(port=8125, ...), distributions=False)`.
 
 Sessions declared `venv_backend="none"` run in the environment nox was started
-from, which is why they are invoked through `uv run`. Only `matrix`, `canary`
-and `bench` build their own environments, because they need a specific polars
-or a quiet machine.
+from, which is why they are invoked through `uv run`. Only `matrix` and
+`canary` build their own environments, because they install a specific polars.
 
 Arguments pass through after `--`:
 
@@ -60,8 +62,11 @@ uv run nox -s capture -- 1.44.2
 | `integration` | requires a running OTel collector |
 | `bench` | overhead, gated on a budget |
 
-The attribute reference is test-guarded: `tests/unit/test_docs.py` fails if a
-declared attribute is missing from `docs/reference/spans-and-metrics.md`.
+`tests/unit/test_docs.py` requires every semconv name and unit in
+`docs/reference/spans-and-metrics.md`, every `Config` option in the option
+tables of `README.md` and `docs/reference/configuration.md`, and every insight
+rule as a heading in `docs/insights.md`. `tests/unit/test_doc_links.py` requires
+every docs address linked from `README.md`, `viewer/src` and `src` to resolve.
 
 ## Insight rules
 
@@ -83,7 +88,8 @@ To add one:
    pattern, and the closest healthy one that must stay quiet.
 4. Update `EXPECTED` in `tests/insights/test_corpus.py` if it fires on TPC-H,
    and say why in the comment beside it.
-5. Document it under its id in `docs/insights.md`.
+5. Add a heading ``### `<id>` `` to `docs/insights.md`. The viewer links each
+   finding to `insights/#<id>`, so never rename an id or move the page.
 
 A new fact about nodes goes into `NodeTraits`, read in `adapter/traits.py`
 with a case in `tests/contract/test_live.py`.
@@ -103,24 +109,30 @@ from the captured polars payloads, so the viewer's contract test cannot drift
 from what the exporter writes.
 
 It is not versioned or published to an index. It deploys with the docs site
-whenever `docs/`, `viewer/` or `mkdocs.yml` change on `main`.
+whenever `docs/`, `viewer/`, `mkdocs.yml`, `pyproject.toml`, `uv.lock` or the
+pages workflow change on `main`.
 
 ## Releasing
 
 Tag-triggered, published with **PyPI Trusted Publishing** (OpenID Connect).
 There is no API token in the repository or its secrets.
 
+1. On a branch `release-X.Y.Z`: move the Unreleased section of `CHANGELOG.md`
+   under the new version, bump `__version__` in
+   `src/polars_telemetry/_version.py`, re-record `examples/` with the TPC-H
+   runner and run `uv run nox -s viewer-fixture`.
+2. Run the suite against every polars version in the CI matrix.
+3. Open a PR and merge it.
+4. Tag the merge commit and push the tag:
+
 ```bash
-# 1. Move the Unreleased section of CHANGELOG.md under the new version
-# 2. Bump __version__ in src/polars_telemetry/_version.py
-git commit -am "chore: release X.Y.Z"
-git tag vX.Y.Z
-git push origin main --tags
+git tag vX.Y.Z <merge commit>
+git push origin vX.Y.Z
 ```
 
 hatchling reads the version from `src/polars_telemetry/_version.py`, so that
-file and the tag must agree. Pushing `main` deploys the docs and viewer;
-pushing the tag runs the release pipeline. The two are independent.
+file and the tag must agree. The tag runs the release pipeline; the docs and
+viewer deploy from `main` as described above.
 
 `.github/workflows/release.yml` then runs: **verify** (the whole CI suite via
 `workflow_call`) → **build** (`uv build` + `twine check`) → **testpypi** →

@@ -10,7 +10,7 @@ If the real `polars-cloud` is installed, its factory is kept and forwarded to.
 Otherwise a module is registered in `sys.modules` under that name — we never
 publish a distribution called `polars_cloud`, which would collide with theirs.
 
-The protocol, verified against polars 1.44.1 and 1.44.2:
+The protocol, checked against every polars version in CI by `tests/contract`:
 
 ```text
 polars_cloud.authenticate()
@@ -42,8 +42,8 @@ returns, so it always returns a guard even when it has failed internally.
 
 ## Why there are no per-node spans
 
-The counters polars reports are cumulative, and none of the twenty fields is a
-timestamp. A node interval could therefore only be *sampled*, which costs 4.7%
+The counters polars reports are cumulative, and no field of a metrics record is
+a timestamp. A node interval could therefore only be *sampled*, which costs 4.7%
 of query wall time at 25 ms and 15.1% at 5 ms — and still resolves poorly:
 on a 48 ms query sampled at 5 ms, eight of eleven nodes collapsed onto two
 identical windows.
@@ -56,7 +56,8 @@ free, and they go back in.
 
 The instrumentation itself, measured with an exporter that does nothing, stays
 below measurement noise on a 3M-row join and aggregation, interleaved against
-an uninstrumented run on the same engine. CI fails if it exceeds 10%.
+an uninstrumented run on the same engine. The nightly canary runs this bench
+(`tests/bench/test_overhead.py`) and opens an issue when it is over budget.
 
 Exporters add their own cost on top, on the thread that ran the query. Each
 [exporter's page](../exporters/index.md) states it.

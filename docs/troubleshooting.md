@@ -37,11 +37,20 @@ A newer polars added or renamed an operator. Queries are unaffected, and the
 node still appears in spans and profiles; only attributes that depend on
 knowing what it does are missing. Updating polars-telemetry usually fixes it.
 
-## "disabling exporter … after 5 errors"
+## "disabling … after 5 errors"
 
-An exporter raised five times and was switched off for the rest of the
-process. The first error of each kind was logged before this; look there for
-the cause. Your queries were not affected, and other exporters keep working.
+| The message names | Means |
+| --- | --- |
+| an exporter, such as `ConsoleExporter` | that exporter is off for the rest of the process; the others continue. See [Failures stay contained](exporters/index.md#failures-stay-contained) |
+| the observer | all telemetry is off for the rest of the process |
+
+Your queries were not affected. The first error of each kind was logged
+before this message: look there for the cause.
+
+## My Config or exporter change has no effect
+
+`install()` was called while already installed, as in a re-run notebook cell,
+and logged that it ignores the new arguments. Call `uninstall()` first.
 
 ## A login prompt appears when I call `install()`
 
@@ -50,15 +59,14 @@ monitoring is enabled. See [Polars Cloud](polars-cloud.md).
 
 ## Queries run differently after `install()`
 
-On polars 1.44, enabling monitoring sets the engine affinity to `"streaming"`,
-the only engine that reports per-node counters. `uninstall()` puts the previous
-affinity back, unless you chose another engine while it was installed. Pass
-`engine=` to `collect()` where a single query must run on a specific engine.
-polars 2 runs lazy queries on the streaming engine by default, so there
-`install()` changes nothing.
+`install()` sets the engine affinity to `"streaming"`, which polars' monitoring
+requires. polars 2 runs lazy queries there already; on polars 1.44 it changes
+the engine. `uninstall()` restores the previous affinity, unless you changed it
+meanwhile. Pass `engine=` to `collect()` where a single query must run on a
+specific engine.
 
 ## The viewer forgets my sessions
 
 The browser is not keeping site data, as in a private window or with the page
 opened from disk. The viewer says so in the sidebar. Open the files again, or
-use the [hosted viewer](viewer/index.html).
+use the [hosted viewer](viewer/index.html). See [Sessions](profile-viewer.md#sessions).

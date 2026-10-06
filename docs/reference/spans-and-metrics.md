@@ -3,8 +3,7 @@
 Everything the [OpenTelemetry exporter](../exporters/opentelemetry.md) emits.
 
 Names here are public API: renaming one breaks every dashboard built on it.
-They are defined in `polars_telemetry.export.semconv`, and a test asserts this
-page documents every one of them.
+They are defined in `polars_telemetry.export.semconv`.
 
 ## Query span
 
@@ -41,12 +40,8 @@ or a notebook cell, whose temporary filename changes on every run — and for
 `collect_async()` and `collect_batches()`, which polars reports from its own
 threads.
 
-This is the identity a person can act on. The fingerprint groups runs of the
-same plan but is a hash, and it changes whenever polars changes its optimiser;
-`pipeline.py:142` does not. Disable with `Config(call_site=False)`.
-
-None of the three is a metric dimension: a line number changes whenever the
-file above it is edited, which would restart every series on an unrelated edit.
+Disable with `Config(call_site=False)`. None of the three is a metric
+dimension.
 
 ### The fingerprint
 
@@ -99,9 +94,9 @@ the relevant kind. For what all filters of a shape keep together, divide
 | `polars.groupby.keys` | str[] | Grouping expressions |
 | `polars.sort.columns` | str[] | Sort expressions |
 
-These are read from the **IR plan**, which keeps your own column names. The
-physical plan rewrites group-by keys and aggregations to `_POLARS_TMP_N`, so
-reading them from there would be useless to a human.
+These are read from the **IR plan**, which keeps your own column names. When
+polars sends no readable IR, they come from the physical plan, whose group-by
+keys read `_POLARS_TMP_N`.
 
 ### Data quality
 
@@ -119,16 +114,17 @@ not a total — polars called `close()` before the engine had finished flushing.
 | --- | --- | --- |
 | `polars.plan` | str | The whole plan and its counters as JSON |
 
-Off by default — it is kilobytes per span and identical for every run of a
-shape. Enable with `Config(include_plan=True)` when you want the topology,
-which nothing else carries. Contains both the physical and IR node lists with
-`id`, `kind` and `inputs`, plus every per-node counter.
+Off by default; enable with `Config(include_plan=True)`. It is kilobytes per
+span. The JSON is `{"physical": [...], "logical": [...]}`: each node has `id`,
+`kind` and `inputs`; physical nodes add `done`, the counters under the names in
+`export.attributes.PLAN_JSON_FIELDS` (times in ms), and from polars 2 `custom`.
 
 #### Custom node metrics
 
 From polars 2, a node can report figures about itself. They appear per node as
 `custom`, a list of `key`, `unit` (`1` a count, `By` bytes, `ns` a duration)
-and `value`, in profiles and in `polars.plan`.
+and `value`, in profiles and in `polars.plan`. The keys polars 2.0 sends;
+others pass through unchanged:
 
 | Key | Unit | What it counts |
 | --- | --- | --- |
@@ -191,13 +187,15 @@ Query-level, dimensioned by `polars.plan.fingerprint`, `polars.insight.rule` and
 | --- | --- | --- |
 | `polars.query.insights` | counter | {finding} |
 
+It counts `warn` and `info` findings; `applied` ones are span events only.
+`polars.engine` is `unknown` when a query failed before planning.
+
 `polars.node.io_bytes` and `polars.node.largest_morsel` carry one extra
 dimension, `polars.direction`. For bytes its values are `requested`,
 `received` and `sent`; for morsels, `received` and `sent`.
 
-Every metric dimension is drawn from a bounded set — node kinds, io directions,
-engine, and the plan fingerprint. Plan literals are **never** metric
-attributes: their values are unbounded and would destroy series cardinality.
+Every metric dimension is in `semconv.METRIC_DIMENSIONS`, and each is drawn
+from a bounded set. Plan literals are **never** metric attributes.
 
 ## Attributes that can carry your data
 
@@ -208,5 +206,7 @@ attributes: their values are unbounded and would destroy series cardinality.
     `polars.plan` also contains plan detail, when enabled.
 
 A filter on `col("email") == "someone@example.com"` arrives verbatim.
-[Data and privacy](../privacy.md) covers how to mask it. The authoritative list
-is `polars_telemetry.export.semconv.CARRIES_USER_DATA`.
+[Data and privacy](../privacy.md) covers how to mask it.
+`semconv.CARRIES_USER_DATA` lists these plan attributes; the call site, label
+and error status are covered in
+[Data and privacy](../privacy.md#what-can-carry-your-data).
