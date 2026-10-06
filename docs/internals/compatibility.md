@@ -10,9 +10,11 @@ so 1.44.1 is the floor.
 polars is declared with a floor and no upper pin, so a newer polars never
 causes a resolver conflict.
 
-polars 2 needed no changes: the observer hook, both plans and the counters
-arrive as they did on 1.44. CI tests every polars it names, plus the newest
-polars 2 pre-release.
+On polars 2 the observer hook, both plans and the counters arrive as they did
+on 1.44. Each node's counters may also carry `custom` metrics, figures a node
+reports about itself such as a group-by's group count; they are optional, so
+1.44 profiles read the same. CI tests every polars it names, plus the newest
+polars 2 release or pre-release.
 
 ## On an unknown polars
 

@@ -150,6 +150,8 @@ class NodeTraits:
     string_calls: tuple[CallCount, ...] = ()
     plugin_calls: tuple[CallCount, ...] = ()
     replace_runs: tuple[ReplaceRun, ...] = ()
+    plugins_shared: bool = False
+    """The polars that ran it shares repeated plugin calls unless a plugin opts out."""
     """Keyed by the whole call, input and arguments included: a count above one is
     the same computation repeated."""
 
@@ -181,6 +183,16 @@ class PlanNode:
 
 
 @dataclass(frozen=True, slots=True)
+class CustomMetric:
+    """A figure a node reports about itself, named by polars, such as
+    `group_by.actual_groups`. Unit "1" is a count, "By" bytes, "ns" a duration."""
+
+    key: str
+    unit: str
+    value: int | None
+
+
+@dataclass(frozen=True, slots=True)
 class NodeMetrics:
     """Cumulative counters for one node at the end of the query."""
 
@@ -204,6 +216,7 @@ class NodeMetrics:
     io_total_bytes_requested: int
     io_total_bytes_sent: int
     done: bool
+    custom: tuple[CustomMetric, ...] = ()
 
     @property
     def cpu_ms(self) -> float:
@@ -215,7 +228,7 @@ class NodeMetrics:
 
 
 COUNTER_NAMES: tuple[str, ...] = tuple(
-    f.name for f in fields(NodeMetrics) if f.name not in {"node_id", "done"}
+    f.name for f in fields(NodeMetrics) if f.name not in {"node_id", "done", "custom"}
 )
 """Every per-node counter, in one place: decoding, model construction and the
 profile document all derive from this."""

@@ -45,7 +45,15 @@ def _trace_context() -> dict[str, str]:
 def _metrics(metric: NodeMetrics | None) -> dict[str, Any] | None:
     if metric is None:
         return None
-    return {**{name: getattr(metric, name) for name in COUNTER_NAMES}, "done": metric.done}
+    counters: dict[str, Any] = {
+        **{name: getattr(metric, name) for name in COUNTER_NAMES},
+        "done": metric.done,
+    }
+    if metric.custom:
+        counters["custom"] = [
+            {"key": c.key, "unit": c.unit, "value": c.value} for c in metric.custom
+        ]
+    return counters
 
 
 def _node(node: PlanNode, metric: NodeMetrics | None) -> dict[str, Any]:

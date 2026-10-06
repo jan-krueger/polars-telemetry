@@ -15,12 +15,19 @@ const NOT_SHOWN = new Set(["node_id", "done"]);
 
 describe("the profile contract", () => {
   it("shows every counter the exporter writes", () => {
-    const node = profile.plan.physical.find((n) => n.metrics);
-    const shown = new Set(COUNTERS.map((c) => c.key));
-    const unshown = Object.keys(node.metrics).filter(
-      (k) => !shown.has(k) && !NOT_SHOWN.has(k),
-    );
-    expect(unshown).toEqual([]);
+    const shown = new Set([...COUNTERS.map((c) => c.key), "custom"]);
+    const unshown = profile.plan.physical.flatMap((n) => Object.keys(n.metrics ?? {}))
+      .filter((k) => !shown.has(k) && !NOT_SHOWN.has(k));
+    expect([...new Set(unshown)]).toEqual([]);
+  });
+
+  it("reads every custom metric a node reports", () => {
+    const read = readProfile(profile);
+    if ("problem" in read) throw new Error(read.problem);
+    const written = profile.plan.physical.flatMap((n) => n.metrics?.custom ?? []).map((c) => c.key);
+    const kept = read.profile.plan.physical.flatMap((n) => n.custom).map((c) => c.key);
+    expect(kept).toEqual(written);
+    expect(written.length).toBeGreaterThan(0);
   });
 
   it("explains every counter it shows", () => {

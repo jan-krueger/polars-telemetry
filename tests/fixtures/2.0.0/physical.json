@@ -4,6 +4,7 @@
   "input_ids": [
    4294967306
   ],
+  "ir_node_id": 11,
   "properties": {
    "type": "InMemorySink"
   }
@@ -13,6 +14,7 @@
   "input_ids": [
    4294967305
   ],
+  "ir_node_id": 6,
   "properties": {
    "limit": null,
    "maintain_order": false,
@@ -33,11 +35,12 @@
   "input_ids": [
    4294967304
   ],
+  "ir_node_id": 5,
   "properties": {
    "columns": [
-    "_POLARS_TMP_1",
-    "_POLARS_TMP_3",
-    "_POLARS_TMP_5"
+    "_POLARS_TMP_PHYS_1",
+    "_POLARS_TMP_PHYS_3",
+    "_POLARS_TMP_PHYS_5"
    ],
    "type": "SimpleProjection"
   }
@@ -47,11 +50,12 @@
   "input_ids": [
    4294967303
   ],
+  "ir_node_id": 5,
   "properties": {
    "aggs_per_input": [
     [
-     "col(\"revenue\").sum().alias(\"_POLARS_TMP_3\")",
-     "col(\"order_id\").count().alias(\"_POLARS_TMP_5\")"
+     "col(\"revenue\").sum().alias(\"_POLARS_TMP_PHYS_3\")",
+     "col(\"order_id\").count().alias(\"_POLARS_TMP_PHYS_5\")"
     ]
    ],
    "fused_agg_inputs_per_input": [
@@ -59,7 +63,7 @@
    ],
    "key_per_input": [
     [
-     "col(\"_POLARS_TMP_1\")"
+     "col(\"_POLARS_TMP_PHYS_1\")"
     ]
    ],
    "num_inputs": 1,
@@ -71,6 +75,7 @@
   "input_ids": [
    4294967302
   ],
+  "ir_node_id": 5,
   "properties": {
    "columns": [
     "segment",
@@ -85,6 +90,7 @@
   "input_ids": [
    4294967301
   ],
+  "ir_node_id": 8,
   "properties": {
    "columns": [
     "segment",
@@ -99,6 +105,7 @@
   "input_ids": [
    4294967300
   ],
+  "ir_node_id": 4,
   "properties": {
    "extend_original": true,
    "selectors": [
@@ -112,6 +119,7 @@
   "input_ids": [
    4294967299
   ],
+  "ir_node_id": 9,
   "properties": {
    "columns": [
     "order_id",
@@ -128,6 +136,7 @@
    4294967297,
    4294967298
   ],
+  "ir_node_id": 3,
   "properties": {
    "coalesce": "JoinSpecific",
    "fused_predicate": null,
@@ -148,6 +157,7 @@
  {
   "id": 4294967297,
   "input_ids": [],
+  "ir_node_id": 1,
   "properties": {
    "deletion_files_type": null,
    "first_source": "orders.parquet",
@@ -173,6 +183,7 @@
  {
   "id": 4294967298,
   "input_ids": [],
+  "ir_node_id": 2,
   "properties": {
    "deletion_files_type": null,
    "first_source": "customers.parquet",

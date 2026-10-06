@@ -14,6 +14,7 @@ import pytest
 
 from polars_telemetry.adapter.decode import (
     METRIC_FIELDS,
+    OPTIONAL_METRIC_FIELDS,
     decode_metrics,
     decode_plan,
     metrics_problems,
@@ -79,7 +80,7 @@ def test_live_metrics_match_contract(live: dict[str, Any]) -> None:
 
 
 def test_live_metric_fields_have_not_changed(live: dict[str, Any]) -> None:
-    observed = set(live["metrics"][0])
+    observed = set(live["metrics"][0]) - OPTIONAL_METRIC_FIELDS
     assert observed == METRIC_FIELDS, (
         f"polars {live['meta']['polars_version']} changed the metrics schema; "
         f"added={sorted(observed - METRIC_FIELDS)} removed={sorted(METRIC_FIELDS - observed)}"
@@ -98,7 +99,7 @@ import polars as pl
 import polars_telemetry as pt
 lf = pl.LazyFrame({"g": [i % 7 for i in range(1_000)], "v": list(range(1_000))})
 with pt.profile(pt.Config(describe_fallbacks=sys.argv[1] == "on")) as session:
-    lf.with_columns(r=pl.col("v").rank().over("g")).collect()
+    lf.group_by("g").agg(pl.col("v").median()).collect()
 nodes = [n for d in session.profiles() for n in d["plan"]["physical"]]
 fallbacks = [n["properties"] for n in nodes if n["kind"] == "InMemoryMap"]
 env = os.environ.get("POLARS_STREAM_ALWAYS_PREPARE_VISUALIZATION_DATA")
@@ -126,10 +127,10 @@ def test_an_in_memory_fallback_says_what_it_runs_only_when_asked(describe: str) 
         check=True,
     )
     result = json.loads(out.stdout.strip().splitlines()[-1])
-    assert result["fallbacks"], "rank().over() no longer falls back to the in-memory engine"
+    assert result["fallbacks"], "median in a group-by no longer falls back to the in-memory engine"
     described = [props.get("format_str") for props in result["fallbacks"]]
     if describe == "on":
-        assert all(text and ".rank(" in text for text in described)
+        assert all(text and ".median(" in text for text in described)
     else:
         assert described == [None] * len(described)
     assert result["env"] is None, "uninstall() must put the variable back"
@@ -199,3 +200,31 @@ def test_every_api_a_fix_names_exists_in_this_polars() -> None:
     missing = sorted(n for n in names if not any(hasattr(p, n) for p in places))
     assert names
     assert missing == []
+
+
+_GROUPS = """
+import json
+import polars as pl
+import polars_telemetry as pt
+lf = pl.LazyFrame({"g": [i % 7 for i in range(1_000)], "v": list(range(1_000))})
+with pt.profile() as session:
+    lf.group_by("g").agg(pl.col("v").sum()).collect()
+custom = [c for d in session.profiles() for n in d["plan"]["physical"]
+          for c in (n.get("metrics") or {}).get("custom", [])]
+print(json.dumps({"version": pl.__version__, "custom": custom}))
+"""
+
+
+def test_a_group_by_reports_its_groups_from_polars_2() -> None:
+    import subprocess
+    import sys
+
+    out = subprocess.run(  # noqa: S603
+        [sys.executable, "-c", _GROUPS], capture_output=True, text=True, check=True
+    )
+    result = json.loads(out.stdout.strip().splitlines()[-1])
+    if int(result["version"].split(".")[0]) < 2:
+        assert result["custom"] == []
+        return
+    actual = [c["value"] for c in result["custom"] if c["key"] == "group_by.actual_groups"]
+    assert actual == [7], result["custom"]

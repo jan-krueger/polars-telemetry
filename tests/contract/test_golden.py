@@ -12,6 +12,7 @@ import pytest
 
 from polars_telemetry.adapter.decode import (
     METRIC_FIELDS,
+    OPTIONAL_METRIC_FIELDS,
     decode_metrics,
     decode_plan,
     metrics_problems,
@@ -59,7 +60,7 @@ def test_metrics_match_contract(captured: Path) -> None:
 
 def test_metric_fields_are_exactly_the_known_set(captured: Path) -> None:
     records = decode_metrics((captured / "metrics.msgpack").read_bytes())
-    assert set(records[0]) == METRIC_FIELDS
+    assert set(records[0]) - OPTIONAL_METRIC_FIELDS == METRIC_FIELDS
 
 
 def test_metrics_key_onto_physical_plan_nodes(captured: Path) -> None:

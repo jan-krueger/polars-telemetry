@@ -2,7 +2,7 @@ import { PROP_LABELS, GLOSSARY } from "../lib/glossary";
 import { visibleCounters } from "../lib/counters";
 import { ROLES, conjunction, exprLines, roleOf } from "../lib/polars";
 import { impact, measured, ruleDocs } from "../lib/insights";
-import { bytes, ms, nodeFacts, num } from "../lib/format";
+import { bytes, customLabel, customValue, ms, nodeFacts, num } from "../lib/format";
 import Help from "./Help";
 import Tip, { TipText } from "./Tip";
 import Code from "./Code";
@@ -125,6 +125,14 @@ export default function NodeDetails({ node, plan = [], compareNode, findings }) 
               <span className="k">{f.label}<Help term={f.key} /></span>
               <span className="v">{f.value}</span>
               <span className="fact-note">{f.note}</span>
+            </div>
+          ))}
+          {node.custom?.map((c) => (
+            <div className="mrow" key={c.key}>
+              <Tip content={<TipText term={customLabel(c.key)} note={`polars: ${c.key}`} />}>
+                <span className="k" tabIndex={0}>{customLabel(c.key)}</span>
+              </Tip>
+              <span className="v">{customValue(c)}</span>
             </div>
           ))}
           {visibleCounters(m).map(({ label, key, unit }) => {

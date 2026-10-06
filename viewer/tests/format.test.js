@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { busy, compact, joinGrowth, nodeFacts, shapeName, span } from "../src/lib/format.js";
+import { busy, compact, customLabel, customValue, joinGrowth, nodeFacts, shapeName, span } from "../src/lib/format.js";
 
 const profile = (over = {}) => ({
   schema: "polars-telemetry/profile@1",
@@ -88,5 +88,15 @@ describe("join growth on healthy plans", () => {
     const lines = readFileSync(new URL("../../examples/tpch-sf1.jsonl", import.meta.url), "utf8").split("\n").filter(Boolean);
     const worst = Math.max(...lines.map((line) => joinGrowth(JSON.parse(line).plan.physical) ?? 0));
     expect(worst).toBeLessThanOrEqual(2);
+  });
+});
+
+describe("custom node metrics", () => {
+  it("are named for a reader and shown in their unit", () => {
+    expect(customLabel("group_by.actual_groups")).toBe("Actual groups");
+    expect(customValue({ unit: "1", value: 12345 })).toBe("12,345");
+    expect(customValue({ unit: "By", value: 2 * 1048576 })).toBe("2.0 MiB");
+    expect(customValue({ unit: "ns", value: 5e6 })).toBe("5.00 ms");
+    expect(customValue({ unit: "1", value: null })).toBe("—");
   });
 });
