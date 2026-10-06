@@ -4,17 +4,7 @@
 
 **polars 1.44.1 and newer 1.44.x, and polars 2.x**, Python 3.10+.
 
-The observer hook does not exist before 1.44.0, and 1.44.0's runtime is yanked,
-so 1.44.1 is the floor.
-
-polars is declared with a floor and no upper pin, so a newer polars never
-causes a resolver conflict.
-
-On polars 2 the observer hook, both plans and the counters arrive as they did
-on 1.44. Each node's counters may also carry `custom` metrics, figures a node
-reports about itself such as a group-by's group count; they are optional, so
-1.44 profiles read the same. CI tests every polars it names, plus the newest
-polars 2 release or pre-release.
+Tested on polars 1.44.1, 1.44.2 and 2.0.0, and on the newest 2.x pre-release.
 
 ## On an unknown polars
 
