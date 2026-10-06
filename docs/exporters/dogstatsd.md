@@ -31,10 +31,10 @@ statsd = DogStatsd(
 polars_telemetry.install(exporter=DogStatsdExporter(statsd))
 ```
 
-Everything about where the metrics go, such as the host, a Unix socket, a
-`namespace` prefix, `constant_tags`, or the `DD_ENV`, `DD_SERVICE` and
-`DD_VERSION` variables, is the client's configuration. With no client,
-`datadog.statsd` is used, the one `datadog.initialize()` configures.
+The client's configuration decides where the metrics go: the host, a Unix
+socket, a `namespace` prefix, `constant_tags`, the `DD_ENV`, `DD_SERVICE` and
+`DD_VERSION` variables. With no client, the exporter uses `datadog.statsd`,
+which `datadog.initialize()` configures.
 
 !!! warning "Turn buffering on"
     With the client's defaults every value is its own packet, which costs
@@ -43,8 +43,8 @@ Everything about where the metrics go, such as the host, a Unix socket, a
 ### Into InfluxDB through Telegraf
 
 Telegraf's `statsd` input reads the tags as line-protocol tags. Send
-histograms rather than distributions: Telegraf summarises histograms per flush,
-but keeps only one sample of a distribution.
+histograms: Telegraf summarises them per flush, but keeps only one sample of a
+distribution.
 
 ```python
 DogStatsdExporter(statsd, distributions=False)
@@ -78,23 +78,23 @@ polars.node.rows_out:2696064|c|#node_kind:GroupBy,engine:streaming
 
 | Tag | On | Values |
 | --- | --- | --- |
-| `engine` | every metric | `streaming`, `in-memory`, `unknown` |
+| `engine` | every metric except `polars.query.insights` | `streaming`, `in-memory`, `unknown` |
 | `fingerprint` | query metrics | one per query shape |
-| `node_kind` | node metrics | polars' node kinds, such as `GroupBy` |
+| `node_kind` | node metrics | Polars' node kinds, such as `GroupBy` |
 | `direction` | `io_bytes`, `largest_morsel` | `requested`, `received`, `sent` |
 | `rule`, `level` | `polars.query.insights` | an [insight rule](../insights.md) id; `warn` or `info` |
 | `label` | every metric, if `tag_labels=True` | your [labels](../labels.md) |
 
-There are no spans: StatsD carries metrics only. For traces, use the
-OpenTelemetry exporter; the Datadog Agent accepts OTLP too.
+No spans: StatsD carries metrics only. For traces, use the OpenTelemetry
+exporter; the Datadog Agent accepts OTLP too.
 
 ## Options
 
 | Option | Default | Effect |
 | --- | --- | --- |
 | `client` | `datadog.statsd` | The `DogStatsd` to send through |
-| `metric_names` | as listed | Rename metrics, by a mapping or a function; a name mapped to `None` is not sent |
-| `tag_names` | as listed | Rename tag keys; a key mapped to `None` is not sent |
+| `metric_names` | the names in [Spans and metrics](../reference/spans-and-metrics.md#metrics) | Rename metrics, by a mapping or a function; a name mapped to `None` is not sent; an unknown name raises `ValueError` |
+| `tag_names` | the keys in the table above | Rename tag keys; a key mapped to `None` is not sent; an unknown key raises `ValueError` |
 | `tag_labels` | `False` | Tag every metric with the query's label |
 | `distributions` | `True` | Times and ratios as distributions (`|d`); `False` sends histograms (`|h`) |
 
@@ -111,21 +111,21 @@ DogStatsdExporter(
 None: metrics never carry literals, paths or call sites. Labels are only sent
 with `tag_labels=True`.
 
-Datadog bills each distinct combination of metric and tags as a custom
-metric. Node metrics are bounded by the node kinds polars has. Query metrics
-grow with the number of query shapes you run, through `fingerprint`; drop it
-with `tag_names={"fingerprint": None}` if that number is large. Only turn on
-`tag_labels` when your labels come from a small, fixed set.
+Datadog bills each distinct metric and tag combination as a custom metric.
+Node metrics are bounded by Polars' node kinds. Query metrics grow with the
+number of query shapes, through `fingerprint`; if that is large, drop it with
+`tag_names={"fingerprint": None}`. Turn on `tag_labels` only for labels from a
+small, fixed set.
 
 ## Cost
 
 About 0.1 ms per query on a small plan and 1 ms on a 22-node one, with
-buffering and the background sender on. The values are queued on the query's
-thread and sent from the client's own.
+buffering and the background sender on. Values are queued on the query's thread
+and sent from the client's.
 
 ## When it fails
 
 Over UDP, nothing fails: with no Agent listening, packets are lost silently.
-An error from the client is logged once, and after five errors the exporter is
-disabled. The client holds up to 0.3 s of values; `uninstall()` and the
-process's exit send them.
+An error from the client is handled as for
+[every exporter](index.md#failures-stay-contained). The client holds up to
+0.3 s of values; `uninstall()` and the process's exit send them.

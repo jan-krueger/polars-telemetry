@@ -39,9 +39,9 @@ class OTelExporter:
     no-ops and nothing is sent.
 
     Args:
-        config: Shared with `install()`; `node_metrics` and `include_plan`
-            apply here. Masking happens before the query arrives; see
-            `Config.redaction`.
+        config: Only `include_plan` is read from it, and `redaction` when
+            `install()`'s config has none; every other option comes from the
+            config given to `install()`.
     """
 
     __slots__ = ("_config", "_counters", "_histograms", "_meter", "_tracer")

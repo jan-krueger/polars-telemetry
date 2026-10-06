@@ -34,8 +34,7 @@ polars_telemetry.install(exporter=SlowQueries(threshold_ms=500))
 ## What you get
 
 A [`Query`](../reference/api.md#polars_telemetry.model.types.Query) per
-finished query: its id, label, timings, call site, both plans by node id, the
-per-node counters, fingerprint and diagnostics. The JSONL exporter's
+finished query, its findings included in `query.insights`. The JSONL exporter's
 `build_profile(query)` in `polars_telemetry.export.profile` turns one into the
 profile document, if a dictionary is easier to ship.
 
@@ -61,6 +60,5 @@ An exporter that holds data, such as a buffer, can add a `close()` method.
 
 ## When it fails
 
-An exception from `export()` never reaches the query. It is logged once, and
-after five errors your exporter stops receiving queries while the others carry
-on.
+An exception from `export()` never reaches the query; see
+[Failures stay contained](index.md#failures-stay-contained).

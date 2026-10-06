@@ -1,6 +1,6 @@
 """The observer protocol polars calls, and nothing else.
 
-Verified against polars 1.44.1 and 1.44.2::
+Checked against every polars version in CI by tests/contract::
 
     polars_cloud.authenticate()
     polars_cloud.QueryCloudObserver(workspace, organization) -> observer

@@ -2,8 +2,8 @@
 
 ## Label queries
 
-A label names the queries a block of code runs, so you can find them again:
-in your tracing backend, in the console output, and in the viewer's search.
+A label names the queries a block of code runs, so you can find them in your
+tracing backend, the console output and the viewer's search.
 
 ```python
 from polars_telemetry import label
@@ -21,20 +21,18 @@ Nested labels join with `/`, so this query is `nightly/revenue_by_region`.
 | Console | the header, in place of the query id |
 | Metrics | never: a free-form value would make unbounded metric series |
 
-Each thread has its own labels, so concurrent work does not mix them up.
-Labels need no exporter of their own and cost nothing when nothing is
-installed.
+Labels are per thread, so concurrent work does not mix them up. They need no
+exporter of their own and cost nothing when nothing is installed.
 
 !!! note "Not for `collect_async()` or `collect_batches()`"
-    polars reports those queries from its own threads, where neither the
+    Polars reports those queries from its own threads, where neither the
     label nor your call site is visible, so they arrive without both.
 
 ## Scope a block of code
 
-`profile()` collects the queries a block of code runs, without setting up an
-exporter for the whole process. polars 2 removed `LazyFrame.profile()`; this
-covers the same ground, for every query a block runs, on either version. Useful in a test, a notebook cell, or around
-one function you suspect:
+`profile()` collects the queries a block of code runs, without an exporter for
+the whole process, on any Polars version; Polars 2 removed
+`LazyFrame.profile()`.
 
 ```python
 from polars_telemetry import profile
@@ -55,9 +53,12 @@ session.write("profiles/report.jsonl")  # open this in the viewer
 | `session.profiles()` | each query as a profile document |
 | `session.write(path)` | a session file the [viewer](profile-viewer.md) opens |
 
-If nothing is installed, the block installs instrumentation and removes it
-afterwards. If an application has already installed exporters, they keep
-receiving every query; the block collects alongside them. Blocks may nest.
+| Before the block | The block |
+| --- | --- |
+| nothing installed | installs instrumentation and removes it afterwards; `profile(config)` sets its `Config` |
+| exporters installed | collects alongside them; they keep receiving every query, and the session masks the stricter of the two redactions |
+
+Blocks may nest.
 
 !!! note "The scope is the process, not the thread"
     A block collects every query that finishes while it is open, including

@@ -2,11 +2,20 @@
 
 ## Supported versions
 
-**polars 1.44.1 and newer 1.44.x, and polars 2.x**, Python 3.10+.
+**Polars 1.44.1 and newer 1.44.x, and Polars 2.x**, Python 3.10+.
 
-Tested on polars 1.44.1, 1.44.2 and 2.0.0, and on the newest 2.x pre-release.
+Tested on every Polars version in the CI matrix
+([`ci.yml`](https://github.com/jan-krueger/polars-telemetry/blob/main/.github/workflows/ci.yml)),
+and nightly on the newest Polars, pre-releases included.
 
-## On an unknown polars
+| | Polars 1.44 | Polars 2 |
+| --- | --- | --- |
+| `install()` | switches lazy queries to the streaming engine; `uninstall()` restores it | changes nothing: streaming is the default |
+| Custom node metrics | none | per node, such as a group-by's group counts |
+| Repeated plugin calls | never shared | shared unless registered with `is_deterministic=False` |
+| `LazyFrame.profile()` | available | removed; use [`profile()`](../labels.md#scope-a-block-of-code) |
+
+## On an unknown Polars
 
 `install()` runs a capability probe: a trivial monitored query whose payloads
 are checked against the known contract. It costs milliseconds and runs once.
@@ -15,25 +24,19 @@ are checked against the known contract. It costs milliseconds and runs once.
 | --- | --- |
 | Everything as expected | Full instrumentation |
 | Plan or metrics payloads off-contract | Query spans only, with a warning |
+| IR payload off-contract | Full instrumentation; plan attributes use Polars' internal names (`_POLARS_TMP_N`), with a warning |
 | Callbacks never fire | Not installed, with a warning; `install()` returns `None` |
 | No monitoring API at all | Not installed, with a warning |
 
 Your queries keep working in every case.
 
-```python
-state = polars_telemetry.install()
-if state is None:
-    ...  # this polars cannot be instrumented at all
-else:
-    print(state.capabilities.polars_version, state.capabilities.node_metrics_usable)
-```
+What `install()` returns: [Getting started](../getting-started.md#watch-every-query-as-it-runs).
 
 ## Breaking changes
 
-A nightly CI job installs the newest polars — pre-releases included — and runs
-the live contract test against it, opening an issue on failure. The intent is
-to learn about a breaking change while it is still a release candidate.
+A nightly CI job runs the live contract test against the newest Polars,
+pre-releases included, and opens an issue on failure.
 
-Everything rests on a private arrangement between two first-party packages. If
-polars removes or changes it, the probe degrades or declines, and the package
-keeps your queries running while emitting less — or nothing.
+The hook is a private arrangement between two first-party packages. If Polars
+removes or changes it, the probe degrades or declines; queries keep running
+while the package emits less, or nothing.

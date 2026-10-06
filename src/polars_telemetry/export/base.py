@@ -57,8 +57,8 @@ def redacted(exporter: Exporter, redaction: Redaction | None) -> Redacted:
 
     Args:
         exporter: Any exporter.
-        redaction: What to mask for this exporter; None sends it everything,
-            whatever `Config.redaction` says.
+        redaction: What to mask for this exporter; None sends it everything
+            but URL query strings, whatever `Config.redaction` says.
 
     Returns:
         The exporter, to pass to `install()`.

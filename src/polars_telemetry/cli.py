@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any, TextIO
 
 from polars_telemetry.adapter.profiles import Skipped, read_profile, read_profiles
 from polars_telemetry.model.insights import Finding, evaluate
-from polars_telemetry.model.insights.finding import SCHEMA, share
+from polars_telemetry.model.insights.finding import SCHEMA, duration, share
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -23,6 +23,11 @@ _INDENT = " " * 19
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    args = _parser().parse_args(argv)
+    return _insights(args, sys.stdout)
+
+
+def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="polars-telemetry")
     commands = parser.add_subparsers(dest="command", required=True)
     insights = commands.add_parser("insights", help="find what slows the queries in profile files")
@@ -35,8 +40,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     insights.add_argument(
         "--write", type=Path, metavar="OUT", help="also write the profiles with their insights"
     )
-    args = parser.parse_args(argv)
-    return _insights(args, sys.stdout)
+    return parser
 
 
 def _insights(args: argparse.Namespace, out: TextIO) -> int:
@@ -85,8 +89,8 @@ def _text(
             continue
         name = query.label or str(query.query_id)
         out.write(
-            f"{path.name} · {name}  ({query.wall_ms / 1e3:,.1f} s wall, "
-            f"{query.cpu_ms / 1e3:,.1f} s CPU, {len(query.plan)} nodes)\n"
+            f"{path.name} · {name}  ({duration(query.wall_ms)} wall, "
+            f"{duration(query.cpu_ms)} CPU, {len(query.plan)} nodes)\n"
         )
         for finding in shown:
             out.write(
@@ -105,10 +109,17 @@ def _text(
         out.write("\n")
     for path, entry in skipped:
         out.write(f"{path.name}: line {entry.line} skipped: {entry.reason}\n")
-    out.write(
-        f"{len(results)} queries: {levels['warn']} warnings, {levels['info']} information, "
-        f"{levels['applied']} applied\n"
-    )
+    out.write(f"{_summary(len(results), levels)}\n")
+
+
+def _summary(queries: int, levels: Counter[str]) -> str:
+    def counted(n: int, word: str, plural: str) -> str:
+        return f"{n} {word if n == 1 else plural}"
+
+    parts = [counted(levels["warn"], "warning", "warnings"), f"{levels['info']} information"]
+    if levels["applied"]:
+        parts.append(f"{levels['applied']} applied")
+    return f"{counted(queries, 'query', 'queries')}: {', '.join(parts)}"
 
 
 def _level(finding: Finding) -> str:
