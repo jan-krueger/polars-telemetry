@@ -84,3 +84,13 @@ export function nodeFacts(node, plan) {
 }
 
 export const rows = compact;
+
+/** A node's own figure as a reader names it: `group_by.actual_groups` reads "Actual groups". */
+export function customLabel(key) {
+  const name = key.split(".").pop().replace(/_/g, " ");
+  return name.charAt(0).toUpperCase() + name.slice(1);
+}
+
+/** A node's own figure in its unit. */
+export const customValue = ({ unit, value }) =>
+  value == null ? "—" : unit === "By" ? bytes(value) : unit === "ns" ? ms(value / 1e6) : num(value);

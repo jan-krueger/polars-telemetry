@@ -48,7 +48,9 @@ _FINDING = Finding(
 
 def _busy_query() -> Query:
     """One node with every counter non-zero, so no instrument is skipped as empty."""
-    fields: dict[str, Any] = {f.name: 7 for f in dataclasses.fields(NodeMetrics)}
+    fields: dict[str, Any] = {
+        f.name: 7 for f in dataclasses.fields(NodeMetrics) if f.name != "custom"
+    }
     fields.update(node_id=0, done=True, total_polls=10, total_stolen_polls=3)
     return Query(
         query_id=uuid4(),

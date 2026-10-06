@@ -59,8 +59,8 @@ Whether a pattern is deliberate is for you to judge.
 
 A node the streaming engine cannot run: polars hands its whole input to the
 in-memory engine, in one call, and the pipeline waits for it. polars marks the
-same nodes in its own plan graph. `rank().over()` and median in a group-by are
-common causes. With `Config(describe_fallbacks=True)`, the default, the node's
+same nodes in its own plan graph. Median, quantile or mode in a group-by are
+common causes, and before polars 2.0 so was `rank().over()`. With `Config(describe_fallbacks=True)`, the default, the node's
 **Runs** property in the viewer shows the expression.
 
 ### `exploding_join`
@@ -117,17 +117,19 @@ expression, and a value in another format fails instead of guessing.
 The same nodes, with the same inputs, run more than once. Work below a node
 that feeds several consumers is done once and not counted. Impact is the CPU of
 every copy but one. polars shares identical subplans itself unless something
-in them is not deterministic; on polars 1.41 to 1.44 that includes every
+in them is not deterministic; on polars 1.41 to 2.0.0rc2 that includes every
 plugin call, which `plugin_calls` counts. Whether a copy is deliberate is for
 you to judge.
 
 ### `repeated_plugin_call`
 
 The same plugin call, on the same input with the same arguments, more than once
-in one node. polars 1.41 to 1.44 never shares plugin calls between expressions
-([polars#29165](https://github.com/pola-rs/polars/issues/29165)); the fix,
-[polars#29428](https://github.com/pola-rs/polars/pull/29428), is not yet in a
-release. Until then, compute the call once and reference the column.
+in one node. polars 1.41 to 2.0.0rc2 never shares plugin calls between
+expressions ([polars#29165](https://github.com/pola-rs/polars/issues/29165)), so
+the fix there is to compute the call once and reference the column. From polars
+2.0 a plugin is shared unless it is registered with `is_deterministic=False`
+([polars#29428](https://github.com/pola-rs/polars/pull/29428)); the finding
+then suggests registering it as deterministic, if it is.
 
 ## Privacy
 

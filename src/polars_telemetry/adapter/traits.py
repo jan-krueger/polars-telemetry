@@ -21,6 +21,7 @@ from polars_telemetry.adapter.dialect import (
     IN_MEMORY_FALLBACK,
     INFERS_DATETIME_FORMAT,
     PYTHON_FORMAT,
+    shares_plugin_calls,
 )
 from polars_telemetry.adapter.replacements import groups, literal_step
 from polars_telemetry.model.redaction import PLUGIN_PATH
@@ -40,12 +41,14 @@ _KEEPS_VALUE = frozenset({"first", "last", "alias"})
 _UNIQUE = re.compile(r"\.unique\(")
 
 
-def with_traits(plan: dict[int, PlanNode]) -> dict[int, PlanNode]:
+def with_traits(plan: dict[int, PlanNode], polars_version: str = "") -> dict[int, PlanNode]:
     """The plan with each node's traits read; a node polars wrote unexpectedly keeps none."""
+    shared = shares_plugin_calls(polars_version)
     read: dict[int, PlanNode] = {}
     for node_id, node in plan.items():
         try:
-            read[node_id] = replace(node, traits=traits(node.kind, node.properties))
+            found = traits(node.kind, node.properties)
+            read[node_id] = replace(node, traits=replace(found, plugins_shared=shared))
         except Exception:
             _logger.debug("polars-telemetry: no traits for a %s node", node.kind, exc_info=True)
             read[node_id] = node

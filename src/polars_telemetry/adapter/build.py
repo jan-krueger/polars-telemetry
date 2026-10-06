@@ -14,7 +14,7 @@ from polars_telemetry.adapter.fingerprint import fingerprint
 from polars_telemetry.adapter.traits import with_traits
 from polars_telemetry.model.diagnostics import derive
 from polars_telemetry.model.insights import evaluate
-from polars_telemetry.model.types import COUNTER_NAMES, NodeMetrics, PlanNode, Query
+from polars_telemetry.model.types import COUNTER_NAMES, CustomMetric, NodeMetrics, PlanNode, Query
 
 
 def build_plan(records: list[dict[str, Any]]) -> dict[int, PlanNode]:
@@ -44,8 +44,25 @@ def build_metrics(records: list[dict[str, Any]]) -> dict[int, NodeMetrics]:
             node_id=node_id,
             done=bool(record.get("done", False)),
             **{name: int(record.get(name, 0)) for name in COUNTER_NAMES},
+            custom=_custom(record.get("custom")),
         )
     return metrics
+
+
+def _custom(entries: object) -> tuple[CustomMetric, ...]:
+    if not isinstance(entries, list):
+        return ()
+    return tuple(
+        CustomMetric(
+            str(entry["key"]),
+            str(entry.get("unit", "1")),
+            value
+            if isinstance(value := entry.get("value"), int) and not isinstance(value, bool)
+            else None,
+        )
+        for entry in entries
+        if isinstance(entry, dict) and isinstance(entry.get("key"), str)
+    )
 
 
 def threads() -> int:
@@ -70,5 +87,10 @@ def enrich(query: Query, *, insights: bool = False) -> Query:
     )
     if not insights:
         return enriched
-    traced = replace(enriched, plan=with_traits(query.plan), logical=with_traits(query.logical))
+    version = query.polars_version
+    traced = replace(
+        enriched,
+        plan=with_traits(query.plan, version),
+        logical=with_traits(query.logical, version),
+    )
     return replace(traced, insights=evaluate(traced))

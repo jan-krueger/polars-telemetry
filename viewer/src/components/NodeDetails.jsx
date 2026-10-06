@@ -2,7 +2,7 @@ import { PROP_LABELS, GLOSSARY } from "../lib/glossary";
 import { visibleCounters } from "../lib/counters";
 import { ROLES, conjunction, exprLines, roleOf } from "../lib/polars";
 import { impact, measured, ruleDocs } from "../lib/insights";
-import { bytes, ms, nodeFacts, num } from "../lib/format";
+import { bytes, customLabel, customValue, ms, nodeFacts, num } from "../lib/format";
 import Help from "./Help";
 import Tip, { TipText } from "./Tip";
 import Code from "./Code";
@@ -60,6 +60,16 @@ function Field({ name, value: raw }) {
   if (!lines.length) return null;   // e.g. [[]] — present but carrying nothing
 
   return <div className="field"><div className="lbl">{label}</div><Expr lines={lines} /></div>;
+}
+
+function Change({ now, before }) {
+  if (now == null || before == null || now === before) return null;
+  const pct = before ? ((now - before) / before) * 100 : 0;
+  return (
+    <span className={pct > 0 ? "delta-up" : "delta-down"} style={{ fontWeight: 400, fontSize: 10.5 }}>
+      {pct > 0 ? "+" : ""}{num(pct, 0)}%
+    </span>
+  );
 }
 
 export default function NodeDetails({ node, plan = [], compareNode, findings }) {
@@ -127,6 +137,22 @@ export default function NodeDetails({ node, plan = [], compareNode, findings }) 
               <span className="fact-note">{f.note}</span>
             </div>
           ))}
+          {node.custom?.map((c) => {
+            const known = GLOSSARY[c.key];
+            const before = compareNode?.custom?.find((o) => o.key === c.key)?.value;
+            return (
+              <div className="mrow" key={c.key}>
+                {known ? (
+                  <span className="k">{known[0]}<Help term={c.key} /></span>
+                ) : (
+                  <Tip content={<TipText term={customLabel(c.key)} note={`polars: ${c.key}`} />}>
+                    <span className="k" tabIndex={0}>{customLabel(c.key)}</span>
+                  </Tip>
+                )}
+                <span className="v">{customValue(c)} <Change now={c.value} before={before} /></span>
+              </div>
+            );
+          })}
           {visibleCounters(m).map(({ label, key, unit }) => {
             const raw = m[key];
             const v = unit === "ns" ? ms(raw / 1e6)

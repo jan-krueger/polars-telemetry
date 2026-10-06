@@ -11,6 +11,15 @@ import type { Role } from "../lib/polars";
 
 export type Metrics = Record<string, number | boolean> & { done?: boolean };
 
+/** A figure a node reports about itself (polars 2 and later), named by polars. */
+export interface CustomMetric {
+  key: string;
+  /** "1" a count, "By" bytes, "ns" a duration. */
+  unit: string;
+  /** Null when polars never set it. */
+  value: number | null;
+}
+
 export interface PlanNode {
   id: number;
   kind: string;
@@ -21,6 +30,7 @@ export interface PlanNode {
   inputs: number[];
   properties: Record<string, unknown>;
   metrics: Metrics | null;
+  custom: CustomMetric[];
 }
 
 export interface CallSite {

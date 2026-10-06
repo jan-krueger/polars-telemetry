@@ -126,6 +126,17 @@ shape. Enable with `Config(include_plan=True)` when you want the topology,
 which nothing else carries. Contains both the physical and IR node lists with
 `id`, `kind` and `inputs`, plus every per-node counter.
 
+#### Custom node metrics
+
+From polars 2, a node can report figures about itself. They appear per node as
+`custom`, a list of `key`, `unit` (`1` a count, `By` bytes, `ns` a duration)
+and `value`, in profiles and in `polars.plan`.
+
+| Key | Unit | What it counts |
+| --- | --- | --- |
+| `group_by.actual_groups` | 1 | Groups the group-by found |
+| `group_by.estimated_groups` | 1 | Groups polars estimated in advance, to size its tables |
+
 ### Insights
 
 One `polars.insight` event per [finding](../insights.md), most important first.

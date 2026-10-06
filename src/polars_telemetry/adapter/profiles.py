@@ -45,11 +45,14 @@ def read_profile(document: Mapping[str, Any]) -> Query:
     plan = document.get("plan") or {}
     physical = list(plan.get("physical") or [])
     site = document.get("call_site")
+    version = str(document.get("polars_version") or "")
     return Query(
         query_id=UUID(str(document["query_id"])),
         wall_ms=float(document.get("wall_ms") or 0.0),
-        plan=with_traits(build_plan([_record(node) for node in physical])),
-        logical=with_traits(build_plan([_record(node) for node in plan.get("logical") or []])),
+        plan=with_traits(build_plan([_record(node) for node in physical]), version),
+        logical=with_traits(
+            build_plan([_record(node) for node in plan.get("logical") or []]), version
+        ),
         metrics=build_metrics(
             [
                 {"phys_node_key": node["id"], **node["metrics"]}
@@ -62,7 +65,7 @@ def read_profile(document: Mapping[str, Any]) -> Query:
         else CallSite(site["filepath"], site["lineno"], site["function"]),
         label=document.get("label"),
         engine="streaming" if physical else None,
-        polars_version=str(document.get("polars_version") or ""),
+        polars_version=version,
         fingerprint=str(document.get("fingerprint") or ""),
         diagnostics=_diagnostics(document.get("diagnostics") or {}),
         failed=document.get("failed"),

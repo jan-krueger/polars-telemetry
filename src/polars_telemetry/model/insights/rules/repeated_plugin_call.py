@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 class Calls:
     calls: int = unit("count")
     repeated: int = unit("count")
+    shared_by_default: bool = False
 
 
 class RepeatedPluginCall(Rule[Calls]):
@@ -26,10 +27,13 @@ class RepeatedPluginCall(Rule[Calls]):
         repeated = [c for c in node.traits.plugin_calls if c.count > 1]
         if not repeated:
             return None
-        return Calls(max(c.count for c in repeated), len(repeated))
+        return Calls(max(c.count for c in repeated), len(repeated), node.traits.plugins_shared)
 
     def describe(self, evidence: Calls) -> Text:
         return Text(
             f"Identical plugin call runs {evidence.calls}x in one node",
-            "compute it once with `with_columns` and reference that column",
+            "register it with `is_deterministic=True` if it is, "
+            "or compute it once with `with_columns`"
+            if evidence.shared_by_default
+            else "compute it once with `with_columns` and reference that column",
         )

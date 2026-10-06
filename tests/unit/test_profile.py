@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import json
 from uuid import uuid4
 
@@ -57,12 +58,32 @@ def test_carries_both_plans_with_properties(query):
 def test_every_counter_polars_delivers_is_in_the_document(query):
     import dataclasses
 
-    expected = {f.name for f in dataclasses.fields(NodeMetrics)} - {"node_id"}
+    expected = {f.name for f in dataclasses.fields(NodeMetrics)} - {"node_id", "custom"}
     physical = build_profile(query)["plan"]["physical"]
     with_metrics = [n for n in physical if "metrics" in n]
     assert with_metrics
     for node in with_metrics:
-        assert set(node["metrics"]) == expected
+        assert set(node["metrics"]) - {"custom"} == expected
+
+
+def test_a_nodes_custom_metrics_are_written_with_their_units(query):
+    from polars_telemetry.model.types import CustomMetric
+
+    node_id = next(iter(query.metrics))
+    groups = (
+        CustomMetric("group_by.actual_groups", "1", 3),
+        CustomMetric("group_by.estimated_groups", "1", None),
+    )
+    metrics = {**query.metrics, node_id: dataclasses.replace(query.metrics[node_id], custom=groups)}
+    node = next(
+        n
+        for n in build_profile(dataclasses.replace(query, metrics=metrics))["plan"]["physical"]
+        if n["id"] == node_id
+    )
+    assert node["metrics"]["custom"] == [
+        {"key": "group_by.actual_groups", "unit": "1", "value": 3},
+        {"key": "group_by.estimated_groups", "unit": "1", "value": None},
+    ]
 
 
 def test_is_json_serialisable(query):

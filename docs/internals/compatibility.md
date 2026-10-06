@@ -2,13 +2,9 @@
 
 ## Supported versions
 
-**polars 1.44.1 and newer 1.44.x**, Python 3.10+.
+**polars 1.44.1 and newer 1.44.x, and polars 2.x**, Python 3.10+.
 
-The observer hook does not exist before 1.44.0, and 1.44.0's runtime is yanked,
-so 1.44.1 is the floor.
-
-polars is declared with a floor and no upper pin, so a newer polars never
-causes a resolver conflict.
+Tested on polars 1.44.1, 1.44.2 and 2.0.0, and on the newest 2.x pre-release.
 
 ## On an unknown polars
 

@@ -7,7 +7,7 @@
  */
 
 import { nodeLabel, roleOf, type RawNode } from "../lib/polars";
-import type { Finding, FindingLevel, Measure, Metrics, PlanNode, Profile, SessionInfo } from "./profile";
+import type { CustomMetric, Finding, FindingLevel, Measure, Metrics, PlanNode, Profile, SessionInfo } from "./profile";
 import { ranOf } from "../lib/time";
 
 export const SCHEMA_PREFIX = "polars-telemetry/profile@";
@@ -64,9 +64,15 @@ function readNodes(value: unknown, side: string): PlanNode[] | string {
       label: nodeLabel(node),
       properties: node.properties ?? {},
       metrics: isObject(entry.metrics) ? (scalars(entry.metrics) as Metrics) : null,
+      custom: isObject(entry.metrics) && Array.isArray(entry.metrics.custom) ? entry.metrics.custom.flatMap(readCustom) : [],
     });
   }
   return nodes;
+}
+
+function readCustom(c: unknown): CustomMetric[] {
+  if (!isObject(c) || typeof c.key !== "string") return [];
+  return [{ key: c.key, unit: typeof c.unit === "string" ? c.unit : "1", value: Number.isFinite(c.value) ? (c.value as number) : null }];
 }
 
 function readV1(raw: Record<string, unknown>, schema: string, position?: number): Read {

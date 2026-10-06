@@ -1,6 +1,6 @@
 {
  "schema": "polars-telemetry/profile@1",
- "polars_version": "1.44.2",
+ "polars_version": "2.0.0",
  "polars_telemetry_version": "0.7.0",
  "query_id": "01a10000-0000-7000-8000-000000000000",
  "label": null,
@@ -9,7 +9,7 @@
  "wall_ms": 48.1,
  "planning_ms": null,
  "telemetry_ms": null,
- "cpu_ms": 3.5974,
+ "cpu_ms": 5.8592,
  "result_rows": 2,
  "call_site": {
   "filepath": "/srv/app/pipeline.py",
@@ -19,7 +19,7 @@
  "failed": null,
  "redacted": null,
  "diagnostics": {
-  "parallel_efficiency": 0.009348825363825364,
+  "parallel_efficiency": 0.015226689189189188,
   "cpu_count": 8,
   "join_growth": 1.0,
   "projection_efficiency": 1.0,
@@ -41,17 +41,17 @@
      "type": "InMemorySink"
     },
     "metrics": {
-     "total_time_ns": 13248,
-     "total_polls": 26,
-     "total_stolen_polls": 12,
-     "total_poll_time_ns": 12159,
-     "max_poll_time_ns": 2317,
-     "total_state_updates": 8,
-     "total_state_update_time_ns": 1089,
-     "max_state_update_time_ns": 324,
+     "total_time_ns": 47121,
+     "total_polls": 51,
+     "total_stolen_polls": 24,
+     "total_poll_time_ns": 45968,
+     "max_poll_time_ns": 6160,
+     "total_state_updates": 9,
+     "total_state_update_time_ns": 1153,
+     "max_state_update_time_ns": 351,
      "rows_received": 2,
      "rows_sent": 0,
-     "morsels_received": 2,
+     "morsels_received": 3,
      "morsels_sent": 0,
      "largest_morsel_received": 1,
      "largest_morsel_sent": 0,
@@ -84,18 +84,18 @@
      "type": "Sort"
     },
     "metrics": {
-     "total_time_ns": 222329,
-     "total_polls": 65,
-     "total_stolen_polls": 36,
-     "total_poll_time_ns": 57575,
-     "max_poll_time_ns": 3459,
-     "total_state_updates": 9,
-     "total_state_update_time_ns": 164754,
-     "max_state_update_time_ns": 162461,
+     "total_time_ns": 201449,
+     "total_polls": 78,
+     "total_stolen_polls": 48,
+     "total_poll_time_ns": 113288,
+     "max_poll_time_ns": 9398,
+     "total_state_updates": 10,
+     "total_state_update_time_ns": 88161,
+     "max_state_update_time_ns": 85304,
      "rows_received": 2,
      "rows_sent": 2,
      "morsels_received": 3,
-     "morsels_sent": 2,
+     "morsels_sent": 3,
      "largest_morsel_received": 1,
      "largest_morsel_sent": 1,
      "io_total_active_ns": 0,
@@ -114,21 +114,21 @@
     ],
     "properties": {
      "columns": [
-      "_POLARS_TMP_1",
-      "_POLARS_TMP_3",
-      "_POLARS_TMP_5"
+      "_POLARS_TMP_PHYS_1",
+      "_POLARS_TMP_PHYS_3",
+      "_POLARS_TMP_PHYS_5"
      ],
      "type": "SimpleProjection"
     },
     "metrics": {
-     "total_time_ns": 41051,
+     "total_time_ns": 24592,
      "total_polls": 51,
      "total_stolen_polls": 24,
-     "total_poll_time_ns": 40356,
-     "max_poll_time_ns": 16984,
-     "total_state_updates": 9,
-     "total_state_update_time_ns": 695,
-     "max_state_update_time_ns": 135,
+     "total_poll_time_ns": 23770,
+     "max_poll_time_ns": 2821,
+     "total_state_updates": 10,
+     "total_state_update_time_ns": 822,
+     "max_state_update_time_ns": 220,
      "rows_received": 2,
      "rows_sent": 2,
      "morsels_received": 3,
@@ -152,27 +152,30 @@
     "properties": {
      "aggs_per_input": [
       [
-       "col(\"_POLARS_TMP_2\").sum().alias(\"_POLARS_TMP_3\")",
-       "col(\"_POLARS_TMP_4\").count().alias(\"_POLARS_TMP_5\")"
+       "col(\"revenue\").sum().alias(\"_POLARS_TMP_PHYS_3\")",
+       "col(\"order_id\").count().alias(\"_POLARS_TMP_PHYS_5\")"
       ]
+     ],
+     "fused_agg_inputs_per_input": [
+      []
      ],
      "key_per_input": [
       [
-       "col(\"_POLARS_TMP_1\")"
+       "col(\"_POLARS_TMP_PHYS_1\")"
       ]
      ],
      "num_inputs": 1,
      "type": "GroupBy"
     },
     "metrics": {
-     "total_time_ns": 1596399,
-     "total_polls": 84,
-     "total_stolen_polls": 48,
-     "total_poll_time_ns": 1248973,
-     "max_poll_time_ns": 139688,
-     "total_state_updates": 9,
-     "total_state_update_time_ns": 347426,
-     "max_state_update_time_ns": 344583,
+     "total_time_ns": 1412370,
+     "total_polls": 112,
+     "total_stolen_polls": 68,
+     "total_poll_time_ns": 1022679,
+     "max_poll_time_ns": 75006,
+     "total_state_updates": 10,
+     "total_state_update_time_ns": 389691,
+     "max_state_update_time_ns": 386897,
      "rows_received": 1769,
      "rows_sent": 2,
      "morsels_received": 12,
@@ -183,7 +186,19 @@
      "io_total_bytes_received": 0,
      "io_total_bytes_requested": 0,
      "io_total_bytes_sent": 0,
-     "done": true
+     "done": true,
+     "custom": [
+      {
+       "key": "group_by.estimated_groups",
+       "unit": "1",
+       "value": 2
+      },
+      {
+       "key": "group_by.actual_groups",
+       "unit": "1",
+       "value": 2
+      }
+     ]
     }
    },
    {
@@ -202,14 +217,14 @@
      "type": "SimpleProjection"
     },
     "metrics": {
-     "total_time_ns": 41275,
-     "total_polls": 29,
-     "total_stolen_polls": 12,
-     "total_poll_time_ns": 40726,
-     "max_poll_time_ns": 7105,
-     "total_state_updates": 9,
-     "total_state_update_time_ns": 549,
-     "max_state_update_time_ns": 112,
+     "total_time_ns": 30640,
+     "total_polls": 30,
+     "total_stolen_polls": 13,
+     "total_poll_time_ns": 30114,
+     "max_poll_time_ns": 5979,
+     "total_state_updates": 10,
+     "total_state_update_time_ns": 526,
+     "max_state_update_time_ns": 95,
      "rows_received": 1769,
      "rows_sent": 1769,
      "morsels_received": 12,
@@ -239,14 +254,14 @@
      "type": "SimpleProjection"
     },
     "metrics": {
-     "total_time_ns": 36381,
-     "total_polls": 29,
+     "total_time_ns": 38530,
+     "total_polls": 31,
      "total_stolen_polls": 12,
-     "total_poll_time_ns": 35886,
-     "max_poll_time_ns": 6580,
-     "total_state_updates": 9,
-     "total_state_update_time_ns": 495,
-     "max_state_update_time_ns": 118,
+     "total_poll_time_ns": 38084,
+     "max_poll_time_ns": 13705,
+     "total_state_updates": 10,
+     "total_state_update_time_ns": 446,
+     "max_state_update_time_ns": 64,
      "rows_received": 1769,
      "rows_sent": 1769,
      "morsels_received": 12,
@@ -275,14 +290,14 @@
      "type": "Select"
     },
     "metrics": {
-     "total_time_ns": 195436,
-     "total_polls": 29,
+     "total_time_ns": 184403,
+     "total_polls": 31,
      "total_stolen_polls": 13,
-     "total_poll_time_ns": 194494,
-     "max_poll_time_ns": 51887,
-     "total_state_updates": 9,
-     "total_state_update_time_ns": 942,
-     "max_state_update_time_ns": 183,
+     "total_poll_time_ns": 183351,
+     "max_poll_time_ns": 51966,
+     "total_state_updates": 10,
+     "total_state_update_time_ns": 1052,
+     "max_state_update_time_ns": 182,
      "rows_received": 1769,
      "rows_sent": 1769,
      "morsels_received": 12,
@@ -313,14 +328,14 @@
      "type": "SimpleProjection"
     },
     "metrics": {
-     "total_time_ns": 45905,
-     "total_polls": 34,
-     "total_stolen_polls": 24,
-     "total_poll_time_ns": 45074,
-     "max_poll_time_ns": 11387,
-     "total_state_updates": 9,
-     "total_state_update_time_ns": 831,
-     "max_state_update_time_ns": 319,
+     "total_time_ns": 39310,
+     "total_polls": 33,
+     "total_stolen_polls": 21,
+     "total_poll_time_ns": 38643,
+     "max_poll_time_ns": 6955,
+     "total_state_updates": 10,
+     "total_state_update_time_ns": 667,
+     "max_state_update_time_ns": 198,
      "rows_received": 1769,
      "rows_sent": 1769,
      "morsels_received": 12,
@@ -344,6 +359,7 @@
     ],
     "properties": {
      "coalesce": "JoinSpecific",
+     "fused_predicate": null,
      "how": "INNER",
      "left_on": [
       "col(\"customer_id\")"
@@ -358,14 +374,14 @@
      "validation": "ManyToMany"
     },
     "metrics": {
-     "total_time_ns": 1089477,
-     "total_polls": 60,
-     "total_stolen_polls": 17,
-     "total_poll_time_ns": 46219,
-     "max_poll_time_ns": 19722,
-     "total_state_updates": 11,
-     "total_state_update_time_ns": 1043258,
-     "max_state_update_time_ns": 954079,
+     "total_time_ns": 2207743,
+     "total_polls": 193,
+     "total_stolen_polls": 86,
+     "total_poll_time_ns": 1057004,
+     "max_poll_time_ns": 88900,
+     "total_state_updates": 12,
+     "total_state_update_time_ns": 1150739,
+     "max_state_update_time_ns": 1039048,
      "rows_received": 1819,
      "rows_sent": 1769,
      "morsels_received": 22,
@@ -406,23 +422,23 @@
      "type": "MultiScan"
     },
     "metrics": {
-     "total_time_ns": 146751,
-     "total_polls": 5,
-     "total_stolen_polls": 4,
-     "total_poll_time_ns": 7215,
-     "max_poll_time_ns": 3355,
-     "total_state_updates": 7,
-     "total_state_update_time_ns": 139536,
-     "max_state_update_time_ns": 81191,
+     "total_time_ns": 1055587,
+     "total_polls": 106,
+     "total_stolen_polls": 66,
+     "total_poll_time_ns": 1001057,
+     "max_poll_time_ns": 289745,
+     "total_state_updates": 8,
+     "total_state_update_time_ns": 54530,
+     "max_state_update_time_ns": 20396,
      "rows_received": 0,
      "rows_sent": 1769,
      "morsels_received": 0,
      "morsels_sent": 12,
      "largest_morsel_received": 0,
      "largest_morsel_sent": 148,
-     "io_total_active_ns": 0,
-     "io_total_bytes_received": 0,
-     "io_total_bytes_requested": 0,
+     "io_total_active_ns": 35080,
+     "io_total_bytes_received": 6776,
+     "io_total_bytes_requested": 6776,
      "io_total_bytes_sent": 0,
      "done": true
     }
@@ -452,23 +468,23 @@
      "type": "MultiScan"
     },
     "metrics": {
-     "total_time_ns": 169176,
-     "total_polls": 3,
-     "total_stolen_polls": 2,
-     "total_poll_time_ns": 43269,
-     "max_poll_time_ns": 40207,
-     "total_state_updates": 7,
-     "total_state_update_time_ns": 125907,
-     "max_state_update_time_ns": 99001,
+     "total_time_ns": 617485,
+     "total_polls": 43,
+     "total_stolen_polls": 18,
+     "total_poll_time_ns": 480654,
+     "max_poll_time_ns": 168597,
+     "total_state_updates": 8,
+     "total_state_update_time_ns": 136831,
+     "max_state_update_time_ns": 119109,
      "rows_received": 0,
      "rows_sent": 50,
      "morsels_received": 0,
      "morsels_sent": 10,
      "largest_morsel_received": 0,
      "largest_morsel_sent": 5,
-     "io_total_active_ns": 0,
-     "io_total_bytes_received": 0,
-     "io_total_bytes_requested": 0,
+     "io_total_active_ns": 8519,
+     "io_total_bytes_received": 279,
+     "io_total_bytes_requested": 279,
      "io_total_bytes_sent": 0,
      "done": true
     }
@@ -586,6 +602,7 @@
     ],
     "properties": {
      "coalesce": "JoinSpecific",
+     "fused_predicate": null,
      "how": "INNER",
      "left_on": [
       "col(\"customer_id\")"

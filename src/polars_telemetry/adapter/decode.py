@@ -1,6 +1,6 @@
 """MessagePack payload decoding and contract checks.
 
-Payload shapes (polars 1.44.x):
+Payload shapes (polars 1.44.x and 2.x, which agree):
   IR plan, physical plan: [{id, input_ids, properties}]
   metrics snapshot:       [{phys_node_key, ...19 counters}]
 
@@ -21,6 +21,8 @@ PLAN_FIELDS: frozenset[str] = frozenset({"id", "input_ids", "properties"})
 # polars' counter names are the model's field names; should they ever diverge,
 # the translation belongs in the dialect, not here.
 METRIC_FIELDS: frozenset[str] = frozenset({*COUNTER_NAMES, "phys_node_key", "done"})
+OPTIONAL_METRIC_FIELDS: frozenset[str] = frozenset({"custom"})
+"""Sent only by newer polars: `custom` since 2.0."""
 
 _COUNTER_FIELDS: frozenset[str] = METRIC_FIELDS - {"done"}
 
@@ -104,9 +106,12 @@ def metrics_additions(records: list[dict[str, Any]]) -> list[str]:
     """
     additions: list[str] = []
     for index, record in enumerate(records):
-        unexpected = record.keys() - METRIC_FIELDS
+        unexpected = record.keys() - METRIC_FIELDS - OPTIONAL_METRIC_FIELDS
         if unexpected:
             additions.append(f"record {index}: unknown fields {sorted(unexpected)}")
+        custom = record.get("custom", [])
+        if not isinstance(custom, list) or not all(_custom_metric(c) for c in custom):
+            additions.append(f"record {index}: custom metrics in an unknown shape, left out")
     return additions
 
 
@@ -131,6 +136,17 @@ def metrics_breaks(records: list[dict[str, Any]]) -> list[str]:
                 f"record {index}: done is {type(record['done']).__name__}, expected bool"
             )
     return problems
+
+
+def _custom_metric(entry: object) -> bool:
+    if not isinstance(entry, dict):
+        return False
+    value = entry.get("value")
+    return (
+        isinstance(entry.get("key"), str)
+        and isinstance(entry.get("unit"), str)
+        and (value is None or (isinstance(value, int) and not isinstance(value, bool)))
+    )
 
 
 def metrics_problems(records: list[dict[str, Any]]) -> list[str]:

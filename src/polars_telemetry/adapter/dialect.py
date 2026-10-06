@@ -112,6 +112,19 @@ IN_MEMORY_FALLBACK = frozenset(
 )
 INFERS_DATETIME_FORMAT = "StrptimeInfer"
 PYTHON_FORMAT = "OPAQUE_PYTHON"
+
+
+def shares_plugin_calls(polars_version: str) -> bool:
+    """Whether CSE shares a plugin's repeated calls unless it opts out: from 2.0.0
+    final, where `register_plugin_function(is_deterministic=True)` is the default
+    (pola-rs/polars#29428). 1.41 to 2.0.0rc2 never share them."""
+    match = re.match(r"(\d+)\.(\d+)\.(\d+)(.*)", polars_version)
+    if not match:
+        return False
+    release = tuple(int(part) for part in match.groups()[:3])
+    return release > (2, 0, 0) or (release == (2, 0, 0) and not match.group(4))
+
+
 DEDUPLICATING = frozenset({"Distinct", "SortedUnique"})
 GROUPING = frozenset({"GroupBy", "SortedGroupBy"})
 
