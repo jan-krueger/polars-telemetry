@@ -58,7 +58,7 @@ def with_traits(plan: dict[int, PlanNode], polars_version: str = "") -> dict[int
 def traits(kind: str, properties: Mapping[str, object]) -> NodeTraits:
     """The neutral facts insight rules need about one node."""
     texts = [text for text in _texts(properties) if "(" in text]
-    strings: Counter[tuple[str, str]] = Counter()
+    strings: dict[tuple[str, str], set[str]] = {}
     plugins: Counter[tuple[str, str]] = Counter()
     runs: list[ReplaceRun] = []
     for text in texts:
@@ -69,7 +69,7 @@ def traits(kind: str, properties: Mapping[str, object]) -> NodeTraits:
                 if step.startswith("plugin:"):
                     plugins[(step.removeprefix("plugin:"), token(call))] += 1
                 elif step.startswith("str."):
-                    strings[(step.removeprefix("str."), target)] += 1
+                    strings.setdefault((step.removeprefix("str."), target), set()).add(call)
     return NodeTraits(
         in_memory_fallback=kind in IN_MEMORY_FALLBACK,
         infers_datetime_format=kind == INFERS_DATETIME_FORMAT,
@@ -78,7 +78,7 @@ def traits(kind: str, properties: Mapping[str, object]) -> NodeTraits:
         or any(_PYTHON_UDF.search(text) for text in texts),
         deduplicates=kind in DEDUPLICATING or (kind in GROUPING and _only_picks(properties)),
         asks_unique=any(_UNIQUE.search(text) for text in texts),
-        string_calls=_counts(strings),
+        string_calls=_counts(Counter({key: len(calls) for key, calls in strings.items()})),
         plugin_calls=_counts(plugins),
         replace_runs=tuple(runs),
     )

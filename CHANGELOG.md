@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- `repeated_string_scan` counts identical calls once, as Polars computes them
+  once: three different patterns, one of them used twice, are three passes, not
+  four. It reported 119 false warnings on the MIMIC-IV MEDS extraction.
+
 ## [0.8.2] - 2026-10-06
 
 ### Changed
@@ -624,6 +631,7 @@ All three are removed in 0.4.0.
   and collapsed most nodes onto identical windows. The same counters read once
   at query end are exact and cost nothing measurable.
 
+[Unreleased]: https://github.com/jan-krueger/polars-telemetry/compare/v0.8.2...HEAD
 [0.8.2]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.8.2
 [0.8.1]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.8.1
 [0.8.0]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.8.0

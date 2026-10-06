@@ -25,6 +25,17 @@ def test_counts_each_string_function_per_column_across_chains():
     }
 
 
+def test_the_same_string_call_twice_in_a_node_counts_once():
+    integer = 'col("c").str.contains(["^-?(\\d+)$"])'
+    found = calls(
+        "Reduce",
+        f'({integer} & col("c").cast(Int64).is_not_null()).sum()',
+        f'(col("c").str.contains(["^\\d+\\.$"]) | {integer}).sum()',
+        'col("c").str.contains(["^(?i:true|false)$"]).sum()',
+    )
+    assert found == {("contains", token("c")): 3}
+
+
 @pytest.mark.parametrize(
     "expression",
     [

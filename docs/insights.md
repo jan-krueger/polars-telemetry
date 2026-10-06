@@ -90,7 +90,8 @@ pairs survive; an equality key or `join_where` usually avoids building them.
 ### `repeated_string_scan`
 
 `str.contains`, or `str.replace` / `str.replace_all`, called on one column four
-or more times within a node, each call a separate pass over the data.
+or more times within a node with different arguments, each call a separate pass
+over the data. An identical call counts once: Polars computes it once.
 `str.contains_any` or one regular expression replaces many `contains` with one
 pass.
 

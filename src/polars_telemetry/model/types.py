@@ -148,6 +148,7 @@ class NodeTraits:
     asks_unique: bool = False
     """An expression of the node asks for unique values."""
     string_calls: tuple[CallCount, ...] = ()
+    """Distinct calls per function and input: polars computes a repeated call once."""
     plugin_calls: tuple[CallCount, ...] = ()
     replace_runs: tuple[ReplaceRun, ...] = ()
     plugins_shared: bool = False
