@@ -62,7 +62,9 @@ def plan_json(query: Query) -> str:
                 entry[name] = round(value / 1e6, 4) if counter.endswith("_ns") else value
             entry["done"] = metric.done
             if metric.custom:
-                entry["custom"] = {c.key: c.value for c in metric.custom}
+                entry["custom"] = [
+                    {"key": c.key, "unit": c.unit, "value": c.value} for c in metric.custom
+                ]
         nodes.append(entry)
     logical = [
         {"id": nid, "kind": n.kind, "inputs": list(n.inputs)} for nid, n in query.logical.items()

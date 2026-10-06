@@ -21,6 +21,11 @@ describe("the profile contract", () => {
     expect([...new Set(unshown)]).toEqual([]);
   });
 
+  it("explains every custom metric polars reports in the fixture", () => {
+    const keys = profile.plan.physical.flatMap((n) => n.metrics?.custom ?? []).map((c) => c.key);
+    expect(keys.filter((k) => !GLOSSARY[k])).toEqual([]);
+  });
+
   it("reads every custom metric a node reports", () => {
     const read = readProfile(profile);
     if ("problem" in read) throw new Error(read.problem);

@@ -109,6 +109,9 @@ def metrics_additions(records: list[dict[str, Any]]) -> list[str]:
         unexpected = record.keys() - METRIC_FIELDS - OPTIONAL_METRIC_FIELDS
         if unexpected:
             additions.append(f"record {index}: unknown fields {sorted(unexpected)}")
+        custom = record.get("custom", [])
+        if not isinstance(custom, list) or not all(_custom_metric(c) for c in custom):
+            additions.append(f"record {index}: custom metrics in an unknown shape, left out")
     return additions
 
 
@@ -132,9 +135,6 @@ def metrics_breaks(records: list[dict[str, Any]]) -> list[str]:
             problems.append(
                 f"record {index}: done is {type(record['done']).__name__}, expected bool"
             )
-        custom = record.get("custom", [])
-        if not isinstance(custom, list) or not all(_custom_metric(c) for c in custom):
-            problems.append(f"record {index}: custom is not a list of key, unit and value")
     return problems
 
 

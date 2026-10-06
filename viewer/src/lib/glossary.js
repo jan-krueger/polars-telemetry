@@ -27,6 +27,8 @@ export const GLOSSARY = {
   predicate_pushed: ["Predicate pushdown", "Whether a filter is applied inside the scan rather than after it. Pushed down, rows are never read at all."],
   has_table_statistics: ["Table statistics", "Whether the source carried statistics the engine could use to skip data before reading it."],
   projection_efficiency: ["Projection", "Columns read ÷ columns in the file. Lower is better: unread columns are never decoded."],
+  "group_by.actual_groups": ["Groups", "Distinct keys this group-by found: one output row each. Close to rows in means the grouping barely reduces anything."],
+  "group_by.estimated_groups": ["Groups estimated", "How many groups polars expected before running, to size its hash tables. Far from the actual count means it sized them wrongly."],
 };
 
 // polars' property names are precise but not prose.
