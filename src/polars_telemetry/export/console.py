@@ -35,7 +35,7 @@ class ConsoleExporter:
     def export(self, query: Query) -> None:
         status = f"FAILED {query.failed}" if query.failed else "ok"
         header = (
-            f"polars query {query.label or str(query.query_id)[:8]} {status} "
+            f"polars query {query.label or str(query.query_id)[-8:]} {status} "
             f"wall={_ms(query.wall_ms)}{_planning(query)} cpu={_ms(query.cpu_ms)} "
             f"parallelism={query.parallelism:.2f}x nodes={len(query.plan)}"
         )
