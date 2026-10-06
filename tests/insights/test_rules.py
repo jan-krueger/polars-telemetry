@@ -239,6 +239,18 @@ class TestRepeatedPluginCall:
         (finding,) = found(plan, "repeated_plugin_call")
         assert numbers(finding) == {"calls": 2, "repeated": 1}
 
+    def test_the_fix_follows_whether_this_polars_shares_plugin_calls(self):
+        plan = Plan().node(1, "MultiScan").node(2, "Select", (1,), selectors=[self.CALL, self.CALL])
+        older = evaluate(
+            plan.query(polars_version="1.44.2"),
+            [r for r in RULES if r.id == "repeated_plugin_call"],
+        )
+        newer = evaluate(
+            plan.query(polars_version="2.0.0"), [r for r in RULES if r.id == "repeated_plugin_call"]
+        )
+        assert older[0].fix.startswith("compute it once")
+        assert "`is_deterministic=True`" in newer[0].fix
+
     def test_different_inputs_stay_quiet(self):
         other = 'col("w").lib/mylib.so:fold()'
         plan = Plan().node(1, "MultiScan").node(2, "Select", (1,), selectors=[self.CALL, other])

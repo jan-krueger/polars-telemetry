@@ -49,11 +49,12 @@ class Plan:
         )
         return self
 
-    def query(self, wall_ms: float = 100.0) -> Query:
+    def query(self, wall_ms: float = 100.0, polars_version: str = "") -> Query:
         return Query(
             query_id=uuid4(),
             wall_ms=wall_ms,
-            plan=with_traits(build_plan(self._nodes)),
-            logical=with_traits(build_plan(self._logical)),
+            polars_version=polars_version,
+            plan=with_traits(build_plan(self._nodes), polars_version),
+            logical=with_traits(build_plan(self._logical), polars_version),
             metrics=build_metrics(self._metrics),
         )
