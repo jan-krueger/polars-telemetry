@@ -16,6 +16,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   ambiguous is now masked from its first text value on.
 - `Redaction(paths=True)` also masks paths and URLs in a failed query's error
   message, which Polars writes in full, as in "No such file or directory".
+- Queries running at the same time no longer go missing. Polars can hand one
+  observer several queries at once, as with `collect_async()` from concurrent
+  tasks on reused `LazyFrame`s, and the second overwrote the first: up to 1 in
+  7 such queries was lost. Each query is now tracked on its own thread.
 
 ## [0.8.2] - 2026-10-06
 

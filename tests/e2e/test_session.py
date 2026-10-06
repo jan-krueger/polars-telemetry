@@ -303,3 +303,27 @@ def test_an_older_block_leaves_a_newer_blocks_installation_alone():
         _filter_on_a_secret()
     assert len(second) == 1
     assert installed() is None
+
+
+def test_concurrent_collect_async_on_shared_lazy_frames_loses_no_query():
+    import asyncio
+
+    found: list[Any] = []
+
+    class Gather:
+        def export(self, query: Any) -> None:
+            found.append(query)
+
+    polars_telemetry.install(exporter=Gather())
+    frames = [polars.LazyFrame({"a": range(100)}).filter(polars.col("a") < i) for i in range(12)]
+
+    async def run(frame) -> None:
+        for _ in range(5):
+            await frame.collect_async()
+
+    async def everything() -> None:
+        await asyncio.gather(*(run(frame) for frame in frames))
+
+    asyncio.run(everything())
+    polars_telemetry.uninstall()
+    assert len({q.query_id for q in found}) == 60

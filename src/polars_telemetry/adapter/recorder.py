@@ -9,7 +9,9 @@ ship one — would feed the same recorder.
 from __future__ import annotations
 
 import logging
+import threading
 import time
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
@@ -55,79 +57,99 @@ def _report_unknown_kinds(*plans: dict[int, PlanNode]) -> None:
                 )
 
 
-class QueryRecorder:
-    """Assembles one query and hands it to `emit` once, however it ends."""
+@dataclass(slots=True)
+class _Run:
+    """One query in flight: what its start and plan delivered so far."""
 
-    __slots__ = (
-        "_call_site",
-        "_config",
-        "_emit",
-        "_engine",
-        "_handle",
-        "_label",
-        "_logical",
-        "_plan",
-        "_planning_ms",
-        "_query_id",
-        "_started",
-        "_started_unix_ns",
-        "_telemetry_ms",
-        "_tracker",
-    )
+    query_id: UUID = field(default_factory=uuid4)
+    started: float = 0.0
+    started_unix_ns: int = 0
+    call_site: CallSite | None = None
+    label: str | None = None
+    engine: str | None = None
+    plan: dict[int, PlanNode] = field(default_factory=dict)
+    logical: dict[int, PlanNode] = field(default_factory=dict)
+    handle: MetricsHandle | None = None
+    planning_ms: float | None = None
+    telemetry_ms: float | None = None
+
+
+class QueryRecorder:
+    """Assembles each query and hands it to `emit` once, however it ends.
+
+    polars can give one observer several queries, even at the same time from
+    different threads. A query delivers all its callbacks on one thread, so
+    each thread's query is kept apart.
+    """
+
+    __slots__ = ("_config", "_emit", "_lock", "_runs", "_tracker")
 
     def __init__(
-        self, config: Config, emit: Callable[[Query], None], tracker: FailureTracker
+        self,
+        config: Config,
+        emit: Callable[[Query], None],
+        tracker: FailureTracker,
     ) -> None:
         self._config = config
         self._emit = emit
         self._tracker = tracker
-        self._query_id: UUID = uuid4()
-        self._handle: MetricsHandle | None = None
-        self._plan: dict[int, PlanNode] = {}
-        self._logical: dict[int, PlanNode] = {}
-        self._call_site: CallSite | None = None
-        self._label: str | None = None
-        self._engine: str | None = None
-        self._started = 0.0
-        self._started_unix_ns = 0
-        self._planning_ms: float | None = None
-        self._telemetry_ms: float | None = None
+        self._runs: dict[int, _Run] = {}
+        self._lock = threading.Lock()
+
+    def _current(self, *, finishing: bool = False) -> _Run | None:
+        """This thread's query; the only one in flight if this thread has none."""
+        thread = threading.get_ident()
+        with self._lock:
+            run = self._runs.get(thread)
+            if run is None and len(self._runs) == 1:
+                thread, run = next(iter(self._runs.items()))
+            if run is not None and finishing:
+                del self._runs[thread]
+            return run
 
     def started(self, query_id: UUID) -> None:
         # The clock starts here so a query that fails before planning -- a
         # missing column, most commonly -- still produces a span.
-        self._query_id = query_id
-        self._call_site = caller() if self._config.call_site else None
-        self._label = current_label()
-        self._started = time.perf_counter()
-        self._started_unix_ns = time.time_ns()
-        self._planning_ms = self._telemetry_ms = None
+        run = _Run(
+            query_id=query_id,
+            started=time.perf_counter(),
+            started_unix_ns=time.time_ns(),
+            call_site=caller() if self._config.call_site else None,
+            label=current_label(),
+        )
+        with self._lock:
+            self._runs[threading.get_ident()] = run
 
     def planned(self, query_id: UUID, ir_plan: bytes, physical_plan: bytes, handle: Any) -> None:
         arrived = time.perf_counter()
-        if self._started:
-            self._planning_ms = (arrived - self._started) * 1000
+        run = self._current()
+        if run is None:
+            return
+        if run.started:
+            run.planning_ms = (arrived - run.started) * 1000
         try:
-            self._planned(query_id, ir_plan, physical_plan, handle)
+            self._planned(run, query_id, ir_plan, physical_plan, handle)
         finally:
-            self._telemetry_ms = (time.perf_counter() - arrived) * 1000
+            run.telemetry_ms = (time.perf_counter() - arrived) * 1000
 
-    def _planned(self, query_id: UUID, ir_plan: bytes, physical_plan: bytes, handle: Any) -> None:
-        self._query_id = query_id
+    def _planned(
+        self, run: _Run, query_id: UUID, ir_plan: bytes, physical_plan: bytes, handle: Any
+    ) -> None:
+        run.query_id = query_id
         # Monitoring sets the affinity to streaming, but an explicit engine= or
         # an eager operation overrides it, and polars then sends no physical plan.
-        self._engine = "in-memory" if is_nil(physical_plan) else "streaming"
+        run.engine = "in-memory" if is_nil(physical_plan) else "streaming"
         # Each payload on its own: an IR polars has reshaped must cost the IR,
         # not the physical plan, the counters or the span.
         physical = self._plan_from("physical plan", physical_plan, decode_optional_plan)
         logical = self._plan_from("IR plan", ir_plan, decode_plan)
-        self._plan = physical or {}
-        self._logical = logical or {}
-        _report_unknown_kinds(self._plan, self._logical)
+        run.plan = physical or {}
+        run.logical = logical or {}
+        _report_unknown_kinds(run.plan, run.logical)
         # Counters are keyed by phys_node_key, so without a physical plan there
         # is nothing to attribute them to.
         collect = self._config.node_metrics and physical is not None
-        self._handle = MetricsHandle(handle) if collect else None
+        run.handle = MetricsHandle(handle) if collect else None
 
     def failed(self, message: str) -> None:
         self._finish(failure=message)
@@ -151,36 +173,35 @@ class QueryRecorder:
 
     def _finish(self, failure: str | None) -> None:
         # polars can deliver both a failure and a close; the first one wins.
-        if self._started == 0.0:
+        run = self._current(finishing=True)
+        if run is None or run.started == 0.0:
             return
-        wall_ms = (time.perf_counter() - self._started) * 1000
-        self._started = 0.0
+        wall_ms = (time.perf_counter() - run.started) * 1000
 
-        handle, self._handle = self._handle, None
-        if handle is None:
+        if run.handle is None:
             metrics = {}
         else:
             # A failed query's nodes never report done, so settling would only
             # spend the retry budget inside the caller's exception path.
-            records = handle.snapshot() if failure else handle.settled_snapshot()
+            records = run.handle.snapshot() if failure else run.handle.settled_snapshot()
             metrics = build_metrics(records)
 
         self._emit(
             enrich(
                 Query(
-                    query_id=self._query_id,
+                    query_id=run.query_id,
                     wall_ms=wall_ms,
-                    plan=self._plan,
-                    logical=self._logical,
+                    plan=run.plan,
+                    logical=run.logical,
                     metrics=metrics,
-                    call_site=self._call_site,
-                    label=self._label,
-                    engine=self._engine,
+                    call_site=run.call_site,
+                    label=run.label,
+                    engine=run.engine,
                     polars_version=_POLARS_VERSION,
                     failed=failure,
-                    started_unix_ns=self._started_unix_ns,
-                    planning_ms=self._planning_ms,
-                    telemetry_ms=self._telemetry_ms,
+                    started_unix_ns=run.started_unix_ns,
+                    planning_ms=run.planning_ms,
+                    telemetry_ms=run.telemetry_ms,
                 ),
                 insights=self._config.insights,
             )
