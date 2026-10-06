@@ -50,7 +50,8 @@ class Config:
     """
 
     redaction: Redaction | None = None
-    """What to mask before any exporter receives a query; None masks nothing.
+    """What to mask before any exporter receives a query; None masks only URL
+    query strings, which can hold credentials.
 
     `Redaction()` masks literal values. One exporter can be given its own with
     `redacted()`. Metrics never carry literals, whatever this says.

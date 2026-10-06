@@ -50,7 +50,7 @@ profile.jsonl · 01a111e2-ac8d-7fd0-a766-e17ecb2eec7c  (9 ms wall, 32 ms CPU, 9 
                    rows_in 200K · rows_removed 0
                    fix: drop the `unique`/`group_by` if keys are unique by construction, or dedup at the source
 
-1 queries: 1 warnings, 0 information, 0 applied
+1 query: 1 warning, 0 information
 ```
 
 `--fail-on warn` exits with 1 on a warning, for CI. Every rule:

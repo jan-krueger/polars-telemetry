@@ -14,9 +14,9 @@ one.
 
 ## Try it
 
-The empty viewer offers two example sessions, one click each: the 22 TPC-H
-queries at scale factor 1 and 10, three runs each, labelled `tpch/q1` to
-`tpch/q22`. They are also in the repository's
+The empty viewer offers two example sessions, one click each: the TPC-H
+queries at scale factor 1 and 10, labelled `tpch/q1`, `tpch/q2` and so on. They
+are also in the repository's
 [`examples/`](https://github.com/jan-krueger/polars-telemetry/tree/main/examples),
 for a viewer opened from disk.
 
@@ -87,8 +87,8 @@ gets a badge, and an outline that still shows when a large plan is zoomed far
 out; the minimap marks it too. The node's details open with each finding: its
 evidence, what it costs, a fix and a link to the rule.
 
-Profiles written before insights existed show none. Run
-`polars-telemetry insights FILE --write OUT` to add them.
+Profiles written before 0.6.0, or with `Config(insights=False)`, show none;
+`polars-telemetry insights FILE --write OUT` adds them.
 
 ## Comparing runs
 
@@ -108,7 +108,7 @@ gave it.
 
 Anyone who has the link can read everything in those profiles, and chat tools
 and browser history keep it. For a profile that was not
-[masked](privacy.md) before export, the viewer asks before copying. A plan too
-large for a link, at over 30,000 characters, is better sent as a file:
-download the session and share that.
+[masked](privacy.md) before export, the viewer asks before copying. When the
+profiles are too large for a link, the viewer offers none: download the
+session and send the file.
 

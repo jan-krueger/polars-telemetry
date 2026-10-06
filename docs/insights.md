@@ -1,38 +1,51 @@
 # Insights
 
-`polars-telemetry insights` reads profile files and says what slows their
-queries down: an operation that left the streaming engine, a join that
-multiplies rows, the same string function run many times on one column.
-
-```console
-$ polars-telemetry insights nightly.jsonl
-nightly.jsonl · etl/orders  (212.4 s wall, 1,904.0 s CPU, 148 nodes)
-  warn   31% wall  In-memory fallback: all input rows in one call  [in_memory_fallback, InMemoryMap #41]
-                   rows_in 12M · longest_step 1.1 min
-                   fix: rewrite it with operations the streaming engine runs natively
-  warn   22% CPU   8x `str.replace` on one column, one pass each  [repeated_string_scan, Select #17]
-                   calls 8 · columns 1
-                   fix: merge into one `str.replace_many`; chained replacements can depend on order
-  3 more as information: redundant_aggregation x3 (--all lists them)
-
-1 queries: 2 warnings, 3 information, 0 applied
-```
-
-It reads the session files the [JSONL exporter](exporters/jsonl.md) and
-`profile()` write, from any version.
+Findings on what slows a query down: an operation that left the streaming
+engine, a join that multiplies rows, the same string function run many times
+on one column. Each finding has a one-line title, its evidence as measured
+values, and a fix.
 
 !!! note "Experimental"
     Rules, their ids, titles, fixes and evidence may change in a minor
     release while they are tuned on real workloads.
 
-## Options
+## From the command line
+
+`polars-telemetry insights` reads the session files the
+[JSONL exporter](exporters/jsonl.md) and `profile()` write, from any version:
+
+```console
+$ polars-telemetry insights nightly.jsonl
+nightly.jsonl · etl/orders  (54 ms wall, 411 ms CPU, 6 nodes)
+  warn   88% CPU   8x `str.replace` on one column, one pass each  [repeated_string_scan, Select #4294967298]
+                   calls 8 · columns 1 · replace_many_calls 1
+                   fix: if these are literal `replace_all`: merge into one `str.replace_many`
+  warn   15% wall  Deduplication removes no rows  [redundant_aggregation, GroupBy #4294967300]
+                   rows_in 500K · rows_removed 0
+                   fix: drop the `unique`/`group_by` if keys are unique by construction, or dedup at the source
+
+1 query: 2 warnings, 0 information
+```
 
 | Option | Effect |
 | --- | --- |
 | `--all` | List information-level findings too; by default they are counted per rule |
-| `--format json` | One record per query, with every finding |
+| `--format json` | A JSON array, one object per query: `file`, `query_id`, `label`, `wall_ms`, `insights` |
 | `--fail-on warn` / `--fail-on info` | Exit with 1 when a finding reaches that level, for CI |
-| `--write OUT` | Write the profiles again with an `insights` field the [viewer](profile-viewer.md#findings) shows |
+| `--write OUT` | Write the profiles again with an [`insights` field](exporters/jsonl.md#what-you-get) the [viewer](profile-viewer.md#findings) shows |
+
+## In your application
+
+With `Config(insights=True)`, the default, the same rules run on every query
+as it finishes, and the findings go to every exporter:
+
+| Where | What |
+| --- | --- |
+| OpenTelemetry | a `polars.insight` event per finding and `polars.insights.warnings` on the span; see [Spans and metrics](reference/spans-and-metrics.md#insights) |
+| Metrics, also DogStatsD | `polars.query.insights`, counted by rule and level; see [Metrics](reference/spans-and-metrics.md#metrics) |
+| Console | each warning, with its evidence and fix |
+| JSONL | the `insights` field of each profile |
+| Viewer | a badge on each flagged node, and the findings in its details; see [Findings](profile-viewer.md#findings) |
 
 ## How findings are ranked
 
@@ -42,16 +55,14 @@ findings as the production run it stands in for.
 
 How much a finding matters is its **impact**, the larger of two shares:
 
-- **CPU**: the share of the query's CPU time spent on the nodes it concerns.
+- **CPU**: the share of the CPU time charged to plan nodes that the finding's
+  nodes account for.
 - **Wall**: the share of wall time the pipeline waited on one step of the
   node, for a call that blocks everything behind it.
 
 At 1% or more a finding is a **warning**, below that **information**. Nothing
-is dropped for being small. polars 1.44 does not charge all of a query's time
-to its nodes, so read shares as relative within a query.
-
-Each finding is a one-line title, its evidence as measured values, and a fix.
-Whether a pattern is deliberate is for you to judge.
+is dropped for being small. Whether a pattern is deliberate is for you to
+judge.
 
 ## Rules
 
@@ -78,9 +89,10 @@ is a broadcast and not reported.
 
 ### `repeated_string_scan`
 
-The same `str.*` function called on one column four or more times within a
-node, each call another pass over the data. `str.contains_any` or one regular
-expression can do the work of many `contains` in one pass.
+`str.contains`, or `str.replace` / `str.replace_all`, called on one column four
+or more times within a node, each call another pass over the data.
+`str.contains_any` or one regular expression can do the work of many `contains`
+in one pass.
 
 A chain of replacements merges into `str.replace_many` only where that gives
 the same result. `replace_many` scans once: a replacement never feeds a later
@@ -117,22 +129,22 @@ expression, and a value in another format fails instead of guessing.
 The same nodes, with the same inputs, run more than once. Work below a node
 that feeds several consumers is done once and not counted. Impact is the CPU of
 every copy but one. polars shares identical subplans itself unless something
-in them is not deterministic; on polars 1.41 to 2.0.0rc2 that includes every
-plugin call, which `plugin_calls` counts. Whether a copy is deliberate is for
-you to judge.
+in them is not deterministic; before polars 2.0 that includes every plugin
+call, which `plugin_calls` counts (see [`repeated_plugin_call`](#repeated_plugin_call)).
+Whether a copy is deliberate is for you to judge.
 
 ### `repeated_plugin_call`
 
 The same plugin call, on the same input with the same arguments, more than once
-in one node. polars 1.41 to 2.0.0rc2 never shares plugin calls between
-expressions ([polars#29165](https://github.com/pola-rs/polars/issues/29165)), so
-the fix there is to compute the call once and reference the column. From polars
+in one node. Before polars 2.0, pre-releases included, polars never shares
+plugin calls between expressions
+([polars#29165](https://github.com/pola-rs/polars/issues/29165)), so the fix
+there is to compute the call once and reference the column. From polars
 2.0 a plugin is shared unless it is registered with `is_deterministic=False`
 ([polars#29428](https://github.com/pola-rs/polars/pull/29428)); the finding
 then suggests registering it as deterministic, if it is.
 
-## Privacy
+## Your data in findings
 
-Findings carry numbers, polars' node kinds and API names, never a column
-name, an alias or a literal from the plan. Insights read the plan the profile already
-holds; nothing else is collected.
+Numbers, polars' node kinds and API names only; see
+[Data and privacy](privacy.md#what-can-carry-your-data).
