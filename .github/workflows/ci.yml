@@ -45,12 +45,10 @@ jobs:
       matrix:
         # Corners plus the primary cell. The hook first appears in 1.44.
         python: ["3.10", "3.14"]
-        polars: ["1.44.1", "1.44.2"]
+        polars: ["1.44.1", "1.44.2", "2.0.0"]
         include:
           - python: "3.12"
-            polars: "1.44.2"
-          # The coming major version, newest pre-release, so a breaking
-          # release candidate shows up here before users meet it.
+            polars: "2.0.0"
           - python: "3.12"
             polars: "2 pre-release"
     steps:
@@ -63,15 +61,14 @@ jobs:
       - run: uv sync --locked
       - name: Install the polars under test
         run: |
+          fresh="--exclude-newer-package polars=2099-01-01
+            --exclude-newer-package polars-runtime-32=2099-01-01
+            --exclude-newer-package polars-runtime-64=2099-01-01
+            --exclude-newer-package polars-runtime-compat=2099-01-01"
           if [ "${{ matrix.polars }}" = "2 pre-release" ]; then
-            uv pip install --prerelease=allow \
-              --exclude-newer-package polars=2099-01-01 \
-              --exclude-newer-package polars-runtime-32=2099-01-01 \
-              --exclude-newer-package polars-runtime-64=2099-01-01 \
-              --exclude-newer-package polars-runtime-compat=2099-01-01 \
-              "polars>=2.0.0rc1,<3"
+            uv pip install --prerelease=allow $fresh "polars>=2.0.0rc1,<3"
           else
-            uv pip install "polars==${{ matrix.polars }}"
+            uv pip install $fresh "polars==${{ matrix.polars }}"
           fi
           installed=$(uv run --no-sync python -c "import importlib.metadata as m; print(m.version('polars'))")
           echo "testing against polars $installed"

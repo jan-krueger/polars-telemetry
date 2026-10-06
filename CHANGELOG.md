@@ -4,6 +4,20 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- polars 2 is supported and tested, 2.0.0 included.
+- Custom node metrics from polars 2: figures a node reports about itself, such
+  as a group-by's actual and estimated group count, read into each node's
+  metrics as `custom` with a unit, written to profiles and the plan JSON, and
+  shown in the viewer's node details. Profiles from polars 1.44 have none.
+
+### Changed
+- `repeated_plugin_call`: on polars 2.0 and later, where plugins are shared
+  unless registered with `is_deterministic=False`, the fix says to register
+  the plugin as deterministic if it is. Earlier versions keep "compute it once".
+
 ## [0.7.0] - 2026-10-05
 
 ### Deprecated
