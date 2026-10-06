@@ -60,8 +60,8 @@ they go back in.
 
 With a no-op exporter, the instrumentation stays below measurement noise on a
 3M-row join and aggregation, interleaved against an uninstrumented run on the
-same engine. The nightly canary runs this bench
-(`tests/bench/test_overhead.py`) and opens an issue when it is over budget.
+same engine. A nightly workflow runs this bench
+(`tests/bench/test_overhead.py`) and fails when it is over budget.
 
 Exporters add their own cost, on the thread that ran the query; each
 [exporter's page](../exporters/index.md) states it.

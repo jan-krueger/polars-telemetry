@@ -1,5 +1,7 @@
 # polars-telemetry
 
+[![PyPI](https://img.shields.io/pypi/v/polars-telemetry)](https://pypi.org/project/polars-telemetry/) [![Python](https://img.shields.io/pypi/pyversions/polars-telemetry)](https://pypi.org/project/polars-telemetry/) [![Tests on Polars 1.44 and 2](https://github.com/jan-krueger/polars-telemetry/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/jan-krueger/polars-telemetry/actions/workflows/ci.yml) [![Nightly against the newest Polars](https://github.com/jan-krueger/polars-telemetry/actions/workflows/canary.yml/badge.svg)](https://github.com/jan-krueger/polars-telemetry/actions/workflows/canary.yml)
+
 See what your Polars queries do: timings and row counts for every node of every
 query, both plans in a browser viewer, and findings on what slows a query down.
 Send the same data to OpenTelemetry or DogStatsD when you want it in your
