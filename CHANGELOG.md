@@ -20,6 +20,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   observer several queries at once, as with `collect_async()` from concurrent
   tasks on reused `LazyFrame`s, and the second overwrote the first: up to 1 in
   7 such queries was lost. Each query is now tracked on its own thread.
+- A process forked after `install()` on Polars 1.44 gets the engine it had
+  before `install()`. On the streaming engine `install()` sets, a child forked
+  while other threads ran queries hung; Polars' streaming engine does not
+  survive such a fork.
 
 ## [0.8.2] - 2026-10-06
 

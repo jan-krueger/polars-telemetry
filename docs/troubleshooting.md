@@ -65,6 +65,15 @@ the engine. `uninstall()` restores the previous affinity, unless you changed it
 meanwhile. Pass `engine=` to `collect()` where a single query must run on a
 specific engine.
 
+## Child processes hang
+
+Polars' streaming engine can hang in a process forked while other threads run
+queries, with or without polars-telemetry; Polars 2 uses it by default. On
+Polars 1.44, `install()` puts queries on it, so a forked child goes back to the
+engine it had before `install()`. Start child processes with
+`multiprocessing.set_start_method("spawn")` or `"forkserver"`, as Polars
+recommends; `fork` is the default on Linux before Python 3.14.
+
 ## The viewer forgets my sessions
 
 The browser keeps no site data, as in a private window or with the page

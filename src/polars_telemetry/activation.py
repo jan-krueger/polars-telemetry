@@ -171,6 +171,34 @@ def _monitoring_off(before: Before | None) -> None:
         pl.Config.set_engine_affinity(before.affinity)  # type: ignore[arg-type]
 
 
+_forks_watched = False
+
+
+def _watch_forks() -> None:
+    global _forks_watched
+    if not _forks_watched and hasattr(os, "register_at_fork"):
+        os.register_at_fork(after_in_child=_after_fork_in_child)
+        _forks_watched = True
+
+
+def _after_fork_in_child() -> None:
+    """Give a forked child the engine it had before install().
+
+    polars' streaming engine hangs in a child forked while other threads run
+    queries; on polars 1.44 the affinity monitoring sets is what put the child
+    on it. Same rule as uninstall(): only while it is still that affinity.
+    """
+    state = _state
+    if state is None or state.before is None or _engine_affinity() != "streaming":
+        return
+    try:
+        import polars as pl
+
+        pl.Config.set_engine_affinity(state.before.affinity)  # type: ignore[arg-type]
+    except Exception:
+        _log.debug("polars-telemetry: could not reset a forked child's engine", exc_info=True)
+
+
 def _restore_env(before: Before, keys: tuple[str, ...]) -> None:
     for key in keys:
         value = before.monitoring[key]
@@ -314,6 +342,7 @@ def _activate(
         receivers=_register(exporters, effective),
         before=before,
     )
+    _watch_forks()
     return _state
 
 
