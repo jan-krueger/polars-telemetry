@@ -67,6 +67,10 @@ uv run nox -s capture -- 1.44.2
 tables of `README.md` and `docs/reference/configuration.md`, and every insight
 rule as a heading in `docs/insights.md`. `tests/unit/test_doc_links.py` requires
 every docs address linked from `README.md`, `viewer/src` and `src` to resolve.
+`tests/unit/test_doc_claims.py` runs the quick-start snippets and compares the
+CLI summary they print, checks the supported polars versions against
+`compat.SUPPORTED` and the CLI options against `docs/insights.md`, and fails on
+counts in prose such as "nine rules".
 
 ## Insight rules
 

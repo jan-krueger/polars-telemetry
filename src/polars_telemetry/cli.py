@@ -23,6 +23,11 @@ _INDENT = " " * 19
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    args = _parser().parse_args(argv)
+    return _insights(args, sys.stdout)
+
+
+def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="polars-telemetry")
     commands = parser.add_subparsers(dest="command", required=True)
     insights = commands.add_parser("insights", help="find what slows the queries in profile files")
@@ -35,8 +40,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     insights.add_argument(
         "--write", type=Path, metavar="OUT", help="also write the profiles with their insights"
     )
-    args = parser.parse_args(argv)
-    return _insights(args, sys.stdout)
+    return parser
 
 
 def _insights(args: argparse.Namespace, out: TextIO) -> int:
