@@ -10,7 +10,7 @@ import os
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from polars_telemetry.model.types import JOIN_ROLES, NodeRole
+from polars_telemetry.model.types import JOIN_ROLES
 
 if TYPE_CHECKING:
     from polars_telemetry.model.types import Query
@@ -26,13 +26,6 @@ class Diagnostics:
     cpu_count: int | None = None
     """Threads in polars' pool: honours CPU affinity, a cgroup CPU quota and
     POLARS_MAX_THREADS."""
-
-    filter_selectivity: float | None = None
-    """Deprecated, removed in 0.8.0: the share of rows one filter kept, and with
-    several filters whichever the plan lists last."""
-
-    filter_rows_dropped: int | None = None
-    """Deprecated, removed in 0.8.0, with `filter_selectivity`."""
 
     join_growth: float | None = None
     """The largest join's rows out over its larger input. Above 2 needs
@@ -76,7 +69,7 @@ def derive(query: Query, threads: int | None = None) -> Diagnostics:
         else None
     )
 
-    selectivity = dropped = growth = projection = skew = None
+    growth = projection = skew = None
     columns_read = 0
     pushed = skipped = stats = None
     incomplete = 0
@@ -92,10 +85,6 @@ def derive(query: Query, threads: int | None = None) -> Diagnostics:
             continue
         if not metric.done:
             incomplete += 1
-
-        if node.role is NodeRole.SELECTION and metric.rows_received:
-            selectivity = metric.rows_sent / metric.rows_received
-            dropped = metric.rows_received - metric.rows_sent
 
         if node.role in JOIN_ROLES and node.inputs:
             larger = max(
@@ -145,8 +134,6 @@ def derive(query: Query, threads: int | None = None) -> Diagnostics:
     return Diagnostics(
         parallel_efficiency=parallel,
         cpu_count=cores,
-        filter_selectivity=selectivity,
-        filter_rows_dropped=dropped,
         join_growth=growth,
         projection_efficiency=projection,
         morsel_skew=skew,

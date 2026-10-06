@@ -22,7 +22,7 @@ export const GLOSSARY = {
   done: ["Completed", "Whether the node had finished when the closing snapshot was taken. If not, its counters are a floor rather than a total."],
   parallel_efficiency: ["Parallel efficiency", "CPU time ÷ wall time ÷ cores. 1.0 would mean every core busy for the whole query. Low values mean the work is concentrated in one operator or blocked on IO."],
   join_growth: ["Join growth", "This join's rows out ÷ its larger input. Up to 2 is any ordinary join; above means keys repeat on both sides, so every match multiplies, which is the classic cause of a query exploding in memory."],
-  filter_selectivity: ["Rows kept", "Share of the rows this filter received that it passed on. Low is good, provided the filter runs early, ideally pushed into the scan."],
+  rows_kept: ["Rows kept", "Share of the rows this filter received that it passed on. Low is good, provided the filter runs early, ideally pushed into the scan."],
   morsel_skew: ["Morsel skew", "This node's largest morsel ÷ its average morsel. Above 1 means batches are uneven, so some workers get far more rows than others."],
   predicate_pushed: ["Predicate pushdown", "Whether a filter is applied inside the scan rather than after it. Pushed down, rows are never read at all."],
   has_table_statistics: ["Table statistics", "Whether the source carried statistics the engine could use to skip data before reading it."],
