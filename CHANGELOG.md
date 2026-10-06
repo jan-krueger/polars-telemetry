@@ -4,6 +4,16 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- `polars-telemetry insights` shows query times in ms, s or min, counts
+  findings with correct plurals ("1 query: 1 warning, 0 information") and
+  leaves out "applied" when there is none.
+- The console exporter names an unlabelled query by the last characters of its
+  id, which differ between queries, instead of the first, which are a
+  timestamp.
+
 ## [0.8.0] - 2026-10-06
 
 ### Added
@@ -608,6 +618,7 @@ All three are removed in 0.4.0.
   and collapsed most nodes onto identical windows. The same counters read once
   at query end are exact and cost nothing measurable.
 
+[Unreleased]: https://github.com/jan-krueger/polars-telemetry/compare/v0.8.0...HEAD
 [0.8.0]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.8.0
 [0.7.0]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.7.0
 [0.6.1]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.6.1
