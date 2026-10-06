@@ -54,7 +54,7 @@ def test_text_lists_warnings_and_counts_the_rest(q20: Path):
     assert code == 0
     assert "Deduplication removes no rows  [redundant_aggregation, GroupBy #" in text
     assert "line 4 skipped" in text
-    assert text.rstrip().endswith("3 queries: 1 warnings, 2 information, 0 applied")
+    assert text.rstrip().endswith("3 queries: 1 warning, 2 information")
 
 
 def test_json_carries_every_finding_with_its_schema(q20: Path):

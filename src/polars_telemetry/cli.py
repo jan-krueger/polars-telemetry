@@ -105,10 +105,17 @@ def _text(
         out.write("\n")
     for path, entry in skipped:
         out.write(f"{path.name}: line {entry.line} skipped: {entry.reason}\n")
-    out.write(
-        f"{len(results)} queries: {levels['warn']} warnings, {levels['info']} information, "
-        f"{levels['applied']} applied\n"
-    )
+    out.write(f"{_summary(len(results), levels)}\n")
+
+
+def _summary(queries: int, levels: Counter[str]) -> str:
+    def counted(n: int, word: str, plural: str) -> str:
+        return f"{n} {word if n == 1 else plural}"
+
+    parts = [counted(levels["warn"], "warning", "warnings"), f"{levels['info']} information"]
+    if levels["applied"]:
+        parts.append(f"{levels['applied']} applied")
+    return f"{counted(queries, 'query', 'queries')}: {', '.join(parts)}"
 
 
 def _level(finding: Finding) -> str:
