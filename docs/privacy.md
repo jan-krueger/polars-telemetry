@@ -54,9 +54,11 @@ col("placed") >= 2024-01-01             ->   col("placed") >= <date>
 ```
 
 Masking works on Polars' text form of expressions: a precaution, not a
-compliance guarantee. `include_plan`, off by default, keeps the whole plan off
-spans. A masked profile says so in its `redacted`
-field, and the viewer shows it next to the query.
+compliance guarantee. Polars writes text values without escaping them, so a
+value containing `"` can make an expression ambiguous; then everything from
+its first text value on is masked. `include_plan`, off by default, keeps the
+whole plan off spans. A masked profile says so in its `redacted` field, and
+the viewer shows it next to the query.
 
 ### URL query strings
 
