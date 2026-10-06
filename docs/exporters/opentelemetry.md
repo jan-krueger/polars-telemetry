@@ -46,7 +46,10 @@ To combine it with another exporter, pass it explicitly:
 ## What you get
 
 A span named `polars.collect`, a child of whatever span was active when the
-query ran. For a filtered parquet scan, deduplicated and grouped:
+query ran. Not for `collect_async()` and `collect_batches()`: Polars runs those
+on its own threads, outside your trace, so their spans have no parent;
+`await asyncio.to_thread(lf.collect)` keeps it. For a filtered parquet scan,
+deduplicated and grouped:
 
 ```text
 polars.collect

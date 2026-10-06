@@ -145,6 +145,43 @@ def test_no_child_spans_are_emitted(spans):
     assert children == []
 
 
+def test_a_query_span_is_a_child_of_the_active_span_unless_polars_runs_it(spans):
+    """collect() ends on the caller's thread, inside its trace; collect_async()
+    on polars' own, outside it, as the docs say."""
+    import asyncio
+
+    tracer = trace.get_tracer("test")
+    config = Config()
+    polars_telemetry.install(config, exporter=OTelExporter(config))
+
+    async def awaited() -> None:
+        await _query(polars).collect_async()
+
+    def collect() -> None:
+        _query(polars).collect()
+
+    def collect_async() -> None:
+        asyncio.run(awaited())
+
+    def to_thread() -> None:
+        asyncio.run(asyncio.to_thread(_query(polars).collect))
+
+    parents = {}
+    try:
+        for run in (collect, collect_async, to_thread):
+            spans.clear()
+            with tracer.start_as_current_span("request") as request:
+                run()
+            query_span = [s for s in spans.get_finished_spans() if s.name == "polars.collect"][-1]
+            parents[run.__name__] = (
+                query_span.parent is not None
+                and query_span.parent.span_id == request.get_span_context().span_id
+            )
+    finally:
+        polars_telemetry.uninstall()
+    assert parents == {"collect": True, "collect_async": False, "to_thread": True}
+
+
 def test_node_metrics_can_be_disabled(spans):
     spans.clear()
     config = Config(node_metrics=False)

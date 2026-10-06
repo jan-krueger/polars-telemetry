@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -303,3 +304,52 @@ def test_an_older_block_leaves_a_newer_blocks_installation_alone():
         _filter_on_a_secret()
     assert len(second) == 1
     assert installed() is None
+
+
+def test_concurrent_collect_async_on_shared_lazy_frames_loses_no_query():
+    import asyncio
+
+    found: list[Any] = []
+
+    class Gather:
+        def export(self, query: Any) -> None:
+            found.append(query)
+
+    polars_telemetry.install(exporter=Gather())
+    frames = [polars.LazyFrame({"a": range(100)}).filter(polars.col("a") < i) for i in range(12)]
+
+    async def run(frame) -> None:
+        for _ in range(5):
+            await frame.collect_async()
+
+    async def everything() -> None:
+        await asyncio.gather(*(run(frame) for frame in frames))
+
+    asyncio.run(everything())
+    polars_telemetry.uninstall()
+    assert len({q.query_id for q in found}) == 60
+
+
+@pytest.mark.skipif(not hasattr(os, "fork"), reason="needs os.fork")
+@pytest.mark.filterwarnings("ignore:This process .* is multi-threaded:DeprecationWarning")
+def test_a_forked_child_gets_the_engine_it_had_before_install():
+    from polars_telemetry.activation import _engine_affinity
+
+    state = polars_telemetry.install(exporter=_Discard())
+    assert state is not None
+    assert state.before is not None
+    before = state.before.affinity
+    read, write = os.pipe()
+    pid = os.fork()
+    if pid == 0:
+        os.write(write, repr(_engine_affinity()).encode())
+        os._exit(0)
+    os.waitpid(pid, 0)
+    child = os.read(read, 100).decode()
+    polars_telemetry.uninstall()
+    assert child == repr(before)
+
+
+class _Discard:
+    def export(self, query: Any) -> None:
+        pass

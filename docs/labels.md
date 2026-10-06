@@ -26,7 +26,9 @@ exporter of their own and cost nothing when nothing is installed.
 
 !!! note "Not for `collect_async()` or `collect_batches()`"
     Polars reports those queries from its own threads, where neither the
-    label nor your call site is visible, so they arrive without both.
+    label nor your call site is visible, so they arrive without both. In
+    async code, `await asyncio.to_thread(lf.collect)` keeps the label, as it
+    runs the query in a thread that carries your context.
 
 ## Scope a block of code
 
