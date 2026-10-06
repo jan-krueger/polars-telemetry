@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any, TextIO
 
 from polars_telemetry.adapter.profiles import Skipped, read_profile, read_profiles
 from polars_telemetry.model.insights import Finding, evaluate
-from polars_telemetry.model.insights.finding import SCHEMA, share
+from polars_telemetry.model.insights.finding import SCHEMA, duration, share
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -85,8 +85,8 @@ def _text(
             continue
         name = query.label or str(query.query_id)
         out.write(
-            f"{path.name} · {name}  ({query.wall_ms / 1e3:,.1f} s wall, "
-            f"{query.cpu_ms / 1e3:,.1f} s CPU, {len(query.plan)} nodes)\n"
+            f"{path.name} · {name}  ({duration(query.wall_ms)} wall, "
+            f"{duration(query.cpu_ms)} CPU, {len(query.plan)} nodes)\n"
         )
         for finding in shown:
             out.write(
