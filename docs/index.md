@@ -12,8 +12,8 @@ pip install polars-telemetry
 ![Both plans of a TPC-H query, its figures, and a finding on the selected node](assets/viewer.png)
 
 !!! warning "Unaffiliated with Polars and Polars Cloud"
-    It uses an interface polars exposes for Polars Cloud, which can change in
-    any polars release. See [Compatibility](internals/compatibility.md).
+    It uses an interface Polars exposes for Polars Cloud, which can change in
+    any Polars release. See [Compatibility](internals/compatibility.md).
 
 !!! note
     This site tracks `main` and can describe unreleased work. The

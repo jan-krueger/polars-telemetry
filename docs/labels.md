@@ -25,13 +25,13 @@ Labels are per thread, so concurrent work does not mix them up. They need no
 exporter of their own and cost nothing when nothing is installed.
 
 !!! note "Not for `collect_async()` or `collect_batches()`"
-    polars reports those queries from its own threads, where neither the
+    Polars reports those queries from its own threads, where neither the
     label nor your call site is visible, so they arrive without both.
 
 ## Scope a block of code
 
 `profile()` collects the queries a block of code runs, without an exporter for
-the whole process, on any polars version; polars 2 removed
+the whole process, on any Polars version; Polars 2 removed
 `LazyFrame.profile()`.
 
 ```python

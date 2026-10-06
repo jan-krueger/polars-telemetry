@@ -6,7 +6,7 @@
 pip install polars-telemetry
 ```
 
-Python 3.10+; supported polars versions: [Compatibility](internals/compatibility.md).
+Python 3.10+; supported Polars versions: [Compatibility](internals/compatibility.md).
 
 ## 1. Profile a block of code
 
@@ -71,7 +71,7 @@ polars query 1a8cfdfd ok wall=1.92ms planning=0.47ms cpu=1.57ms parallelism=0.82
   SimpleProjection        23us  in=           2  out=           2
 ```
 
-`install()` returns what was installed, or `None` when this polars cannot be
+`install()` returns what was installed, or `None` when this Polars cannot be
 instrumented:
 
 ```python
@@ -82,7 +82,7 @@ else:
     print(state.capabilities.polars_version, state.capabilities.node_metrics_usable)
 ```
 
-On polars 1.44, `install()` switches lazy queries to the streaming engine:
+On Polars 1.44, `install()` switches lazy queries to the streaming engine:
 [Queries run differently after install()](troubleshooting.md#queries-run-differently-after-install).
 
 ## Where next

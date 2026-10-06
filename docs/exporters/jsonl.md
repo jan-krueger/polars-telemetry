@@ -48,15 +48,15 @@ mid-write still reads up to the last complete line.
 | Field | What it is |
 | --- | --- |
 | `schema` | The format and its version; readers check it |
-| `polars_version`, `polars_telemetry_version` | What produced it; polars' counters change independently of the format |
+| `polars_version`, `polars_telemetry_version` | What produced it; Polars' counters change independently of the format |
 | `label` | From [`label()`](../labels.md), else `null` |
 | `fingerprint` | The plan's shape, without literals: equal for runs of the same query |
-| `wall_ms`, `planning_ms`, `telemetry_ms`, `cpu_ms` | Wall time; of it, polars' planning and this package's own work before execution; node CPU |
+| `wall_ms`, `planning_ms`, `telemetry_ms`, `cpu_ms` | Wall time; of it, Polars' planning and this package's own work before execution; node CPU |
 | `call_site` | The file, line and function that ran the query, else `null` |
 | `trace_id`, `span_id` | The trace and span that were active when the query ran (with the OpenTelemetry exporter, the parent of `polars.collect`), else absent |
 | `redacted` | What was masked before writing, such as `["strings", "numbers"]`, else `null` |
 | `diagnostics` | Derived figures, as on the [span](../reference/spans-and-metrics.md#diagnostics) |
-| `plan.physical` | Physical nodes with `kind`, `role`, `inputs`, `properties` and `metrics`: every polars counter, `done`, and on polars 2 [custom node metrics](../reference/spans-and-metrics.md#custom-node-metrics) |
+| `plan.physical` | Physical nodes with `kind`, `role`, `inputs`, `properties` and `metrics`: every Polars counter, `done`, and on Polars 2 [custom node metrics](../reference/spans-and-metrics.md#custom-node-metrics) |
 | `plan.logical` | The logical plan's nodes, with your own column names |
 | `insights` | The [findings](../insights.md), when `Config(insights=True)`, the default |
 

@@ -68,10 +68,10 @@ judge.
 
 ### `in_memory_fallback`
 
-A node the streaming engine cannot run: polars hands its whole input to the
-in-memory engine in one call, and the pipeline waits for it. polars marks the
+A node the streaming engine cannot run: Polars hands its whole input to the
+in-memory engine in one call, and the pipeline waits for it. Polars marks the
 same nodes in its own plan graph. Common causes: median, quantile or mode in a
-group-by, and before polars 2.0 `rank().over()`. With
+group-by, and before Polars 2.0 `rank().over()`. With
 `Config(describe_fallbacks=True)`, the default, the node's **Runs** property in
 the viewer shows the expression.
 
@@ -101,7 +101,7 @@ where that gives the same result:
 - no two patterns overlap (`straße` and `ß`), since only one can match.
 
 The finding splits the chain, in order, into the fewest groups free of both,
-and its fix names how many `replace_many` calls that takes. polars does not
+and its fix names how many `replace_many` calls that takes. Polars does not
 record `literal=True` or `replace` against `replace_all` in the plan, so the fix
 holds for literal `replace_all` calls; patterns that only escape punctuation
 (`\.`) count as literal.
@@ -110,19 +110,19 @@ holds for literal `replace_all` calls; patterns that only escape punctuation
 
 A deduplication, a `unique()` or a group-by that only keeps values with
 `first()` or `last()`, that removes at most one row in ten thousand. Only
-deduplication the query asks for is reported; polars' internal deduplication,
+deduplication the query asks for is reported; Polars' internal deduplication,
 such as for `n_unique()`, is not the query's to change.
 
 ### `python_udf`
 
 A Python function in the plan: `map_elements`, `map_batches` or
-`LazyFrame.map_batches`. polars cannot look inside it, so nothing is pushed
+`LazyFrame.map_batches`. Polars cannot look inside it, so nothing is pushed
 through it; it runs under the GIL. A frame-level function also takes the
 whole input in one call, which `longest_step` shows.
 
 ### `datetime_format_inferred`
 
-`str.to_datetime()` or `str.strptime()` without a format. polars infers one from
+`str.to_datetime()` or `str.strptime()` without a format. Polars infers one from
 the data in a separate node; with `format=` the parse stays inside the
 expression, and a value in another format fails instead of guessing.
 
@@ -130,8 +130,8 @@ expression, and a value in another format fails instead of guessing.
 
 The same nodes, with the same inputs, run more than once. Work below a node
 that feeds several consumers is done once and not counted. Impact is the CPU of
-every copy but one. polars shares identical subplans itself unless something
-in them is not deterministic; before polars 2.0 that includes every plugin
+every copy but one. Polars shares identical subplans itself unless something
+in them is not deterministic; before Polars 2.0 that includes every plugin
 call, which `plugin_calls` counts (see [`repeated_plugin_call`](#repeated_plugin_call)).
 
 ### `repeated_plugin_call`
@@ -139,12 +139,12 @@ call, which `plugin_calls` counts (see [`repeated_plugin_call`](#repeated_plugin
 The same plugin call, on the same input with the same arguments, more than once
 in one node.
 
-| polars | Plugin calls shared between expressions | Fix |
+| Polars | Plugin calls shared between expressions | Fix |
 | --- | --- | --- |
 | before 2.0, pre-releases included | never ([polars#29165](https://github.com/pola-rs/polars/issues/29165)) | compute the call once and reference the column |
 | 2.0 and later | unless registered with `is_deterministic=False` ([polars#29428](https://github.com/pola-rs/polars/pull/29428)) | register it as deterministic, if it is |
 
 ## Your data in findings
 
-Numbers, polars' node kinds and API names only; see
+Numbers, Polars' node kinds and API names only; see
 [Data and privacy](privacy.md#what-can-carry-your-data).

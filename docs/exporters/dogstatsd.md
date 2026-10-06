@@ -80,7 +80,7 @@ polars.node.rows_out:2696064|c|#node_kind:GroupBy,engine:streaming
 | --- | --- | --- |
 | `engine` | every metric except `polars.query.insights` | `streaming`, `in-memory`, `unknown` |
 | `fingerprint` | query metrics | one per query shape |
-| `node_kind` | node metrics | polars' node kinds, such as `GroupBy` |
+| `node_kind` | node metrics | Polars' node kinds, such as `GroupBy` |
 | `direction` | `io_bytes`, `largest_morsel` | `requested`, `received`, `sent` |
 | `rule`, `level` | `polars.query.insights` | an [insight rule](../insights.md) id; `warn` or `info` |
 | `label` | every metric, if `tag_labels=True` | your [labels](../labels.md) |
@@ -112,7 +112,7 @@ None: metrics never carry literals, paths or call sites. Labels are only sent
 with `tag_labels=True`.
 
 Datadog bills each distinct metric and tag combination as a custom metric.
-Node metrics are bounded by polars' node kinds. Query metrics grow with the
+Node metrics are bounded by Polars' node kinds. Query metrics grow with the
 number of query shapes, through `fingerprint`; if that is large, drop it with
 `tag_names={"fingerprint": None}`. Turn on `tag_labels` only for labels from a
 small, fixed set.

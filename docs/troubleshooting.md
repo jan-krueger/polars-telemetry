@@ -6,7 +6,7 @@
   default providers discard everything. Install the SDK and set a tracer
   provider before `install()`; see
   [OpenTelemetry](exporters/opentelemetry.md#set-up).
-- **`install()` returned `None`.** This polars cannot be instrumented; the
+- **`install()` returned `None`.** This Polars cannot be instrumented; the
   warning logged says why. See [Compatibility](internals/compatibility.md).
 - **A different exporter was passed.** `install(exporter=...)` replaces the
   default. Include `OTelExporter(config)` in the list.
@@ -18,12 +18,12 @@
   physical plan and no counters; `polars.engine` says `in-memory`. Leave
   `engine` unset, or pass `"streaming"`.
 - **`Config(node_metrics=False)`.** Counters are not read.
-- **The polars version changed the counter format.** The probe at `install()`
+- **The Polars version changed the counter format.** The probe at `install()`
   then keeps query spans only and logs a warning.
 
 ## Counters look too low
 
-`polars.metrics.complete` is false: polars closed the query before every node
+`polars.metrics.complete` is false: Polars closed the query before every node
 had reported, so the counters are lower bounds. This happens most on queries
 that fail.
 
@@ -33,7 +33,7 @@ that fail.
 polars-telemetry: polars sent a plan node of kind 'X', which this version does not recognise
 ```
 
-A newer polars added or renamed an operator. Queries are unaffected and the
+A newer Polars added or renamed an operator. Queries are unaffected and the
 node still appears in spans and profiles; only attributes that depend on its
 kind are missing. Updating polars-telemetry usually fixes it.
 
@@ -54,13 +54,13 @@ and logged that it ignores the new arguments. Call `uninstall()` first.
 
 ## A login prompt appears when I call `install()`
 
-`polars-cloud` is installed, and polars calls its `authenticate()` when
+`polars-cloud` is installed, and Polars calls its `authenticate()` when
 monitoring is enabled. See [Polars Cloud](polars-cloud.md).
 
 ## Queries run differently after `install()`
 
-`install()` sets the engine affinity to `"streaming"`, which polars' monitoring
-requires. polars 2 runs lazy queries there already; on polars 1.44 it changes
+`install()` sets the engine affinity to `"streaming"`, which Polars' monitoring
+requires. Polars 2 runs lazy queries there already; on Polars 1.44 it changes
 the engine. `uninstall()` restores the previous affinity, unless you changed it
 meanwhile. Pass `engine=` to `collect()` where a single query must run on a
 specific engine.

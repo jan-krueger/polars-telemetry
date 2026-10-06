@@ -5,7 +5,7 @@ sends them.
 
 ## Use it when
 
-- You run polars in a service or pipeline that already reports to
+- You run Polars in a service or pipeline that already reports to
   OpenTelemetry, and want queries in the same traces.
 - You want dashboards and alerts on query time across many runs.
 
@@ -75,8 +75,8 @@ polars.collect
 ```
 
 Each [finding](../insights.md) is a `polars.insight` event on the span. A
-failed query sets status `ERROR` with polars' message. No child spans per node:
-polars reports no per-node timestamps.
+failed query sets status `ERROR` with Polars' message. No child spans per node:
+Polars reports no per-node timestamps.
 
 Metrics: query timings by plan fingerprint and engine, node counters by node
 kind, and finding counts by rule. Every name, unit and dimension:

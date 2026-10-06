@@ -7,9 +7,9 @@ observability stack.
 
 [![Both plans of a TPC-H query, its figures, and a finding on the selected node in the profile viewer](https://raw.githubusercontent.com/jan-krueger/polars-telemetry/main/docs/assets/viewer.png)](https://jan-krueger.github.io/polars-telemetry/viewer/)
 
-Python 3.10+, polars 1.44.1 – 1.44.x and 2.x. Not affiliated with Polars: it
-uses an interface polars exposes for Polars Cloud, which can change in any
-polars release.
+Python 3.10+, Polars 1.44.1 – 1.44.x and 2.x. Not affiliated with Polars: it
+uses an interface Polars exposes for Polars Cloud, which can change in any
+Polars release.
 
 ## Install
 
@@ -113,7 +113,7 @@ pt.install(pt.Config(node_metrics=False))
 | `node_metrics` | `True` | Read per-node counters once at query end |
 | `include_plan` | `False` | Attach the full plan to the span as JSON |
 | `call_site` | `True` | Record the file, line and function that ran the query |
-| `describe_fallbacks` | `True` | Have polars describe what an in-memory fallback node runs |
+| `describe_fallbacks` | `True` | Have Polars describe what an in-memory fallback node runs |
 | `insights` | `True` | Find what slows each query down, as it runs |
 | `redaction` | `None` | What to mask before exporters see a query; `Redaction()` masks literal values |
 

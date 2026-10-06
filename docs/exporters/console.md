@@ -35,7 +35,7 @@ polars query orders_by_region ok wall=10.2ms planning=0.86ms cpu=35.8ms parallel
 ```
 
 The header names the query by its [label](../labels.md), or by the end of its
-id. A failed query shows `FAILED` and polars' message instead of `ok`.
+id. A failed query shows `FAILED` and Polars' message instead of `ok`.
 
 ## Options
 
@@ -46,7 +46,7 @@ id. A failed query shows `FAILED` and polars' message instead of `ok`.
 ## Your data
 
 The label, node kinds, row counts, the call site's file name, and on failure
-polars' message, which can quote values. See [Data and privacy](../privacy.md).
+Polars' message, which can quote values. See [Data and privacy](../privacy.md).
 
 ## Cost
 

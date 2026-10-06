@@ -55,8 +55,8 @@ uv run nox -s capture -- 1.44.2
 
 | Marker | Covers |
 | --- | --- |
-| `contract` | the shape of the polars observer interface, golden and live |
-| `live` | real polars queries against the installed version |
+| `contract` | the shape of the Polars observer interface, golden and live |
+| `live` | real Polars queries against the installed version |
 | `e2e` | instrumentation installed, real queries, real exporters |
 | `integration` | requires a running OTel collector |
 | `bench` | overhead, gated on a budget |
@@ -65,15 +65,15 @@ uv run nox -s capture -- 1.44.2
 | --- | --- |
 | `tests/unit/test_docs.py` | every semconv name and unit in `docs/reference/spans-and-metrics.md`; every `Config` option in the option tables of `README.md` and `docs/reference/configuration.md`; every insight rule as a heading in `docs/insights.md` |
 | `tests/unit/test_doc_links.py` | every docs address linked from `README.md`, `viewer/src` and `src` to resolve |
-| `tests/unit/test_doc_claims.py` | the quick-start snippets to run and print the expected CLI summary; the supported polars versions to match `compat.SUPPORTED`; the CLI options to match `docs/insights.md`; no counts in prose, as matched by `COUNTED` |
+| `tests/unit/test_doc_claims.py` | the quick-start snippets to run and print the expected CLI summary; the supported Polars versions to match `compat.SUPPORTED`; the CLI options to match `docs/insights.md`; no counts in prose, as matched by `COUNTED` |
 
 ## Insight rules
 
 Rules live in `src/polars_telemetry/model/insights/rules/`, one module each,
 listed in `rules/__init__.py`. They read `NodeTraits` and the `PlanView`,
-never polars' kind names or expression text: that knowledge belongs in
+never Polars' kind names or expression text: that knowledge belongs in
 `adapter/dialect.py` and `adapter/traits.py`, whose live contract test runs on
-every polars version.
+every Polars version.
 
 To add one:
 
@@ -104,7 +104,7 @@ selector is shared between components. CI runs it on Node 22.12, the oldest
 supported.
 
 `uv run nox -s viewer-fixture` regenerates `viewer/tests/fixtures/profile.json`
-from the captured polars payloads, so the viewer's contract test cannot drift
+from the captured Polars payloads, so the viewer's contract test cannot drift
 from what the exporter writes.
 
 It is not versioned or published to an index. It deploys with the docs site
@@ -135,7 +135,7 @@ There is no API token in the repository or its secrets.
    under the new version, bump `__version__` in
    `src/polars_telemetry/_version.py`, re-record `examples/` with the TPC-H
    runner and run `uv run nox -s viewer-fixture`.
-2. Run the suite against every polars version in the CI matrix.
+2. Run the suite against every Polars version in the CI matrix.
 3. Open a PR and merge it.
 4. Tag the merge commit and push the tag:
 

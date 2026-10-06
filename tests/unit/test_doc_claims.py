@@ -63,7 +63,7 @@ def test_supported_polars_versions_match_compat(path):
     assert lower is not None, compat.SUPPORTED
     oldest, ceiling = lower.groups()
     text = path.read_text()
-    assert f"polars {oldest}" in text
+    assert f"Polars {oldest}" in text
     assert f"{int(ceiling) - 1}.x" in text
 
 

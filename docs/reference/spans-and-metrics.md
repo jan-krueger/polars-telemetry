@@ -11,16 +11,16 @@ The span is named `polars.collect`.
 
 | Attribute | Type | Notes |
 | --- | --- | --- |
-| `polars.query_id` | str | UUIDv7 from polars; time-ordered |
+| `polars.query_id` | str | UUIDv7 from Polars; time-ordered |
 | `polars.query.label` | str | Set with `polars_telemetry.label()`; nested labels joined with `/`. Never a metric dimension |
 | `polars.plan.fingerprint` | str | Hash of the plan *shape* — see below |
 | `polars.engine` | str | `streaming`, or `in-memory` for eager operations and an explicit `engine="in-memory"`. Absent when the query failed before planning |
 | `polars.cpu_ms` | float | Summed node self time; exceeds wall time when parallel |
-| `polars.planning_ms` | float | Start to execution: polars optimising and lowering the plan |
+| `polars.planning_ms` | float | Start to execution: Polars optimising and lowering the plan |
 | `polars.telemetry_ms` | float | polars-telemetry's own work before execution |
 | `polars.parallelism` | float | `cpu_ms / wall_ms` |
 | `polars.parallel_efficiency` | float | `cpu_ms / wall_ms / cpu_count`, 0–1 |
-| `polars.cpu_count` | int | Threads polars can use: its pool size, which honours CPU affinity, a container or systemd CPU quota, and `POLARS_MAX_THREADS` |
+| `polars.cpu_count` | int | Threads Polars can use: its pool size, which honours CPU affinity, a container or systemd CPU quota, and `POLARS_MAX_THREADS` |
 | `polars.node_count` | int | Physical plan nodes |
 | `polars.result.rows` | int | Rows reaching the sink, when reported |
 
@@ -31,13 +31,13 @@ that supports them links the query to its source.
 
 | Attribute | Type | Notes |
 | --- | --- | --- |
-| `code.file.path` | str | Absolute path of the innermost frame outside polars |
+| `code.file.path` | str | Absolute path of the innermost frame outside Polars |
 | `code.line.number` | int | Line that ran the query |
 | `code.function.name` | str | Enclosing function |
 
 Absent when the query came from code with no file on disk — `exec`, the REPL,
 or a notebook cell, whose temporary filename changes on every run — and for
-`collect_async()` and `collect_batches()`, which polars reports from its own
+`collect_async()` and `collect_batches()`, which Polars reports from its own
 threads.
 
 Disable with `Config(call_site=False)`. None of the three is a metric
@@ -95,7 +95,7 @@ relevant kind. For what all filters of a shape keep together, divide
 | `polars.sort.columns` | str[] | Sort expressions |
 
 These are read from the **IR plan**, which keeps your own column names. When
-polars sends no readable IR, they come from the physical plan, whose group-by
+Polars sends no readable IR, they come from the physical plan, whose group-by
 keys read `_POLARS_TMP_N`.
 
 ### Data quality
@@ -106,7 +106,7 @@ keys read `_POLARS_TMP_N`.
 | `polars.metrics.incomplete_nodes` | int | How many; only set when non-zero |
 
 When `polars.metrics.complete` is false, every counter below is a **floor**,
-not a total — polars called `close()` before the engine had finished flushing.
+not a total — Polars called `close()` before the engine had finished flushing.
 
 ### The full plan
 
@@ -117,19 +117,19 @@ not a total — polars called `close()` before the engine had finished flushing.
 Off by default; enable with `Config(include_plan=True)`. Kilobytes per span.
 The JSON is `{"physical": [...], "logical": [...]}`: each node has `id`,
 `kind` and `inputs`; physical nodes add `done`, the counters under the names in
-`export.attributes.PLAN_JSON_FIELDS` (times in ms), and from polars 2 `custom`.
+`export.attributes.PLAN_JSON_FIELDS` (times in ms), and from Polars 2 `custom`.
 
 #### Custom node metrics
 
-From polars 2, a node can report figures about itself. They appear per node as
+From Polars 2, a node can report figures about itself. They appear per node as
 `custom`, a list of `key`, `unit` (`1` a count, `By` bytes, `ns` a duration)
-and `value`, in profiles and in `polars.plan`. The keys polars 2.0 sends;
+and `value`, in profiles and in `polars.plan`. The keys Polars 2.0 sends;
 others pass through unchanged:
 
 | Key | Unit | What it counts |
 | --- | --- | --- |
 | `group_by.actual_groups` | 1 | Groups the group-by found |
-| `group_by.estimated_groups` | 1 | Groups polars estimated in advance, to size its tables |
+| `group_by.estimated_groups` | 1 | Groups Polars estimated in advance, to size its tables |
 
 ### Insights
 

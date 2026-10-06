@@ -12,10 +12,10 @@ lists where that content ends up and how to limit it.
 | Column names and keys | `col("customer_id")` | span attributes | — | plans | — |
 | Source paths | `/srv/app/reports.py` | `code.*` attributes | — | `call_site` | file name |
 | Labels | `nightly/revenue_by_region` | span attribute | `label` tag, with `tag_labels=True` | `label` | header |
-| Error messages | polars' message, which can quote values | span status | — | `failed` | header |
+| Error messages | Polars' message, which can quote values | span status | — | `failed` | header |
 | Findings | `Deduplication removes no rows` | span events | — | `insights` | warnings |
 
-Findings hold numbers, polars' node kinds and API names, never a column name or
+Findings hold numbers, Polars' node kinds and API names, never a column name or
 a literal. Metrics carry none of this table, except the DogStatsD `label` tag:
 every metric dimension comes from a bounded set (`semconv.METRIC_DIMENSIONS`).
 The span attributes that can carry query content are listed in
@@ -53,7 +53,7 @@ col("amount") > 60.0                    ->   col("amount") > <num>
 col("placed") >= 2024-01-01             ->   col("placed") >= <date>
 ```
 
-Masking works on polars' text form of expressions: a precaution, not a
+Masking works on Polars' text form of expressions: a precaution, not a
 compliance guarantee. `include_plan`, off by default, keeps the whole plan off
 spans. A masked profile says so in its `redacted`
 field, and the viewer shows it next to the query.
@@ -61,7 +61,7 @@ field, and the viewer shows it next to the query.
 ### URL query strings
 
 A presigned S3 URL, a signed GCS URL or an Azure SAS URL carries its credential
-in the query string, and polars keeps the whole URL in the plan. Every exporter
+in the query string, and Polars keeps the whole URL in the plan. Every exporter
 masks the query string, with or without a redaction:
 `https://bucket.s3.amazonaws.com/data/orders.parquet?<query>`. The bucket and
 path stay. `s3://` paths and credentials passed as `storage_options` are never

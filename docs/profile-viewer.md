@@ -51,7 +51,7 @@ only in the browser where the session was imported.
 Above the plans, a query shows:
 
 - wall time;
-- average busy threads (node CPU ÷ wall time, as a bar against polars' thread
+- average busy threads (node CPU ÷ wall time, as a bar against Polars' thread
   count);
 - rows returned.
 
@@ -67,7 +67,7 @@ scroll to zoom; the minimap shows where you are.
 - **Logical plan**: the plan as written, with your own column names.
 - **Physical plan**: what ran. Nodes are shaded by their share of CPU time,
   edges are labelled with rows, and a dot shows whether each node finished.
-  polars renames grouped columns to `_POLARS_TMP_N` here.
+  Polars renames grouped columns to `_POLARS_TMP_N` here.
 
 Click a node for its properties and every counter in the right sidebar. Each
 counter's `?` explains what it measures. Long expressions are set one method
