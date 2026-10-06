@@ -4,7 +4,7 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.8.0] - 2026-10-06
 
 ### Added
 - polars 2 is supported and tested, 2.0.0 included.
@@ -17,6 +17,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `repeated_plugin_call`: on polars 2.0 and later, where plugins are shared
   unless registered with `is_deterministic=False`, the fix says to register
   the plugin as deterministic if it is. Earlier versions keep "compute it once".
+
+### Removed
+- `polars.filter.selectivity` and `polars.filter.rows_dropped`
+  (`Diagnostics.filter_selectivity`, `Diagnostics.filter_rows_dropped`),
+  deprecated in 0.7.0. For what all filters of a shape keep, divide
+  `polars.node.rows_out` by `polars.node.rows_in` for `polars.node.kind`
+  `Filter`.
 
 ## [0.7.0] - 2026-10-05
 
@@ -601,6 +608,7 @@ All three are removed in 0.4.0.
   and collapsed most nodes onto identical windows. The same counters read once
   at query end are exact and cost nothing measurable.
 
+[0.8.0]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.8.0
 [0.7.0]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.7.0
 [0.6.1]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.6.1
 [0.6.0]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.6.0

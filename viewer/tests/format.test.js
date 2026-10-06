@@ -71,7 +71,7 @@ describe("join growth", () => {
       { id: 4, kind: "Filter", inputs: [3], metrics: { rows_received: 10_000, rows_sent: 2_500, morsels_received: 10, largest_morsel_received: 3_000 } }];
     expect(nodeFacts(plan[2], plan).map((f) => [f.key, f.value])).toEqual([["join_growth", "5.00×"]]);
     expect(nodeFacts(plan[3], plan).map((f) => [f.key, f.value, f.note])).toEqual([
-      ["filter_selectivity", "25.0%", "7,500 dropped"], ["morsel_skew", "3.00×", "largest batch above the mean"]]);
+      ["rows_kept", "25.0%", "7,500 dropped"], ["morsel_skew", "3.00×", "largest batch above the mean"]]);
     expect(nodeFacts(plan[0], plan)).toEqual([]);
   });
 });

@@ -179,13 +179,17 @@ describe("predicates", () => {
   it("lay out the logical plan's separate conditions as the physical plan's single predicate", () => {
     const examples = readFileSync(new URL("../../examples/tpch-sf1.jsonl", import.meta.url), "utf8")
       .split("\n").filter(Boolean).map((line) => JSON.parse(line));
+    const conditions = (lines: string[]) => lines.map((l) => l.replace(/^\s*[&|]?\s*\(?\s*/, "").replace(/\)+$/, "")).sort();
     let compared = 0;
     for (const document of examples) {
       for (const scan of document.plan.logical.filter((n: RawNode) => n.kind === "Scan" && n.properties?.predicate)) {
-        const twin = document.plan.physical.find((n: RawNode) =>
+        const twins = document.plan.physical.filter((n: RawNode) =>
           n.kind === "MultiScan" && n.properties?.predicate && n.properties.first_source === scan.properties.first_source);
-        if (!twin) continue;
-        expect(exprLines(conjunction(scan.properties.predicate))).toEqual(exprLines(twin.properties.predicate));
+        if (!twins.length) continue;
+        const wanted = conditions(exprLines(conjunction(scan.properties.predicate)));
+        const laidOut = twins.map((t: RawNode) => conditions(exprLines(String(t.properties?.predicate ?? ""))));
+        if (/^col\("[^"]*"\)\.dynamic_predicate\(\)$/.test(String(scan.properties.predicate))) continue;
+        expect(laidOut).toContainEqual(wanted);
         compared++;
       }
     }

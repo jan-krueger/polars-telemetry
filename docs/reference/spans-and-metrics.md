@@ -80,8 +80,6 @@ the relevant kind. For what all filters of a shape keep together, divide
 | `polars.join.growth` | float | The largest join's rows out over its larger input, across the plan; above 2 means many-to-many keys |
 | `polars.projection.efficiency` | float | Columns read over columns in the file |
 | `polars.morsel.skew` | float | The largest of any node's largest morsel over its mean; above 1 is uneven |
-| `polars.filter.selectivity` | float | **Deprecated**, removed in 0.8.0: one filter's rows kept, 0–1, and with several filters whichever the plan lists last |
-| `polars.filter.rows_dropped` | int | **Deprecated**, removed in 0.8.0, with `polars.filter.selectivity` |
 | `polars.scan.predicate_pushed` | bool | True if **any** scan filters inside the scan |
 | `polars.scan.row_groups_skipped` | bool | Whether parquet row groups were skipped |
 | `polars.scan.has_statistics` | bool | Whether the optimiser had table statistics |

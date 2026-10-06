@@ -67,7 +67,7 @@ export function joinGrowth(plan) {
 export function nodeFacts(node, plan) {
   const m = node.metrics ?? {}, out = [];
   if (roleOf(node) === "selection" && m.rows_received) {
-    out.push({ key: "filter_selectivity", label: "Rows kept", value: `${num((m.rows_sent / m.rows_received) * 100, 1)}%`,
+    out.push({ key: "rows_kept", label: "Rows kept", value: `${num((m.rows_sent / m.rows_received) * 100, 1)}%`,
                note: `${compact(m.rows_received - m.rows_sent)} dropped` });
   }
   const growth = nodeGrowth(node, plan);
