@@ -1,4 +1,4 @@
-"""OpenTelemetry instrumentation for Polars query execution."""
+"""Profile Polars queries: per-node timings and row counts, and findings on what slows them down."""
 
 from __future__ import annotations
 
