@@ -1,5 +1,5 @@
 site_name: polars-telemetry
-site_description: OpenTelemetry instrumentation for Polars query execution
+site_description: "Profile Polars queries: per-node timings and row counts, a plan viewer, and findings on what slows a query down"
 site_url: https://jan-krueger.github.io/polars-telemetry/
 repo_url: https://github.com/jan-krueger/polars-telemetry
 edit_uri: ""

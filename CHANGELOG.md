@@ -4,6 +4,12 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.2] - 2026-10-06
+
+### Changed
+- The package is marked beta and described on PyPI as a Polars query profiler,
+  with a link to the documentation.
+
 ## [0.8.1] - 2026-10-06
 
 ### Fixed
@@ -618,6 +624,7 @@ All three are removed in 0.4.0.
   and collapsed most nodes onto identical windows. The same counters read once
   at query end are exact and cost nothing measurable.
 
+[0.8.2]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.8.2
 [0.8.1]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.8.1
 [0.8.0]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.8.0
 [0.7.0]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.7.0

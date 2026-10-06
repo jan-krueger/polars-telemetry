@@ -5,21 +5,34 @@ build-backend = "hatchling.build"
 [project]
 name = "polars-telemetry"
 dynamic = ["version"]
-description = "OpenTelemetry instrumentation for Polars query execution"
+description = "Profile Polars queries: per-node timings and row counts, a plan viewer, and findings on what slows a query down"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "Apache-2.0"
 license-files = ["LICENSE", "NOTICE"]
 authors = [{ name = "Jan Krueger", email = "git@krueger-jan.de" }]
-keywords = ["polars", "opentelemetry", "observability", "tracing", "telemetry"]
+keywords = [
+    "polars",
+    "profiler",
+    "profiling",
+    "performance",
+    "query-plan",
+    "dataframe",
+    "opentelemetry",
+    "observability",
+    "tracing",
+    "telemetry",
+]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Debuggers",
+    "Topic :: System :: Benchmark",
     "Topic :: System :: Monitoring",
     "Typing :: Typed",
 ]
@@ -50,6 +63,7 @@ polars-telemetry = "polars_telemetry.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/jan-krueger/polars-telemetry"
+Documentation = "https://jan-krueger.github.io/polars-telemetry/"
 Issues = "https://github.com/jan-krueger/polars-telemetry/issues"
 Changelog = "https://github.com/jan-krueger/polars-telemetry/blob/main/CHANGELOG.md"
 
