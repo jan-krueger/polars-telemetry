@@ -221,6 +221,22 @@ describe("sessions read when opened", () => {
   });
 });
 
+describe("storage that opens after the page", () => {
+  it("adds the stored sessions to an empty page and opens the newest", () => {
+    const state = reducer(loaded(), { type: "stored", sessions: [unread(session("s1")), unread(session("s2"))] });
+    expect(state.sessions.map((s) => s.id)).toEqual(["s2", "s1"]);
+    expect(state.sessionId).toBe("s2");
+  });
+
+  it("keeps what was opened meanwhile, and does not add it twice", () => {
+    let state = reducer(loaded(), { type: "imported", sessions: [session("s5", profile("a", "f1", 5))] });
+    state = reducer(state, { type: "stored", sessions: [unread(session("s1")), unread(session("s5"))] });
+    expect(state.sessions.map((s) => s.id)).toEqual(["s5", "s1"]);
+    expect(state.sessionId).toBe("s5");
+    expect(state.sessions[0]!.profiles).not.toBeNull();
+  });
+});
+
 describe("the sessions page", () => {
   it("closes when a query or a page from history is opened", () => {
     const browsing = reducer(busy(), { type: "browsed", open: true });

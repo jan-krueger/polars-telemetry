@@ -7,6 +7,8 @@ type Row = { id: string; huge?: boolean; [key: string]: unknown };
 let stores: Map<string, Map<string, Row>>;
 let version: number;
 let opened: number;
+let openDelayMs: number;
+let openFails: boolean;
 
 const later = (fn: () => void) => setTimeout(fn);
 
@@ -61,16 +63,20 @@ function fakeIndexedDb() {
     open(_name: string, wanted: number) {
       opened++;
       const request: Record<string, unknown> & {
-        onsuccess?: () => void; onupgradeneeded?: (e: { oldVersion: number }) => void;
+        onsuccess?: () => void; onerror?: () => void; onupgradeneeded?: (e: { oldVersion: number }) => void;
       } = { result: db };
-      later(() => {
+      if (openFails) {
+        later(() => { request.error = new Error("denied"); request.onerror?.(); });
+        return request;
+      }
+      setTimeout(() => {
         if (version < wanted) {
           request.transaction = { objectStore: (name: string) => objectStore(name, () => {}) };
           request.onupgradeneeded?.({ oldVersion: version });
           version = wanted;
         }
         later(() => later(() => later(() => request.onsuccess?.())));
-      });
+      }, openDelayMs);
       return request;
     },
   };
@@ -80,6 +86,8 @@ beforeEach(() => {
   stores = new Map();
   version = 0;
   opened = 0;
+  openDelayMs = 0;
+  openFails = false;
   vi.resetModules();
   vi.stubGlobal("indexedDB", fakeIndexedDb());
 });
@@ -123,4 +131,27 @@ it("moves version 1 sessions' documents out of the list, once", async () => {
   expect(entry!.runIds).toEqual([fixture.query_id]);
   expect(entry).not.toHaveProperty("profiles");
   expect(await storage.loadDocuments("old")).toEqual([fixture]);
+});
+
+it("a slow open is not a failed one: it lists the sessions once storage answers", async () => {
+  stores.set("sessions", new Map([["a", { id: "a", name: "a.jsonl" }]]));
+  stores.set("profiles", new Map());
+  version = 2;
+  openDelayMs = 2_000;
+  const storage = await import("../src/lib/storage.js");
+
+  expect(await storage.listSessions()).toBeNull();
+  expect(storage.storageUnavailable()).toBe(true);
+  expect(await storage.storageOpened()).toBe(true);
+  expect(storage.storageUnavailable()).toBe(false);
+  expect(await storage.listSessions()).toEqual([{ id: "a", name: "a.jsonl" }]);
+  expect(opened).toBe(1);
+});
+
+it("a failed open stays failed", async () => {
+  openFails = true;
+  const storage = await import("../src/lib/storage.js");
+  expect(await storage.listSessions()).toBeNull();
+  expect(await storage.storageOpened()).toBe(false);
+  expect(storage.storageUnavailable()).toBe(true);
 });
