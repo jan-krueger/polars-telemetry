@@ -8,7 +8,7 @@ import ShareDialog from "./components/ShareDialog";
 import { SessionSwitcher, SessionsPage } from "./components/Sessions";
 import { byNode, warned } from "./lib/insights";
 import Tip, { TipText } from "./components/Tip";
-import { dropSession, listSessions, loadDocuments, saveInfo, saveSession, storageUnavailable } from "./lib/storage";
+import { dropSession, listSessions, loadDocuments, saveInfo, saveSession, storageOpened, storageUnavailable } from "./lib/storage";
 import { busy, bytes, compact, num, shapeName, span, tableName } from "./lib/format";
 import { basename } from "./lib/polars";
 import { clock, instant, iso, spansDays } from "./lib/time";
@@ -92,6 +92,14 @@ export default function App() {
       // Stored raw and read on every load, so a newer reader improves old sessions.
       const listed = (await listSessions()) || [];
       dispatch({ type: "loaded", sessions: listed.map((info) => ({ ...info, profiles: null, raw: null })) });
+      if (storageUnavailable()) {
+        storageOpened().then(async (opened) => {
+          if (!opened) return;
+          const late = (await listSessions()) || [];
+          dispatch({ type: "stored", sessions: late.map((info) => ({ ...info, profiles: null, raw: null })) });
+          if (!isShareFragment(location.hash)) dispatch({ type: "navigated", route: fromHash(location.hash) });
+        });
+      }
       if (!isShareFragment(location.hash)) {
         dispatch({ type: "navigated", route: fromHash(location.hash) });
         return;

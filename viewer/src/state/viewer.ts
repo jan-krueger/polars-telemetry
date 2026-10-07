@@ -44,6 +44,7 @@ export interface Sort {
 
 export type Action =
   | { type: "loaded"; sessions: Session[] }
+  | { type: "stored"; sessions: Session[] }
   | { type: "imported"; sessions: Session[] }
   | { type: "read"; sessionId: string; profiles: Profile[]; raw: unknown[]; forgetOthers: boolean }
   | { type: "opened"; sessionId: string; at: number }
@@ -81,6 +82,12 @@ export function reducer(state: ViewerState, action: Action): ViewerState {
     case "loaded": {
       const sessions = recent(action.sessions);
       return { ...state, ...nothingSelected, booted: true, sessions, sessionId: sessions[0]?.id ?? null };
+    }
+    case "stored": {
+      // Storage opened after the page did: add what it holds, keep what is open.
+      const known = new Set(state.sessions.map((s) => s.id));
+      const sessions = recent([...state.sessions, ...action.sessions.filter((s) => !known.has(s.id))]);
+      return { ...state, sessions, sessionId: state.sessionId ?? sessions[0]?.id ?? null };
     }
     case "imported":
       if (!action.sessions.length) return state;
