@@ -260,6 +260,19 @@ describe("storage that opens after the page", () => {
 });
 
 describe("the sessions page", () => {
+  it("closes once the last session is removed, and stays open while some are left", () => {
+    let state = reducer(loaded(session("s1"), session("s2")), { type: "browsed", open: true });
+    state = reducer(state, { type: "removed", sessionIds: ["s1"] });
+    expect(state.browsing).toBe(true);
+    state = reducer(state, { type: "removed", sessionIds: ["s2"] });
+    expect([state.browsing, state.sessions.length, state.sessionId]).toEqual([false, 0, null]);
+  });
+
+  it("closes when everything is cleared", () => {
+    const state = reducer(reducer(loaded(session("s1")), { type: "browsed", open: true }), { type: "cleared" });
+    expect(state.browsing).toBe(false);
+  });
+
   it("closes when a query or a page from history is opened", () => {
     const browsing = reducer(busy(), { type: "browsed", open: true });
     expect(reducer(browsing, { type: "queryPicked", queryId: "b" }).browsing).toBe(false);

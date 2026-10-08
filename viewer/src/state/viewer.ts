@@ -119,8 +119,10 @@ export function reducer(state: ViewerState, action: Action): ViewerState {
     case "removed": {
       const gone = new Set(action.sessionIds);
       const sessions = state.sessions.filter((s) => !gone.has(s.id));
-      if (!state.sessionId || !gone.has(state.sessionId)) return { ...state, sessions };
-      return { ...state, ...nothingSelected, sessions, sessionId: recent(sessions)[0]?.id ?? null };
+      // With nothing left to list, the sessions page gives way to the empty start.
+      const browsing = state.browsing && sessions.length > 0;
+      if (!state.sessionId || !gone.has(state.sessionId)) return { ...state, sessions, browsing };
+      return { ...state, ...nothingSelected, sessions, browsing, sessionId: recent(sessions)[0]?.id ?? null };
     }
     case "renamed":
       return {
@@ -133,7 +135,7 @@ export function reducer(state: ViewerState, action: Action): ViewerState {
         sessions: state.sessions.map((s) => (s.id === action.sessionId ? { ...s, shared: undefined } : s)),
       };
     case "cleared":
-      return { ...state, ...nothingSelected, sessions: [], sessionId: null };
+      return { ...state, ...nothingSelected, sessions: [], sessionId: null, browsing: false };
     case "sessionPicked":
       return { ...state, ...nothingSelected, browsing: false, sessionId: action.sessionId };
     case "queryPicked": {
