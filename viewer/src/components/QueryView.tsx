@@ -5,11 +5,13 @@ import { busy, compact, num, span, tableName } from "../lib/format";
 import { warned } from "../lib/insights";
 import { basename } from "../lib/polars";
 import { clock, instant, iso, spansDays } from "../lib/time";
+import { queryMarkdown } from "../lib/markdown";
 import { MAX_LINK_CHARS, shareFragment } from "../share/link";
 import { documentsFor } from "../share/session";
 import { title, type Action, type ViewerState } from "../state/viewer";
 import PlanPane from "./PlanPane";
-import ShareDialog, { type Sharing } from "./ShareDialog";
+import ShareDialog, { type Copy, type Sharing } from "./ShareDialog";
+import ShareMenu from "./ShareMenu";
 import Tip, { TipText } from "./Tip";
 
 interface Props {
@@ -34,23 +36,31 @@ export default function QueryView({ state, dispatch, session, profile, compare, 
 
   const siblings = profiles.filter((q) => q.fingerprint === profile.fingerprint && q.query_id !== profile.query_id);
 
-  const copyLink = async (fragment: string) => {
-    const url = location.href.split("#")[0] + fragment;
+  const shown = compare ? [profile, compare] : [profile];
+  const unmasked = shown.some((p) => !p.redacted?.length);
+
+  const copy = async (what: Copy, text: string) => {
     try {
-      await navigator.clipboard.writeText(url);
-      setSharing({ copied: true });
-      setTimeout(() => setSharing((s) => (s?.copied ? null : s)), 2000);
+      await navigator.clipboard.writeText(text);
+      setSharing({ copied: what });
+      setTimeout(() => setSharing((s) => (s?.copied === what ? null : s)), 2000);
     } catch {
-      setSharing({ manual: url });
+      setSharing({ manual: { copy: what, text } });
     }
   };
 
   const share = () => {
-    const shown = compare ? [profile, compare] : [profile];
     const fragment = shareFragment(documentsFor(session, shown));
+    const url = location.href.split("#")[0] + fragment;
     if (fragment.length > MAX_LINK_CHARS) setSharing({ tooLong: fragment.length });
-    else if (shown.some((p) => !p.redacted?.length)) setSharing({ confirm: fragment });
-    else copyLink(fragment);
+    else if (unmasked) setSharing({ confirm: { copy: "link", text: url } });
+    else copy("link", url);
+  };
+
+  const markdown = () => {
+    const text = queryMarkdown(profile, compare);
+    if (unmasked) setSharing({ confirm: { copy: "markdown", text } });
+    else copy("markdown", text);
   };
 
   const showWarning = (id: number) => {
@@ -86,14 +96,19 @@ export default function QueryView({ state, dispatch, session, profile, compare, 
                 </option>))}
             </select>
           )}
-          <Tip content={compare ? "Copy a link to this query and the run it is compared with" : "Copy a link to this query"}>
-          <button className="btn share" onClick={share}>{sharing?.copied ? "Copied" : "Copy link"}</button>
-          </Tip>
+          <ShareMenu done={sharing?.copied === "link" ? "Link copied" : sharing?.copied === "markdown" ? "Markdown copied" : null} options={[
+            { key: "link", label: "Copy link", onPick: share,
+              note: compare ? "Opens this query and its comparison in the viewer" : "Opens this query in the viewer" },
+            { key: "markdown", label: "Copy as Markdown", onPick: markdown,
+              note: "Figures, findings and plan, for an issue" },
+            { key: "download", label: "Download session", onPick: () => onDownload(session),
+              note: "Every query in it, as the .jsonl file" },
+          ]} />
         </div>
         {sharing && !sharing.copied && (
           <ShareDialog sharing={sharing}
                        what={compare ? "query and its comparison run" : "query"}
-                       onCopy={copyLink}
+                       onCopy={copy}
                        onDownload={() => { onDownload(session); setSharing(null); }}
                        onClose={() => setSharing(null)} />
         )}

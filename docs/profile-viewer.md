@@ -101,7 +101,7 @@ every figure gains its change in percent.
 
 ## Sharing a query
 
-**Copy link** puts the query on screen, and the run it is compared with, into a
+**Share** offers three ways to pass a query on. **Copy link** puts the query on screen, and the run it is compared with, into a
 link. The profiles travel after the `#`, which browsers never send to a server:
 the recipient sees the same plans and nothing is uploaded.
 
@@ -113,4 +113,11 @@ Anyone with the link can read everything in those profiles, and chat tools and
 browser history keep it. For a profile not [masked](privacy.md) before export,
 the viewer asks before copying. Profiles too large for a link get no link:
 download the session and send the file.
+
+**Copy as Markdown** copies it for a GitHub issue or pull request: its
+figures (beside the compared run's, if one is picked), its findings with links
+to their rules, and the physical plan as a tree with each node's time, share of
+CPU and rows. It carries the same literals, paths and labels a link does, so
+the viewer asks the same question first. **Download session** saves the whole
+session as the `.jsonl` it was opened from.
 
