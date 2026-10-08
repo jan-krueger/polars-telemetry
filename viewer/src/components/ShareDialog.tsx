@@ -1,10 +1,29 @@
 import { useEffect, useRef } from "react";
 import { num } from "../lib/format";
 
-export default function ShareDialog({ sharing, what, onCopy, onDownload, onClose }) {
-  const ref = useRef(null);
+/** Where sharing a query stands: copied, or a question for the reader first. */
+export interface Sharing {
+  copied?: boolean;
+  /** The fragment to copy once the reader accepts what it carries. */
+  confirm?: string;
+  /** How many characters the link would have been. */
+  tooLong?: number;
+  /** The link, for copying by hand where the browser would not. */
+  manual?: string;
+}
+
+interface Props {
+  sharing: Sharing;
+  what: string;
+  onCopy: (fragment: string) => void;
+  onDownload: () => void;
+  onClose: () => void;
+}
+
+export default function ShareDialog({ sharing, what, onCopy, onDownload, onClose }: Props) {
+  const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
-    const dialog = ref.current;
+    const dialog = ref.current!;
     if (!dialog.open) dialog.showModal();
     return () => dialog.close();
   }, []);
@@ -27,7 +46,7 @@ export default function ShareDialog({ sharing, what, onCopy, onDownload, onClose
             history keep it.</p>
           <div className="dialog-actions">
             <button className="btn" onClick={onClose} autoFocus>Cancel</button>
-            <button className="btn btn--crit" onClick={() => onCopy(sharing.confirm)}>Copy link anyway</button>
+            <button className="btn btn--crit" onClick={() => onCopy(sharing.confirm!)}>Copy link anyway</button>
           </div>
         </>
       )}

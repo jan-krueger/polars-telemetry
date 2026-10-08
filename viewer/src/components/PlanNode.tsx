@@ -1,28 +1,25 @@
-import { Handle, Position } from "@xyflow/react";
+import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
 import { ROLES, relationName, roleOf } from "../lib/polars";
 import { num, span } from "../lib/format";
-import { cpuMs } from "../lib/graph";
+import { cpuMs, type FlowData } from "../lib/graph";
 import Tip, { TipText } from "./Tip";
 
-const bin = (p) => (p >= 50 ? 4 : p >= 10 ? 3 : p >= 1 ? 2 : 1);
+const bin = (p: number): number => (p >= 50 ? 4 : p >= 10 ? 3 : p >= 1 ? 2 : 1);
 
 /** The logical plan has no counters, so it is drawn as an outline: filling a
  *  node by CPU share would imply a cost it does not have. */
-export default function PlanNode({ data, selected }) {
+export default function PlanNode({ data, selected }: NodeProps<Node<FlowData>>) {
   const { node, share, logical, label, far, finding } = data;
   const role = roleOf(node);
   const info = ROLES[role];
   // A relation is a leaf in the algebra: it is named, not given an operator.
   const relation = role === "scan" ? relationName(node.properties ?? {}) : "";
   const title = relation || node.kind;
-  const b = bin(share);
-  const style = logical
-    ? {}
-    : { background: `var(--sq${b})`, color: `var(--sq${b}-ink)`, borderColor: "transparent" };
+  const className = `pnode${logical ? " logical" : ` pnode--b${bin(share)}`}${selected ? " pnode--sel" : ""}`;
 
   if (far) {
     return (
-      <div className={`pnode${logical ? " logical" : ""}${selected ? " pnode--sel" : ""}`} style={style}>
+      <div className={className}>
         <Handle type="target" position={Position.Bottom} />
         <Handle type="source" position={Position.Top} />
       </div>
@@ -30,8 +27,7 @@ export default function PlanNode({ data, selected }) {
   }
 
   return (
-    <div className={`pnode${logical ? " logical" : ""}${selected ? " pnode--sel" : ""}`}
-         style={{ ...style, position: "relative" }}>
+    <div className={className}>
       <Handle type="target" position={Position.Bottom} />
       <Tip content={<TipText term={info.name} note={`polars: ${node.kind}`} />}>
         <div className="t1">
@@ -54,8 +50,7 @@ export default function PlanNode({ data, selected }) {
       ) : null}
       {!logical && node.metrics ? (
         <Tip content={node.metrics.done ? "Completed" : "Unfinished when the counters were read"}>
-          <span className="status"
-                style={{ background: node.metrics.done ? "var(--good)" : "var(--warn)" }} />
+          <span className={node.metrics.done ? "status status--done" : "status status--open"} />
         </Tip>
       ) : null}
       <Handle type="source" position={Position.Top} />

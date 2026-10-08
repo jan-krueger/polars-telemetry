@@ -1,27 +1,59 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ReactFlow, Background, MiniMap, Controls, useReactFlow, useStore } from "@xyflow/react";
+import {
+  ReactFlow, Background, BackgroundVariant, MiniMap, Controls, useReactFlow, useStore, type Node, type NodeSelectionChange,
+} from "@xyflow/react";
 import PlanNode from "./PlanNode";
-import { FAR_ZOOM, NODE_H, NODE_W, applyView, distant, extent, focusSteps, shareView, startsFar, stepFor, toFlow, withSelection } from "../lib/graph";
-import useLayout from "./useLayout";
+import type { Finding, PlanNode as PlanNodeData } from "../model/profile";
+import type { Channel, Pane } from "../hooks/usePanes";
+import {
+  FAR_ZOOM, NODE_H, NODE_W, applyView, distant, extent, focusSteps, shareView, startsFar, stepFor, toFlow, withSelection,
+  type Box, type FocusStep, type Positions,
+} from "../lib/graph";
+import useLayout from "../hooks/useLayout";
 import { span } from "../lib/format";
 import Tip from "./Tip";
 
 const nodeTypes = { plan: PlanNode };
 
+type Reveal = { id: number } | null;
+
+interface Shared {
+  plan: PlanNodeData[];
+  logical: boolean;
+  selectedId: number | null;
+  onSelect: (id: number) => void;
+  alone: boolean;
+  linked: boolean;
+  leads: boolean;
+  channel: Channel;
+  findings?: Map<number, Finding[]>;
+  reveal?: Reveal;
+}
+
+interface Props extends Shared {
+  title: string;
+  focus?: number | null;
+  onFocus?: (focus: number | null) => void;
+  onAlone: () => void;
+  onLink: () => void;
+  warnings?: number[];
+  onWarning?: (id: number) => void;
+}
+
 export default function PlanPane({ title, plan, logical, selectedId, onSelect, focus = null, onFocus,
                                    alone, onAlone, linked, leads, onLink, channel, findings, reveal,
-                                   warnings = [], onWarning }) {
+                                   warnings = [], onWarning }: Props) {
   const positions = useLayout(plan);
   const steps = useMemo(() => focusSteps(plan), [plan]);
   const step = logical ? 0 : stepFor(steps, focus);
-  const thresholdMs = steps[step].thresholdMs;
+  const thresholdMs = steps[step]!.thresholdMs;
   const view = { plan, positions, logical, selectedId, onSelect, thresholdMs, alone, linked, leads, channel, findings, reveal };
 
   return (
     <div className={logical ? "planbox logical" : "planbox"}>
       <div className="ph">
         <span className="nm">{title}</span>
-        {warnings.length ? <Warnings ids={warnings} selectedId={selectedId} onPick={onWarning} /> : null}
+        {warnings.length && onWarning ? <Warnings ids={warnings} selectedId={selectedId} onPick={onWarning} /> : null}
         {onFocus && steps.length > 1 ? <Focus steps={steps} step={step} onFocus={onFocus} /> : null}
         {!alone && (
           <Tip content={linked ? "Move this plan on its own" : "Pan and zoom both plans together"}>
@@ -48,14 +80,14 @@ export default function PlanPane({ title, plan, logical, selectedId, onSelect, f
         </Tip>
       </div>
       {positions
-        ? <PlanView {...view} />
+        ? <PlanView {...view} positions={positions} />
         : <div className="body laying-out" role="status">Laying out {plan.length.toLocaleString("en-US")} nodes…</div>}
     </div>
   );
 }
 
 function PlanView({ plan, positions, logical, selectedId, onSelect, thresholdMs, alone, linked, leads, channel,
-                    findings, reveal }) {
+                    findings, reveal = null }: Shared & { positions: Positions; thresholdMs: number }) {
   const flow = useMemo(
     () => toFlow(plan, positions, { logical, selectedId: null, thresholdMs, findings }),
     [plan, positions, logical, thresholdMs, findings],
@@ -65,8 +97,8 @@ function PlanView({ plan, positions, logical, selectedId, onSelect, thresholdMs,
   const [fitted, setFitted] = useState(false);
   const seen = useMemo(() => (far ? distant(flow) : flow), [flow, far]);
   const { nodes, edges } = useMemo(() => withSelection(seen, selectedId), [seen, selectedId]);
-  const body = useRef(null);
-  const pane = logical ? "logical" : "physical";
+  const body = useRef<HTMLDivElement>(null);
+  const pane: Pane = logical ? "logical" : "physical";
   const size = () => ({ width: body.current?.clientWidth ?? 0, height: body.current?.clientHeight ?? 0 });
   const touched = useRef(false);
   const following = useRef(false);
@@ -89,13 +121,12 @@ function PlanView({ plan, positions, logical, selectedId, onSelect, thresholdMs,
           }
         }}
         onNodesChange={(changes) => {
-          const picked = changes.find((c) => c.type === "select" && c.selected);
+          const picked = changes.find((c): c is NodeSelectionChange => c.type === "select" && c.selected);
           if (picked) onSelect(Number(picked.id));
         }}
       >
-        <Background variant="dots" gap={16} size={1} color="var(--axis)" />
-        <MiniMap pannable zoomable nodeClassName={(n) => n.className ?? ""}
-                 style={{ width: 112, height: 172, border: "1px solid var(--rule-2)", borderRadius: 5 }} />
+        <Background variant={BackgroundVariant.Dots} gap={16} size={1} color="var(--axis)" />
+        <MiniMap pannable zoomable nodeClassName={(n: Node) => n.className ?? ""} style={{ width: 112, height: 172 }} />
         <Controls showInteractive={false} />
         <Refit when={alone} />
         <Distance onChange={setFar} onFitted={setFitted} />
@@ -106,14 +137,14 @@ function PlanView({ plan, positions, logical, selectedId, onSelect, thresholdMs,
   );
 }
 
-function Warnings({ ids, selectedId, onPick }) {
-  const at = ids.indexOf(selectedId);
-  const go = (by) => {
+function Warnings({ ids, selectedId, onPick }: { ids: number[]; selectedId: number | null; onPick: (id: number) => void }) {
+  const at = selectedId === null ? -1 : ids.indexOf(selectedId);
+  const go = (by: number) => {
     const from = at >= 0 ? at : by > 0 ? -1 : 0;
-    onPick(ids[(from + by + ids.length) % ids.length]);
+    onPick(ids[(from + by + ids.length) % ids.length]!);
   };
   const label = at >= 0 ? `Warning ${at + 1} of ${ids.length}` : `${ids.length} warning${ids.length > 1 ? "s" : ""}`;
-  const chevron = (d) => (
+  const chevron = (d: string) => (
     <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true" fill="none"
          stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d={d} /></svg>
   );
@@ -137,9 +168,9 @@ function Warnings({ ids, selectedId, onPick }) {
 }
 
 /** Light only the most expensive nodes; each step takes away the cheapest. */
-function Focus({ steps, step, onFocus }) {
-  const { coverage, shown, thresholdMs } = steps[step];
-  const total = steps[0].shown;
+function Focus({ steps, step, onFocus }: { steps: FocusStep[]; step: number; onFocus: (focus: number | null) => void }) {
+  const { coverage, shown, thresholdMs } = steps[step]!;
+  const total = steps[0]!.shown;
   const text = step === 0
     ? `all ${total} nodes`
     : `${shown} of ${total} · ${Math.round(coverage)}% of CPU · ≥ ${span(thresholdMs)}`;
@@ -150,13 +181,13 @@ function Focus({ steps, step, onFocus }) {
              aria-label="Focus on the most expensive nodes" aria-valuetext={text}
              onChange={(e) => {
                const next = Number(e.target.value);
-               onFocus(next === 0 ? null : steps[next].coverage);
+               onFocus(next === 0 ? null : steps[next]!.coverage);
              }} />
     </label>
   );
 }
 
-function Refit({ when }) {
+function Refit({ when }: { when: boolean }) {
   const { fitView } = useReactFlow();
   const width = useStore((s) => s.width);
   const height = useStore((s) => s.height);
@@ -180,7 +211,17 @@ function Refit({ when }) {
   return null;
 }
 
-function Follow({ linked, leads, channel, pane, box, size, following }) {
+interface FollowProps {
+  linked: boolean;
+  leads: boolean;
+  channel: Channel;
+  pane: Pane;
+  box: Box;
+  size: () => { width: number; height: number };
+  following: { current: boolean };
+}
+
+function Follow({ linked, leads, channel, pane, box, size, following }: FollowProps) {
   const { getViewport, setViewport } = useReactFlow();
   const was = useRef(linked);
   useEffect(() => {
@@ -205,7 +246,7 @@ function Follow({ linked, leads, channel, pane, box, size, following }) {
   return null;
 }
 
-function Distance({ onChange, onFitted }) {
+function Distance({ onChange, onFitted }: { onChange: (far: boolean) => void; onFitted: (fitted: boolean) => void }) {
   const far = useStore((s) => {
     const [x, y, zoom] = s.transform;
     return x === 0 && y === 0 && zoom === 1 ? null : zoom < FAR_ZOOM;
@@ -219,7 +260,7 @@ function Distance({ onChange, onFitted }) {
 }
 
 /** Centre a node the header asked to see, close enough to read it. */
-function Reveal({ request, positions }) {
+function Reveal({ request, positions }: { request: Reveal; positions: Positions }) {
   const { getZoom, setCenter } = useReactFlow();
   useEffect(() => {
     const at = request && positions[String(request.id)];

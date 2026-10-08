@@ -1,21 +1,30 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { Session } from "../model/profile";
 import { bytes, num } from "../lib/format";
 import { ageGroup, ranBetween, shortWhen } from "../lib/time";
 import { recent } from "../state/viewer";
 import Tip from "./Tip";
 
 const RECENT = 5;
-const lastUsed = (s) => s.openedAt ?? s.importedAt;
-const queries = (s) => `${num(s.count)} quer${s.count === 1 ? "y" : "ies"}`;
+const lastUsed = (s: Session): number => s.openedAt ?? s.importedAt;
+const queries = (s: Session): string => `${num(s.count)} quer${s.count === 1 ? "y" : "ies"}`;
 
 /** The open session at the top of the sidebar, with the recent ones a click away. */
-export function SessionSwitcher({ sessions, current, onPick, onBrowse, onKeep }) {
+interface SwitcherProps {
+  sessions: Session[];
+  current: Session | null;
+  onPick: (sessionId: string) => void;
+  onBrowse: () => void;
+  onKeep: (session: Session) => void;
+}
+
+export function SessionSwitcher({ sessions, current, onPick, onBrowse, onKeep }: SwitcherProps) {
   const [open, setOpen] = useState(false);
-  const box = useRef(null);
+  const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
-    const away = (e) => { if (!box.current?.contains(e.target)) setOpen(false); };
-    const escape = (e) => { if (e.key === "Escape") setOpen(false); };
+    const away = (e: PointerEvent) => { if (!box.current?.contains(e.target as Node)) setOpen(false); };
+    const escape = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
     addEventListener("pointerdown", away);
     addEventListener("keydown", escape);
     return () => { removeEventListener("pointerdown", away); removeEventListener("keydown", escape); };
@@ -60,7 +69,9 @@ export function SessionSwitcher({ sessions, current, onPick, onBrowse, onKeep })
   );
 }
 
-const SORTS = {
+type SortName = "opened" | "imported" | "name" | "size";
+
+const SORTS: Record<SortName, { label: string; key: (s: Session) => number | string; when: (s: Session) => number; grouped: boolean }> = {
   opened: { label: "Last opened", key: (s) => -lastUsed(s), when: lastUsed, grouped: true },
   imported: { label: "Imported", key: (s) => -s.importedAt, when: (s) => s.importedAt, grouped: true },
   name: { label: "Name", key: (s) => s.name.toLowerCase(), when: lastUsed, grouped: false },
@@ -68,12 +79,24 @@ const SORTS = {
 };
 
 /** Every session, to find one, rename it, download it or make room. */
-export function SessionsPage({ sessions, currentId, storageNote, onPick, onClose, onRename, onDownload, onRemove, onKeep }) {
+interface PageProps {
+  sessions: Session[];
+  currentId: string | null;
+  storageNote: string;
+  onPick: (sessionId: string) => void;
+  onClose: () => void;
+  onRename: (session: Session, name: string) => void;
+  onDownload: (session: Session) => void;
+  onRemove: (sessionIds: string[]) => void;
+  onKeep: (session: Session) => void;
+}
+
+export function SessionsPage({ sessions, currentId, storageNote, onPick, onClose, onRename, onDownload, onRemove, onKeep }: PageProps) {
   const [search, setSearch] = useState("");
-  const [sort, setSort] = useState("opened");
-  const [chosen, setChosen] = useState(new Set());
-  const [confirming, setConfirming] = useState(null);
-  const [renaming, setRenaming] = useState(null);
+  const [sort, setSort] = useState<SortName>("opened");
+  const [chosen, setChosen] = useState(new Set<string>());
+  const [confirming, setConfirming] = useState<Session[] | null>(null);
+  const [renaming, setRenaming] = useState<string | null>(null);
   const now = Date.now();
 
   const shown = useMemo(() => {
@@ -85,8 +108,8 @@ export function SessionsPage({ sessions, currentId, storageNote, onPick, onClose
   }, [sessions, search, sort]);
 
   const groups = useMemo(() => {
-    if (!SORTS[sort].grouped) return [[null, shown]];
-    const out = new Map();
+    if (!SORTS[sort].grouped) return [[null, shown]] as [string | null, Session[]][];
+    const out = new Map<string | null, Session[]>();
     for (const s of shown) {
       const group = ageGroup(SORTS[sort].when(s), now);
       out.set(group, [...(out.get(group) ?? []), s]);
@@ -96,12 +119,12 @@ export function SessionsPage({ sessions, currentId, storageNote, onPick, onClose
 
   const total = sessions.reduce((a, s) => a + (s.bytes || 0), 0);
   const picked = sessions.filter((s) => chosen.has(s.id));
-  const toggle = (id) => setChosen((prev) => {
+  const toggle = (id: string) => setChosen((prev) => {
     const next = new Set(prev);
     if (!next.delete(id)) next.add(id);
     return next;
   });
-  const remove = (targets) => {
+  const remove = (targets: Session[]) => {
     setConfirming(null);
     setChosen(new Set());
     onRemove(targets.map((s) => s.id));
@@ -116,7 +139,7 @@ export function SessionsPage({ sessions, currentId, storageNote, onPick, onClose
                placeholder="Search sessions" aria-label="Search sessions by name"
                onChange={(e) => setSearch(e.target.value)} />
         <select id="session-sort" className="picker" value={sort} aria-label="Sort sessions"
-                onChange={(e) => setSort(e.target.value)}>
+                onChange={(e) => setSort(e.target.value as SortName)}>
           {Object.entries(SORTS).map(([key, s]) => <option key={key} value={key}>{s.label}</option>)}
         </select>
         <button className="btn" onClick={onClose}>Back</button>

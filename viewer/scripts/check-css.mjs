@@ -11,7 +11,7 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 // `ra` is the relational-algebra notation, styled the same wherever it appears.
-const SHARED_ON_PURPOSE = new Set(["delta-up", "delta-down", "btn", "link", "small", "mono", "ra", "ra--muted", "x", "picker", "search"]);
+const SHARED_ON_PURPOSE = new Set(["delta-up", "delta-down", "btn", "link", "small", "ra", "ra--muted", "x", "picker", "search", "rail", "code"]);
 
 const walk = (dir) =>
   readdirSync(dir).flatMap((entry) => {
@@ -19,7 +19,7 @@ const walk = (dir) =>
     return statSync(path).isDirectory() ? walk(path) : [path];
   });
 
-const sources = walk("src").filter((p) => p.endsWith(".jsx"));
+const sources = walk("src").filter((p) => p.endsWith(".tsx"));
 
 const usedBy = new Map();
 for (const file of sources) {

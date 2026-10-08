@@ -1,10 +1,11 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { COUNTERS } from "../src/lib/counters";
-import { GLOSSARY } from "../src/lib/glossary.js";
+import { GLOSSARY } from "../src/lib/glossary";
 import { readProfile } from "../src/model/read";
 
-const profile = JSON.parse(
+type RawNode = { metrics?: { custom?: { key: string }[] } & Record<string, unknown> };
+const profile: { plan: { physical: RawNode[] } } = JSON.parse(
   readFileSync(new URL("./fixtures/profile.json", import.meta.url), "utf8"),
 );
 
