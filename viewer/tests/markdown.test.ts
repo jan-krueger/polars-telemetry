@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { planTree, queryMarkdown } from "../src/lib/markdown";
 import { readProfile } from "../src/model/read";
-import type { Finding, PlanNode, Profile } from "../src/model/profile";
+import type { Finding, PlanNode } from "../src/model/profile";
 
 const read = readProfile(JSON.parse(readFileSync(new URL("./fixtures/profile.json", import.meta.url), "utf8")));
 if ("problem" in read) throw new Error(read.problem);
@@ -33,13 +33,6 @@ describe("plan tree", () => {
     ]);
     expect(lines[3]).toContain("60 ms · 60.0% · 100 rows");
   });
-
-  it("notes changes against the compared run only on nodes that matter", () => {
-    const before = plan.map((n) => ({ ...n, metrics: { ...n.metrics!, total_time_ns: Number(n.metrics!.total_time_ns) / 2 } }));
-    const tree = planTree(plan, before);
-    expect(tree).toContain("60 ms (+100%) · 60.0%");
-    expect(tree).not.toMatch(/InMemorySink.*\(/);
-  });
 });
 
 describe("query as Markdown", () => {
@@ -52,15 +45,9 @@ describe("query as Markdown", () => {
   it("carries the figures, the findings with their docs, and the plan", () => {
     const md = queryMarkdown({ ...base, label: "etl|daily", insights: [finding] });
     expect(md).toMatch(/^### etl\|daily/);
-    expect(md).toContain("| Wall time |");
+    expect(md).toMatch(/^\| Wall time \| Node CPU \|/m);
     expect(md).toContain("- **Warning:** Filter runs after `join` (46% of CPU; rows kept 2%). Fix: filter before the join");
     expect(md).toContain("(https://jan-krueger.github.io/polars-telemetry/insights/#late_filter)");
     expect(md).toContain("```text\n");
-    expect(md).not.toContain("Compared run");
-  });
-
-  it("puts the compared run in its own column", () => {
-    const slower: Profile = { ...base, wall_ms: base.wall_ms * 2 };
-    expect(queryMarkdown(slower, base)).toMatch(/\| Wall time \| \S+ ms \(\+100%\) \| \S+ ms \|/);
   });
 });

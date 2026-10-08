@@ -8,12 +8,12 @@ export const ms = (v: number): string =>
 export const bytes = (b: number): string =>
   b >= 1048576 ? num(b / 1048576, 1) + " MiB" : num(b / 1024, 1) + " KiB";
 
-export function tableName(p: Profile): string | null {
-  const scan = p.plan.logical.find((n) => roleOf(n) === "scan");
-  return (scan && relationName(scan.properties ?? {})) || null;
+export function inputs(p: Profile): string[] {
+  const names = p.plan.logical.filter((n) => roleOf(n) === "scan").map((n) => relationName(n.properties ?? {}));
+  return [...new Set(names.filter(Boolean))];
 }
 
-export const shapeName = (p: Profile): string => tableName(p) ?? `${p.plan.physical.length} nodes`;
+export const shapeName = (p: Profile): string => inputs(p)[0] ?? `${p.plan.physical.length} nodes`;
 
 /** 40 µs, 5.3 ms, 88.9 s, 456 s, 13.0 min */
 export function span(v: number): string {

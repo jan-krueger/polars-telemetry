@@ -27,7 +27,7 @@ export default function PlanNode({ data, selected }: NodeProps<Node<FlowData>>) 
   return (
     <div className={className}>
       <Handle type="target" position={Position.Bottom} />
-      <Tip content={<TipText term={info.name} note={`polars: ${node.kind}`} />}>
+      <Tip content={<TipText term={info.name} note={`Polars: ${node.kind}`} />}>
         <div className="t1">
           {info.symbol ? <span className={`ra${info.muted ? " ra--muted" : ""}`}>{info.symbol}</span> : null}
           {title}

@@ -16,7 +16,7 @@ import useSessions from "./hooks/useSessions";
 import { byNode } from "./lib/insights";
 import { storageUnavailable } from "./lib/storage";
 import {
-  compareProfile, currentProfile, currentSession, findNode, initialState, reducer, sharedPrefix, visibleShapes,
+  currentProfile, currentSession, findNode, initialState, reducer, sharedPrefix, visibleShapes,
 } from "./state/viewer";
 
 export default function App() {
@@ -31,7 +31,6 @@ export default function App() {
   const current = currentSession(state);
   const profiles = useMemo(() => current?.profiles ?? [], [current]);
   const profile = currentProfile(state);
-  const compare = compareProfile(state);
   const shapes = useMemo(() => visibleShapes(state),
     [state.sessions, state.sessionId, state.search, state.sort]);
   const prefix = useMemo(() => sharedPrefix(profiles), [profiles]);
@@ -64,14 +63,14 @@ export default function App() {
           ) : !profile ? (
             <Overview session={current} shapes={shapes} sort={state.sort} dispatch={dispatch} />
           ) : (
-            <QueryView state={state} dispatch={dispatch} session={current} profile={profile} compare={compare}
+            <QueryView state={state} dispatch={dispatch} session={current} profile={profile}
                        findings={findings} panes={panes} onDownload={save} />
           )}
         </main>
 
         <aside className="rail right">
           {!state.browsing && (
-            <NodeDetails node={findNode(profile, state.node)} compareNode={findNode(compare, state.node)}
+            <NodeDetails node={findNode(profile, state.node)}
                          plan={physical ? profile?.plan.physical : undefined}
                          findings={physical ? findings.get(state.node!.id) : undefined} />
           )}

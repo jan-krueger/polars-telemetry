@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import type { PlanNode, Profile } from "../src/model/profile";
-import { busy, compact, customLabel, customValue, joinGrowth, nodeFacts, shapeName, span } from "../src/lib/format";
+import { busy, compact, inputs, customLabel, customValue, joinGrowth, nodeFacts, shapeName, span } from "../src/lib/format";
 
 const asProfile = (p: object) => p as unknown as Profile;
 const profile = (over = {}) => asProfile({
@@ -51,6 +51,16 @@ describe("shapeName, contents", () => {
       },
     };
     expect(shapeName(asProfile(p))).toBe("part.parquet");
+  });
+
+  it("lists every table read, once each, in plan order", () => {
+    const scan = (id: number, source: string) => ({ id, kind: "Scan", role: "scan", inputs: [], properties: { first_source: source } });
+    const p = asProfile({ plan: { physical: [], logical: [
+      { id: 0, kind: "Join", role: "join", inputs: [1, 2, 3], properties: {} },
+      scan(1, "/d/orders.parquet"), scan(2, "/d/lineitem.parquet"), scan(3, "/e/orders.parquet"),
+      { id: 4, kind: "DataFrameScan", role: "scan", inputs: [], properties: {} },
+    ] } });
+    expect(inputs(p)).toEqual(["orders.parquet", "lineitem.parquet"]);
   });
 });
 

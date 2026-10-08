@@ -296,7 +296,7 @@ function parts([lo, hi, depth]: Range, cuts: number[]): Range[] {
   return cuts.map((cut, k) => [bounds[k]!, cut, depth] as Range).concat([[bounds[cuts.length]!, hi, depth]]);
 }
 
-/** `|` binds loosest; polars nests runs pairwise, flattened here. */
+/** `|` binds loosest; Polars nests runs pairwise, flattened here. */
 function condition(s: Scanned, range: Range): Condition {
   const whole = unwrap(s, range);
   for (const op of ["|", "&"] as const) {

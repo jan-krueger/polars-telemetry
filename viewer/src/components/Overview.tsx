@@ -1,6 +1,6 @@
 import type { Dispatch, ReactNode } from "react";
-import type { Session } from "../model/profile";
-import { num, span, tableName } from "../lib/format";
+import type { Profile, Session } from "../model/profile";
+import { inputs, num, span } from "../lib/format";
 import { title, type Action, type ShapeRow, type Sort, type SortKey } from "../state/viewer";
 
 interface Props {
@@ -38,7 +38,7 @@ export default function Overview({ session, shapes, sort, dispatch }: Props) {
               <tr key={r.fingerprint} onClick={() => dispatch({ type: "queryPicked", queryId: first.query_id })}>
                 <td className="order">{r.order}</td>
                 <td><div className="ovw-name">{title(first)}</div>
-                  <div className="ovw-fp">{first.label && tableName(first) ? `${tableName(first)} · ` : ""}{r.fingerprint}</div></td>
+                  <div className="ovw-fp">{first.label ? readsLine(first) : ""}{r.fingerprint}</div></td>
                 <td>{r.runs.length}</td><td>{span(r.wallMs)}</td>
                 <td>{num((r.wallMs / totalWall) * 100, 1)}%</td><td>{r.cpuMs > 0 ? span(r.cpuMs / r.runs.length) : "—"}</td>
                 <td className="ovw-bar">
@@ -51,6 +51,11 @@ export default function Overview({ session, shapes, sort, dispatch }: Props) {
     </>
   );
 }
+
+const readsLine = (p: Profile): string => {
+  const [head, ...rest] = inputs(p);
+  return head ? `${head}${rest.length ? ` +${rest.length}` : ""} · ` : "";
+};
 
 function SortHeader({ sort, by, dispatch, children }: { sort: Sort; by: SortKey; dispatch: Dispatch<Action>; children: ReactNode }) {
   const active = sort.key === by;

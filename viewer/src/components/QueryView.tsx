@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState, type Dispatch } from "react";
 import type { Finding, Profile, Session } from "../model/profile";
 import type { Panes } from "../hooks/usePanes";
-import { busy, compact, num, span, tableName } from "../lib/format";
+import { busy, inputs, num, span } from "../lib/format";
 import { warned } from "../lib/insights";
 import { basename } from "../lib/polars";
-import { clock, instant, iso, spansDays } from "../lib/time";
+import { clock, iso, spansDays } from "../lib/time";
 import { queryMarkdown } from "../lib/markdown";
 import { warnsUnmasked } from "../lib/prefs";
 import { MAX_LINK_CHARS, shareFragment } from "../share/link";
@@ -20,25 +20,21 @@ interface Props {
   dispatch: Dispatch<Action>;
   session: Session;
   profile: Profile;
-  compare: Profile | null;
   findings: Map<number, Finding[]>;
   panes: Panes;
   onDownload: (session: Session) => void;
 }
 
-export default function QueryView({ state, dispatch, session, profile, compare, findings, panes, onDownload }: Props) {
+export default function QueryView({ state, dispatch, session, profile, findings, panes, onDownload }: Props) {
   const profiles = session.profiles ?? [];
   const withDates = useMemo(() => spansDays(profiles), [profiles]);
   const warnings = useMemo(() => warned(profile), [profile]);
   const [reveal, setReveal] = useState<{ id: number } | null>(null);
   const [sharing, setSharing] = useState<Sharing | null>(null);
-  useEffect(() => setSharing(null), [profile.query_id, compare?.query_id]);
+  useEffect(() => setSharing(null), [profile.query_id]);
   const { alone, toggleAlone, linked, toggleLinked, views } = panes;
 
-  const siblings = profiles.filter((q) => q.fingerprint === profile.fingerprint && q.query_id !== profile.query_id);
-
-  const shown = compare ? [profile, compare] : [profile];
-  const unmasked = shown.some((p) => !p.redacted?.length) && warnsUnmasked();
+  const unmasked = !profile.redacted?.length && warnsUnmasked();
 
   const copy = async (what: Copy, text: string) => {
     try {
@@ -56,14 +52,14 @@ export default function QueryView({ state, dispatch, session, profile, compare, 
   };
 
   const share = () => {
-    const fragment = shareFragment(documentsFor(session, shown));
+    const fragment = shareFragment(documentsFor(session, [profile]));
     const url = location.href.split("#")[0] + fragment;
     if (fragment.length > MAX_LINK_CHARS) setSharing({ tooLong: { chars: fragment.length, text: url } });
     else copyLink(url);
   };
 
   const markdown = () => {
-    const text = queryMarkdown(profile, compare);
+    const text = queryMarkdown(profile);
     if (unmasked) setSharing({ confirm: { copy: "markdown", text } });
     else copy("markdown", text);
   };
@@ -78,68 +74,43 @@ export default function QueryView({ state, dispatch, session, profile, compare, 
       <div className="qhead">
         <div className="qline">
           <span className="qname">{title(profile)}</span>
-          <span className="qmeta">{profile.label && tableName(profile) ? `${tableName(profile)} · ` : ""}{profile.fingerprint} ·{" "}
-            <Tip content={instant(profile.started_unix_ns)}>
-              <time dateTime={iso(profile.started_unix_ns)} tabIndex={0}>
-                {clock(profile.started_unix_ns, withDates)}</time>
-            </Tip> · polars {profile.polars_version}</span>
-          {profile.call_site && (
-            <Tip content={profile.call_site.filepath}>
-            <span className="qsite" tabIndex={0}>
-              {basename(profile.call_site.filepath)}:{profile.call_site.lineno}
-              {" in "}{profile.call_site.function}()
+          <Tip content={<Facts profile={profile} withDates={withDates} />}>
+            <span className="qinfo" tabIndex={0} aria-label="About this query">
+              <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true" fill="none" stroke="currentColor"
+                   strokeWidth="1.5" strokeLinecap="round"><circle cx="8" cy="8" r="6" /><path d="M8 7.3v3.7M8 5v.1" /></svg>
             </span>
+          </Tip>
+          <div className="qstats">
+            <Tip content={<TipText term="Wall time">{num(profile.wall_ms, 1)} ms from collect() to the result
+              {profile.planning_ms != null ? `, of which ${num(profile.planning_ms, 1)} ms planning` : ""}
+              {profile.telemetry_ms != null ? ` and ${num(profile.telemetry_ms, 1)} ms polars-telemetry` : ""}.</TipText>}>
+              <span tabIndex={0}><b className="qwall">{span(profile.wall_ms)}</b> wall</span>
             </Tip>
-          )}
-          {siblings.length > 0 && (
-            <select className="picker" value={state.compareId ?? ""}
-                    onChange={(e) => dispatch({ type: "comparePicked", queryId: e.target.value || null })}>
-              <option value="">compare with…</option>
-              {siblings.map((q) => (
-                <option value={q.query_id} key={q.query_id}>
-                  {clock(q.started_unix_ns, withDates)} · {span(q.wall_ms)}
-                </option>))}
-            </select>
-          )}
+            <Busy profile={profile} />
+            {profile.diagnostics?.incomplete_nodes ? (
+              <Tip content={<TipText term="Counters incomplete">{String(profile.diagnostics.incomplete_nodes)} nodes had not finished reporting when the query ended, so their figures are a floor, not a total.</TipText>}>
+                <span className="masked" tabIndex={0}>· incomplete</span>
+              </Tip>
+            ) : null}
+            {profile.redacted?.length ? (
+              <Tip content={<TipText term={`Masked: ${profile.redacted.join(", ").replace("_", " ")}`}>Values such as {'"<str>"'} and {"<num>"} are placeholders, not your data.</TipText>}>
+                <span className="masked" tabIndex={0}>· masked</span>
+              </Tip>
+            ) : null}
+          </div>
           <ShareMenu done={sharing?.copied === "link" ? "Link copied" : sharing?.copied === "markdown" ? "Markdown copied" : null} options={[
-            { key: "link", label: "Copy link", onPick: share,
-              note: compare ? "Opens this query and its comparison in the viewer" : "Opens this query in the viewer" },
-            { key: "markdown", label: "Copy as Markdown", onPick: markdown,
-              note: "Figures, findings and plan, for an issue" },
+            { key: "link", label: "Copy link", onPick: share, note: "Opens this query in the viewer" },
+            { key: "markdown", label: "Copy as Markdown", onPick: markdown, note: "Figures, findings and plan, for an issue" },
             { key: "download", label: "Download session", onPick: () => onDownload(session),
               note: "Every query in it, as the .jsonl file" },
           ]} />
         </div>
         {sharing && !sharing.copied && (
-          <ShareDialog sharing={sharing}
-                       what={compare ? "query and its comparison run" : "query"}
+          <ShareDialog sharing={sharing} what="query"
                        onCopy={copy} onCopyLong={copyLink}
                        onDownload={() => { onDownload(session); setSharing(null); }}
                        onClose={() => setSharing(null)} />
         )}
-        <div className="qstats">
-          <Tip content={<TipText term="Wall time">{num(profile.wall_ms, 1)} ms from collect() to the result
-            {profile.planning_ms != null ? `, of which ${num(profile.planning_ms, 1)} ms planning` : ""}
-            {profile.telemetry_ms != null ? ` and ${num(profile.telemetry_ms, 1)} ms polars-telemetry` : ""}.</TipText>}>
-            <span tabIndex={0}><b className="qwall">{span(profile.wall_ms)}</b> wall</span>
-          </Tip>
-          <Delta now={profile.wall_ms} before={compare?.wall_ms} />
-          <Busy profile={profile} compare={compare} />
-          {profile.result_rows != null && (
-            <span>· <b>{compact(profile.result_rows)}</b> rows out<Delta now={profile.result_rows} before={compare?.result_rows} /></span>
-          )}
-          {profile.diagnostics?.incomplete_nodes ? (
-            <Tip content={<TipText term="Counters incomplete">{String(profile.diagnostics.incomplete_nodes)} nodes had not finished reporting when the query ended, so their figures are a floor, not a total.</TipText>}>
-              <span className="masked" tabIndex={0}>· counters incomplete</span>
-            </Tip>
-          ) : null}
-          {profile.redacted?.length ? (
-            <Tip content={<TipText term="Masked before export">Values such as {'"<str>"'} and {"<num>"} are placeholders, not your data.</TipText>}>
-              <span className="masked" tabIndex={0}>
-                · masked: {profile.redacted.join(", ").replace("_", " ")}</span>
-            </Tip>
-          ) : null}
-        </div>
         {profile.failed && (
           <div className="qfail" role="alert"><b>Failed</b> {profile.failed}</div>
         )}
@@ -165,21 +136,30 @@ export default function QueryView({ state, dispatch, session, profile, compare, 
   );
 }
 
-function Delta({ now, before }: { now: number; before: number | null | undefined }) {
-  if (before == null) return null;
-  const pct = before ? ((now - before) / before) * 100 : 0;
-  if (Math.abs(pct) < 0.5) return <span className="dl dl--same"> =</span>;
-  return <span className={`dl ${pct > 0 ? "delta-up" : "delta-down"}`}> {pct > 0 ? "+" : ""}{num(pct, 0)}%</span>;
+function Facts({ profile, withDates }: { profile: Profile; withDates: boolean }) {
+  const reads = inputs(profile);
+  return (
+    <dl className="qfacts">
+      {reads.length > 0 && <><dt>Reads</dt><dd>{reads.map((name) => <div key={name}>{name}</div>)}</dd></>}
+      <dt>Shape</dt><dd>{profile.fingerprint}</dd>
+      <dt>Started</dt><dd>{clock(profile.started_unix_ns, withDates)} <span className="qfacts-note">{iso(profile.started_unix_ns)}</span></dd>
+      {profile.result_rows != null && <><dt>Rows returned</dt><dd>{num(profile.result_rows)}</dd></>}
+      <dt>Polars</dt><dd>{profile.polars_version}</dd>
+      {profile.call_site && (
+        <><dt>Ran at</dt><dd>{basename(profile.call_site.filepath)}:{profile.call_site.lineno} in {profile.call_site.function}()
+          <span className="qfacts-note">{profile.call_site.filepath}</span></dd></>
+      )}
+    </dl>
+  );
 }
 
-function Busy({ profile, compare }: { profile: Profile; compare: Profile | null }) {
+function Busy({ profile }: { profile: Profile }) {
   const b = busy(profile);
   if (!b) return null;
-  const cpu = compare?.cpu_ms ? ` (${profile.cpu_ms >= compare.cpu_ms ? "+" : ""}${num(((profile.cpu_ms - compare.cpu_ms) / compare.cpu_ms) * 100, 0)}% against the compared run)` : "";
-  const note = `${num(profile.cpu_ms, 1)} ms of node CPU over ${num(profile.wall_ms, 1)} ms of wall time${cpu}: `
-    + (b.of && b.share != null ? `on average ${num(b.threads, 1)} of the ${b.of} threads polars had were busy, ${num(b.share * 100, 0)}% parallel efficiency.`
+  const note = `${num(profile.cpu_ms, 1)} ms of node CPU over ${num(profile.wall_ms, 1)} ms of wall time: `
+    + (b.of && b.share != null ? `on average ${num(b.threads, 1)} of the ${b.of} threads Polars had were busy, ${num(b.share * 100, 0)}% parallel efficiency.`
       : `on average ${num(b.threads, 1)} threads were busy.`)
-    + " Node CPU counts only time polars charges to nodes.";
+    + " Node CPU counts only time Polars charges to nodes.";
   return (
     <Tip content={<TipText term="Threads busy">{note}</TipText>}>
       <span className="busy" tabIndex={0}>
@@ -188,7 +168,7 @@ function Busy({ profile, compare }: { profile: Profile; compare: Profile | null 
             <span className={`busy-fill busy-fill--${b.verdict}`} style={{ width: `${Math.max(2, b.share * 100)}%` }} />
           </span>
         )}
-        <b>{num(b.threads, 1)}</b>{b.of ? <> of {b.of}</> : null} threads busy
+        <span><b>{num(b.threads, 1)}</b>{b.of ? `/${b.of}` : ""} threads</span>
       </span>
     </Tip>
   );

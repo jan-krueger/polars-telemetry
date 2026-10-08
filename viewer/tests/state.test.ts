@@ -31,8 +31,7 @@ const loaded = (...sessions: Session[]): ViewerState =>
 const busy = (): ViewerState => {
   let state = loaded(session("s1", profile("a", "f1", 5), profile("b", "f1", 9)), session("s2"));
   state = reducer(state, { type: "sessionPicked", sessionId: "s1" });
-  state = reducer(state, { type: "queryPicked", queryId: "a" });
-  return reducer(state, { type: "comparePicked", queryId: "b" });
+  return reducer(state, { type: "queryPicked", queryId: "a" });
 };
 
 describe("viewer state", () => {
@@ -40,20 +39,19 @@ describe("viewer state", () => {
     expect(loaded(session("s1"), session("s2")).sessionId).toBe("s2");
   });
 
-  it("picking a query selects its hottest node and clears the comparison", () => {
+  it("picking a query selects its hottest node", () => {
     const state = reducer(busy(), { type: "queryPicked", queryId: "b" });
     expect(state.node).toEqual({ plan: "physical", id: 7 });
-    expect(state.compareId).toBeNull();
   });
 
-  it("picking a session clears the query, the comparison and the node", () => {
+  it("picking a session clears the query and the node", () => {
     const state = reducer(busy(), { type: "sessionPicked", sessionId: "s2" });
-    expect([state.queryId, state.compareId, state.node]).toEqual([null, null, null]);
+    expect([state.queryId, state.node]).toEqual([null, null]);
   });
 
   it("removing the open session opens the next, with nothing selected", () => {
     const state = reducer(busy(), { type: "removed", sessionIds: ["s1"] });
-    expect([state.sessionId, state.queryId, state.compareId, state.node]).toEqual(["s2", null, null, null]);
+    expect([state.sessionId, state.queryId, state.node]).toEqual(["s2", null, null]);
   });
 
   it("removing the last session leaves none open", () => {
@@ -65,12 +63,11 @@ describe("viewer state", () => {
   it("removing another session keeps the selection", () => {
     const state = reducer(busy(), { type: "removed", sessionIds: ["s2"] });
     expect(state.queryId).toBe("a");
-    expect(state.compareId).toBe("b");
   });
 
   it("clearing everything leaves nothing selected", () => {
     const state = reducer(busy(), { type: "cleared" });
-    expect([state.sessions.length, state.queryId, state.compareId, state.node]).toEqual([0, null, null, null]);
+    expect([state.sessions.length, state.queryId, state.node]).toEqual([0, null, null]);
   });
 
   it("keeping a shared session leaves it open and stops showing it as a link", () => {

@@ -55,7 +55,6 @@ export default function useSessions(state: ViewerState, dispatch: Dispatch<Actio
       const shared = sharedSession(location.hash, opened.documents, Date.now());
       dispatch({ type: "imported", sessions: [shared] });
       if (shared.profiles?.[0]) dispatch({ type: "queryPicked", queryId: shared.profiles[0].query_id });
-      if (shared.profiles?.[1]) dispatch({ type: "comparePicked", queryId: shared.profiles[1].query_id });
     })();
   }, [dispatch]);
 

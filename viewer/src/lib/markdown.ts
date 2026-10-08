@@ -1,5 +1,5 @@
 import type { PlanNode, Profile } from "../model/profile";
-import { busy, compact, num, span, tableName } from "./format";
+import { busy, compact, inputs, num, span } from "./format";
 import { cpuMs } from "./graph";
 import { impact, measured, ruleDocs } from "./insights";
 import { basename, relationName } from "./polars";
@@ -7,17 +7,9 @@ import { iso } from "./time";
 import { title } from "../state/viewer";
 
 const LABEL_MAX = 60;
-const NOTED_SHARE = 0.01;
 
 const cell = (text: string): string => text.replace(/\|/g, "\\|").replace(/\n/g, " ");
 const clip = (text: string, max: number): string => (text.length > max ? `${text.slice(0, max - 1)}…` : text);
-
-function change(now: number | null | undefined, before: number | null | undefined): string {
-  if (now == null || before == null) return "";
-  const pct = before ? ((now - before) / before) * 100 : 0;
-  if (Math.abs(pct) < 0.5) return " (=)";
-  return ` (${pct > 0 ? "+" : ""}${num(pct, 0)}%)`;
-}
 
 function rowsOut(node: PlanNode): number | undefined {
   const m = node.metrics;
@@ -26,27 +18,16 @@ function rowsOut(node: PlanNode): number | undefined {
   return typeof rows === "number" ? rows : undefined;
 }
 
-function summary(profile: Profile, compare: Profile | null): string[] {
-  const threads = (p: Profile): string => {
-    const b = busy(p);
-    return b ? `${num(b.threads, 1)}${b.of ? ` of ${b.of}` : ""}` : "—";
-  };
-  const rows: [string, string, string | null][] = [
-    ["Wall time", span(profile.wall_ms) + change(profile.wall_ms, compare?.wall_ms), compare && span(compare.wall_ms)],
-  ];
-  if (profile.cpu_ms > 0) {
-    rows.push(["Node CPU", span(profile.cpu_ms) + change(profile.cpu_ms, compare?.cpu_ms), compare && span(compare.cpu_ms)]);
-  }
-  if (busy(profile)) rows.push(["Threads busy", threads(profile), compare && threads(compare)]);
-  if (profile.result_rows != null) {
-    rows.push(["Rows out", compact(profile.result_rows) + change(profile.result_rows, compare?.result_rows),
-               compare && (compare.result_rows == null ? "—" : compact(compare.result_rows))]);
-  }
-  const head = compare ? ["", "This run", "Compared run"] : ["", "This run"];
+function summary(profile: Profile): string[] {
+  const cells: [string, string][] = [["Wall time", span(profile.wall_ms)]];
+  if (profile.cpu_ms > 0) cells.push(["Node CPU", span(profile.cpu_ms)]);
+  const b = busy(profile);
+  if (b) cells.push(["Threads busy", `${num(b.threads, 1)}${b.of ? ` of ${b.of}` : ""}`]);
+  if (profile.result_rows != null) cells.push(["Rows out", compact(profile.result_rows)]);
   return [
-    `| ${head.join(" | ")} |`,
-    `|${head.map((_, i) => (i ? " ---: " : " --- ")).join("|")}|`,
-    ...rows.map(([name, now, before]) => `| ${[name, now, ...(compare ? [before ?? "—"] : [])].map(cell).join(" | ")} |`),
+    `| ${cells.map(([name]) => name).join(" | ")} |`,
+    `|${cells.map(() => " ---: ").join("|")}|`,
+    `| ${cells.map(([, value]) => cell(value)).join(" | ")} |`,
   ];
 }
 
@@ -65,10 +46,9 @@ function findings(profile: Profile): string[] {
   ];
 }
 
-/** Sinks first, inputs below, as polars prints plans; a node shared by several consumers is expanded once. */
-export function planTree(plan: PlanNode[], compare: PlanNode[] | null = null): string {
+/** Sinks first, inputs below, as Polars prints plans; a node shared by several consumers is expanded once. */
+export function planTree(plan: PlanNode[]): string {
   const byId = new Map(plan.map((n) => [n.id, n]));
-  const before = new Map((compare ?? []).map((n) => [n.id, n]));
   const consumed = new Set(plan.flatMap((n) => n.inputs));
   const roots = plan.filter((n) => !consumed.has(n.id));
   const total = plan.reduce((sum, n) => sum + cpuMs(n), 0);
@@ -86,9 +66,7 @@ export function planTree(plan: PlanNode[], compare: PlanNode[] | null = null): s
     const facts: string[] = [];
     if (node.metrics) {
       const ms = cpuMs(node);
-      const old = before.get(node.id);
-      const noted = total > 0 && ms / total >= NOTED_SHARE;
-      facts.push(`${span(ms)}${noted && old?.metrics ? change(ms, cpuMs(old)) : ""}`);
+      facts.push(span(ms));
       if (total > 0 && ms / total >= 0.001) facts.push(`${num((ms / total) * 100, 1)}%`);
       const rows = rowsOut(node);
       if (rows !== undefined) facts.push(`${compact(rows)} rows`);
@@ -105,25 +83,25 @@ export function planTree(plan: PlanNode[], compare: PlanNode[] | null = null): s
 }
 
 /** A query as Markdown for an issue or pull request: what it cost, what was found, and its physical plan. */
-export function queryMarkdown(profile: Profile, compare: Profile | null = null): string {
+export function queryMarkdown(profile: Profile): string {
   const where = profile.call_site
     ? ` · \`${basename(profile.call_site.filepath)}:${profile.call_site.lineno}\` in \`${profile.call_site.function}()\``
     : "";
-  const table = profile.label ? tableName(profile) : null;
+  const reads = inputs(profile);
   const lines = [
     `### ${title(profile)}`,
     "",
-    `${table ? `${table} · ` : ""}\`${profile.fingerprint}\` · ${iso(profile.started_unix_ns).slice(0, 16).replace("T", " ")} UTC · polars ${profile.polars_version}${where}`,
+    `${reads.length ? `Reads ${reads.join(", ")} · ` : ""}\`${profile.fingerprint}\` · ${iso(profile.started_unix_ns).slice(0, 16).replace("T", " ")} UTC · Polars ${profile.polars_version}${where}`,
     "",
   ];
   if (profile.failed) lines.push(`**Failed:** ${profile.failed}`, "");
   if (profile.redacted?.length) lines.push(`Masked before export: ${profile.redacted.join(", ").replace("_", " ")}.`, "");
-  lines.push(...summary(profile, compare), "", ...findings(profile));
+  lines.push(...summary(profile), "", ...findings(profile));
   lines.push(
     "<details><summary>Physical plan</summary>",
     "",
     "```text",
-    planTree(profile.plan.physical, compare?.plan.physical ?? null),
+    planTree(profile.plan.physical),
     "```",
     "",
     "</details>",

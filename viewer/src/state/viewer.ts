@@ -18,7 +18,6 @@ export interface ViewerState {
   browsing: boolean;
   sessionId: string | null;
   queryId: string | null;
-  compareId: string | null;
   node: NodeRef | null;
   search: string;
   sort: Sort;
@@ -45,7 +44,6 @@ export type Action =
   | { type: "cleared" }
   | { type: "sessionPicked"; sessionId: string }
   | { type: "queryPicked"; queryId: string }
-  | { type: "comparePicked"; queryId: string | null }
   | { type: "nodePicked"; node: NodeRef }
   | { type: "searched"; text: string }
   | { type: "sorted"; key: SortKey }
@@ -58,14 +56,13 @@ export const initialState: ViewerState = {
   browsing: false,
   sessionId: null,
   queryId: null,
-  compareId: null,
   node: null,
   search: "",
   sort: { key: "order", descending: false },
   focus: null,
 };
 
-const nothingSelected = { queryId: null, compareId: null, node: null } as const;
+const nothingSelected = { queryId: null, node: null } as const;
 
 export function reducer(state: ViewerState, action: Action): ViewerState {
   switch (action.type) {
@@ -127,10 +124,8 @@ export function reducer(state: ViewerState, action: Action): ViewerState {
       return { ...state, ...nothingSelected, browsing: false, sessionId: action.sessionId };
     case "queryPicked": {
       const profile = findProfile(currentSession(state), action.queryId);
-      return { ...state, browsing: false, queryId: action.queryId, compareId: null, node: profile ? hottest(profile) : null };
+      return { ...state, browsing: false, queryId: action.queryId, node: profile ? hottest(profile) : null };
     }
-    case "comparePicked":
-      return { ...state, compareId: action.queryId };
     case "nodePicked":
       return { ...state, node: action.node };
     case "searched":
@@ -181,8 +176,6 @@ const findProfile = (session: Session | null, queryId: string | null): Profile |
 export const currentProfile = (state: ViewerState): Profile | null =>
   findProfile(currentSession(state), state.queryId);
 
-export const compareProfile = (state: ViewerState): Profile | null =>
-  findProfile(currentSession(state), state.compareId);
 
 export function findNode(profile: Profile | null, ref: NodeRef | null): PlanNode | null {
   if (!profile || !ref) return null;

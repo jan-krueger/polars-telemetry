@@ -60,26 +60,15 @@ function Field({ name, value: raw }: { name: string; value: unknown }) {
   return <div className="field"><div className="lbl">{label}</div><Expr lines={lines} /></div>;
 }
 
-function Change({ now, before }: { now: number | null | undefined; before: number | null | undefined }) {
-  if (now == null || before == null || now === before) return null;
-  const pct = before ? ((now - before) / before) * 100 : 0;
-  return (
-    <span className={pct > 0 ? "chg delta-up" : "chg delta-down"}>
-      {pct > 0 ? "+" : ""}{num(pct, 0)}%
-    </span>
-  );
-}
-
 interface Props {
   node: PlanNode | null;
   plan?: PlanNode[];
-  compareNode: PlanNode | null;
   findings?: Finding[];
 }
 
-export default function NodeDetails({ node, plan = [], compareNode, findings }: Props) {
+export default function NodeDetails({ node, plan = [], findings }: Props) {
   if (!node) return <div className="empty">Select a node in a plan.</div>;
-  const m = node.metrics, other = compareNode?.metrics;
+  const m = node.metrics;
   const props = Object.entries(node.properties || {})
     .filter(([k, v]) => v != null && k !== "type" && !(Array.isArray(v) && !v.length));
   const info = ROLES[roleOf(node)];
@@ -88,7 +77,7 @@ export default function NodeDetails({ node, plan = [], compareNode, findings }: 
     <>
       <div className="card">
         <div className="hd">
-          <Tip content={<TipText term={info.name} note={`polars: ${node.kind}`} />}>
+          <Tip content={<TipText term={info.name} note={`Polars: ${node.kind}`} />}>
             <span className="nm-wrap" tabIndex={0}>
               {info.symbol ? <span className={`ra${info.muted ? " ra--muted" : ""}`}>{info.symbol}</span> : null}
               <span className="nm">{node.kind}</span>
@@ -141,17 +130,16 @@ export default function NodeDetails({ node, plan = [], compareNode, findings }: 
           ))}
           {node.custom?.map((c) => {
             const known = GLOSSARY[c.key];
-            const before = compareNode?.custom?.find((o) => o.key === c.key)?.value;
             return (
               <div className="mrow" key={c.key}>
                 {known ? (
                   <span className="k">{known[0]}<Help term={c.key} /></span>
                 ) : (
-                  <Tip content={<TipText term={customLabel(c.key)} note={`polars: ${c.key}`} />}>
+                  <Tip content={<TipText term={customLabel(c.key)} note={`Polars: ${c.key}`} />}>
                     <span className="k" tabIndex={0}>{customLabel(c.key)}</span>
                   </Tip>
                 )}
-                <span className="v">{customValue(c)} <Change now={c.value} before={before} /></span>
+                <span className="v">{customValue(c)}</span>
               </div>
             );
           })}
@@ -164,7 +152,7 @@ export default function NodeDetails({ node, plan = [], compareNode, findings }: 
               <div className="mrow" key={key}>
                 <span className="k">{label}<Help term={key} /></span>
                 <span className="v">{v}{unit === "rows"
-                  ? <span className="u">rows</span> : null} <Change now={raw} before={other?.[key] as number | undefined} /></span>
+                  ? <span className="u">rows</span> : null}</span>
               </div>
             );
           })}
