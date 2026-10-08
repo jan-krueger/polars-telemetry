@@ -42,11 +42,12 @@ export default function ShareMenu({ options, done }: { options: ShareOption[]; d
     <div className="share-box" ref={box} onKeyDown={open ? keys : undefined}>
       <button ref={button} className="btn share" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)}>
         <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor"
-             strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M8 10V2.5M5 5.5l3-3 3 3M3.5 8.5v4.5h9V8.5" />
+             strokeWidth={done ? 2.2 : 1.6} strokeLinecap="round" strokeLinejoin="round" className={done ? "share-tick" : undefined}>
+          <path d={done ? "M3 8.5l3.2 3L13 4.5" : "M8 10V2.5M5 5.5l3-3 3 3M3.5 8.5v4.5h9V8.5"} />
         </svg>
-        {done ?? "Share"}
+        Share
       </button>
+      <span className="share-status" role="status">{done ?? ""}</span>
       {open && (
         <div className="share-menu" role="menu">
           {options.map((o) => (

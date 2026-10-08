@@ -111,7 +111,8 @@ gave it.
 
 Anyone with the link can read everything in those profiles, and chat tools and
 browser history keep it. For a profile not [masked](privacy.md) before export,
-the viewer asks before copying. Profiles too large for a link get no link:
+the viewer asks before copying, unless you ticked *Don't ask again in this
+browser* there. Profiles too large for a link get no link:
 download the session and send the file.
 
 **Copy as Markdown** copies it for a GitHub issue or pull request: its

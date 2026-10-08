@@ -1,12 +1,13 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { num } from "../lib/format";
+import { stopWarningUnmasked } from "../lib/prefs";
 
 export type Copy = "link" | "markdown";
 
 export interface Sharing {
   copied?: Copy;
   confirm?: { copy: Copy; text: string };
-  tooLong?: number;
+  tooLong?: { chars: number; text: string };
   manual?: { copy: Copy; text: string };
 }
 
@@ -14,11 +15,12 @@ interface Props {
   sharing: Sharing;
   what: string;
   onCopy: (copy: Copy, text: string) => void;
+  onCopyLong: (text: string) => void;
   onDownload: () => void;
   onClose: () => void;
 }
 
-export default function ShareDialog({ sharing, what, onCopy, onDownload, onClose }: Props) {
+export default function ShareDialog({ sharing, what, onCopy, onCopyLong, onDownload, onClose }: Props) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const dialog = ref.current!;
@@ -26,6 +28,7 @@ export default function ShareDialog({ sharing, what, onCopy, onDownload, onClose
     return () => dialog.close();
   }, []);
   const several = what.includes(" and ");
+  const [quiet, setQuiet] = useState(false);
 
   return (
     <dialog ref={ref} className="dialog" aria-labelledby="share-title"
@@ -47,8 +50,15 @@ export default function ShareDialog({ sharing, what, onCopy, onDownload, onClose
               : "Anyone who can see where you paste it can read these."}
           </p>
           <div className="dialog-actions">
+            <label className="dialog-check">
+              <input id="skip-unmasked-warning" type="checkbox" checked={quiet} onChange={(e) => setQuiet(e.target.checked)} />
+              Don't ask again in this browser
+            </label>
             <button className="btn" onClick={onClose} autoFocus>Cancel</button>
-            <button className="btn btn--crit" onClick={() => onCopy(sharing.confirm!.copy, sharing.confirm!.text)}>
+            <button className="btn btn--crit" onClick={() => {
+              if (quiet) stopWarningUnmasked();
+              onCopy(sharing.confirm!.copy, sharing.confirm!.text);
+            }}>
               Copy anyway
             </button>
           </div>
@@ -57,10 +67,11 @@ export default function ShareDialog({ sharing, what, onCopy, onDownload, onClose
       {sharing.tooLong && (
         <>
           <h3 id="share-title">Too large for a link</h3>
-          <p>This link would be {num(sharing.tooLong)} characters, more than chat tools and some
+          <p>This link would be {num(sharing.tooLong.chars)} characters, more than chat tools and some
             browsers accept. Download the session and send the file instead.</p>
           <div className="dialog-actions">
             <button className="btn" onClick={onClose}>Close</button>
+            <button className="btn" onClick={() => onCopyLong(sharing.tooLong!.text)}>Copy anyway</button>
             <button className="btn btn--primary" onClick={onDownload} autoFocus>Download session</button>
           </div>
         </>

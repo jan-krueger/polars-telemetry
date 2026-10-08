@@ -6,6 +6,7 @@ import { warned } from "../lib/insights";
 import { basename } from "../lib/polars";
 import { clock, instant, iso, spansDays } from "../lib/time";
 import { queryMarkdown } from "../lib/markdown";
+import { warnsUnmasked } from "../lib/prefs";
 import { MAX_LINK_CHARS, shareFragment } from "../share/link";
 import { documentsFor } from "../share/session";
 import { title, type Action, type ViewerState } from "../state/viewer";
@@ -37,7 +38,7 @@ export default function QueryView({ state, dispatch, session, profile, compare, 
   const siblings = profiles.filter((q) => q.fingerprint === profile.fingerprint && q.query_id !== profile.query_id);
 
   const shown = compare ? [profile, compare] : [profile];
-  const unmasked = shown.some((p) => !p.redacted?.length);
+  const unmasked = shown.some((p) => !p.redacted?.length) && warnsUnmasked();
 
   const copy = async (what: Copy, text: string) => {
     try {
@@ -49,12 +50,16 @@ export default function QueryView({ state, dispatch, session, profile, compare, 
     }
   };
 
+  const copyLink = (url: string) => {
+    if (unmasked) setSharing({ confirm: { copy: "link", text: url } });
+    else copy("link", url);
+  };
+
   const share = () => {
     const fragment = shareFragment(documentsFor(session, shown));
     const url = location.href.split("#")[0] + fragment;
-    if (fragment.length > MAX_LINK_CHARS) setSharing({ tooLong: fragment.length });
-    else if (unmasked) setSharing({ confirm: { copy: "link", text: url } });
-    else copy("link", url);
+    if (fragment.length > MAX_LINK_CHARS) setSharing({ tooLong: { chars: fragment.length, text: url } });
+    else copyLink(url);
   };
 
   const markdown = () => {
@@ -108,7 +113,7 @@ export default function QueryView({ state, dispatch, session, profile, compare, 
         {sharing && !sharing.copied && (
           <ShareDialog sharing={sharing}
                        what={compare ? "query and its comparison run" : "query"}
-                       onCopy={copy}
+                       onCopy={copy} onCopyLong={copyLink}
                        onDownload={() => { onDownload(session); setSharing(null); }}
                        onClose={() => setSharing(null)} />
         )}
