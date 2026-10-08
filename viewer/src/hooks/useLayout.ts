@@ -4,7 +4,6 @@ import { layout, planGraph, type Positions } from "../lib/graph";
 import { SYNC_LAYOUT_MAX, layoutKey, recall, remember } from "../lib/layouts";
 import LayoutWorker from "../lib/layout.worker?worker&inline";
 
-/** The plan's positions: at once when small or seen before, otherwise from a worker, null meanwhile. */
 export default function useLayout(plan: PlanNode[]): Positions | null {
   const graph = useMemo(() => planGraph(plan), [plan]);
   const key = useMemo(() => layoutKey(graph), [graph]);

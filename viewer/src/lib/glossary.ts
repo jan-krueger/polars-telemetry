@@ -1,5 +1,3 @@
-// What each counter means. Most are specific to polars' streaming engine and
-// are not guessable from the name.
 export const GLOSSARY: Record<string, [term: string, meaning: string]> = {
   rows_received: ["Rows in", "Rows this node received from the nodes feeding it."],
   rows_sent: ["Rows out", "Rows this node passed on. Compare with rows in to see what the node removed or produced."],
@@ -31,7 +29,6 @@ export const GLOSSARY: Record<string, [term: string, meaning: string]> = {
   "group_by.estimated_groups": ["Groups estimated", "How many groups polars expected before running, to size its hash tables. Far from the actual count means it sized them wrongly."],
 };
 
-// polars' property names are precise but not prose.
 export const PROP_LABELS: Record<string, string> = {
   first_source: "Source", scan_type: "Format", num_sources: "Sources", format_str: "Runs",
   file_columns: "File columns", projected_file_columns: "Projected columns",

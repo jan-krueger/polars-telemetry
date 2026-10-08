@@ -23,7 +23,6 @@ interface Props {
   onDownload: (session: Session) => void;
 }
 
-/** One query: what it cost, against another run of it if picked, and both its plans. */
 export default function QueryView({ state, dispatch, session, profile, compare, findings, panes, onDownload }: Props) {
   const profiles = session.profiles ?? [];
   const withDates = useMemo(() => spansDays(profiles), [profiles]);
@@ -33,7 +32,6 @@ export default function QueryView({ state, dispatch, session, profile, compare, 
   useEffect(() => setSharing(null), [profile.query_id, compare?.query_id]);
   const { alone, toggleAlone, linked, toggleLinked, views } = panes;
 
-  // Other runs of the same shape, which the compare picker offers.
   const siblings = profiles.filter((q) => q.fingerprint === profile.fingerprint && q.query_id !== profile.query_id);
 
   const copyLink = async (fragment: string) => {

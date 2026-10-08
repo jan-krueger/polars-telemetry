@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 
-/** A wait that says what it waits for, only once it is long enough to notice. */
 export default function Booting({ label }: { label: string }) {
   const [slow, setSlow] = useState(false);
   useEffect(() => {

@@ -14,8 +14,6 @@ const Ticks = ({ text }: { text: string }) =>
 const looksExpr = (v: unknown): boolean => typeof v === "string" && /[()"]/.test(v);
 
 function Expr({ lines }: { lines: unknown[] }) {
-  // One block per expression, one line per method call; a line still too wide
-  // scrolls with its block rather than wrapping mid-token.
   return (
     <div className="expr code">
       {lines.map((expr, i) => (
@@ -29,7 +27,6 @@ function Expr({ lines }: { lines: unknown[] }) {
 
 const UNDESCRIBED = "error: prepare_visualization was not set during conversion";
 
-/** A property as it reads best: one predicate, or the expressions an in-memory fallback runs. */
 function shown(name: string, raw: unknown): unknown {
   if (name === "predicate" && Array.isArray(raw) && raw.length) return conjunction(raw.map(String));
   if (name === "format_str" && raw === UNDESCRIBED) return "not recorded";

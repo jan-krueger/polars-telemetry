@@ -1,8 +1,4 @@
-/**
- * What the address bar holds: the session, query and node on screen, so a
- * reload or the back button returns to them. Session ids are local to this
- * browser, so a link opens the same view only where that session was imported.
- */
+// Session ids are local to this browser: a hash link only works where the session was imported.
 
 import type { NodeRef, ViewerState } from "./viewer";
 
@@ -37,10 +33,6 @@ export function fromHash(hash: string): Route {
   return { sessionId: params.get("s"), queryId: params.get("q"), node } as Route;
 }
 
-/**
- * Whether moving from one route to the next deserves a history entry: a
- * different session or query does, a different node does not, or every click
- * in a plan would be one more press of the back button.
- */
+// A node change is no history entry, or every click in a plan would need a back press.
 export const isNewPage = (from: Route, to: Route): boolean =>
   from.sessionId !== to.sessionId || from.queryId !== to.queryId;

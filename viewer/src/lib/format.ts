@@ -8,16 +8,14 @@ export const ms = (v: number): string =>
 export const bytes = (b: number): string =>
   b >= 1048576 ? num(b / 1048576, 1) + " MiB" : num(b / 1024, 1) + " KiB";
 
-/** The first table a query reads, if it reads a named one. */
 export function tableName(p: Profile): string | null {
   const scan = p.plan.logical.find((n) => roleOf(n) === "scan");
   return (scan && relationName(scan.properties ?? {})) || null;
 }
 
-/** A name for a query without a label: the first table it reads. */
 export const shapeName = (p: Profile): string => tableName(p) ?? `${p.plan.physical.length} nodes`;
 
-/** A duration at the scale a reader thinks in: 40 µs, 5.3 ms, 88.9 s, 456 s, 13.0 min. */
+/** 40 µs, 5.3 ms, 88.9 s, 456 s, 13.0 min */
 export function span(v: number): string {
   if (v < 1) return `${num(v * 1_000, 0)} µs`;
   if (v < 1_000) return `${num(v, v < 10 ? 1 : 0)} ms`;
@@ -25,7 +23,7 @@ export function span(v: number): string {
   return `${num(v / 60_000, 1)} min`;
 }
 
-/** A count at the scale a reader thinks in: 940, 12,345, 301K, 57.7M. */
+/** 940, 12,345, 301K, 57.7M */
 export function compact(v: number): string {
   if (Math.abs(v) < 100_000) return num(v);
   for (const [divisor, suffix] of [[1e9, "B"], [1e6, "M"], [1e3, "K"]] as const)
@@ -33,7 +31,6 @@ export function compact(v: number): string {
   return num(v);
 }
 
-/** How many of the threads polars had were busy on average, and how that reads. */
 export type Verdict = "good" | "warn" | "crit" | "info";
 
 export interface Busy {
@@ -54,7 +51,7 @@ export function busy(p: Profile): Busy | null {
 
 const JOINS = new Set(["join", "theta_join", "cross_join", "semi_anti_join"]);
 
-/** A join's rows out over its larger input; an input feeding several consumers counts once per consumer. */
+/** Rows out over the larger input; a shared input counts once per consumer. */
 export function nodeGrowth(node: PlanNode, plan: PlanNode[]): number | undefined {
   const out = node.metrics?.rows_sent;
   if (!JOINS.has(roleOf(node)) || typeof out !== "number") return undefined;
@@ -67,13 +64,12 @@ export function nodeGrowth(node: PlanNode, plan: PlanNode[]): number | undefined
   return larger ? out / larger : undefined;
 }
 
-/** The largest join's growth in a plan, as the exporter computes it. */
+/** Must match the exporter. */
 export function joinGrowth(plan: PlanNode[]): number | undefined {
   const all = plan.map((n) => nodeGrowth(n, plan)).filter((g): g is number => g !== undefined);
   return all.length ? Math.max(...all) : undefined;
 }
 
-/** What a node's counters say about it, for its kind: kept rows, growth, skew. */
 export interface Fact {
   key: string;
   label: string;
@@ -102,12 +98,11 @@ export function nodeFacts(node: PlanNode, plan: PlanNode[]): Fact[] {
 
 export const rows = compact;
 
-/** A node's own figure as a reader names it: `group_by.actual_groups` reads "Actual groups". */
+/** `group_by.actual_groups` → "Actual groups" */
 export function customLabel(key: string): string {
   const name = key.split(".").pop()!.replace(/_/g, " ");
   return name.charAt(0).toUpperCase() + name.slice(1);
 }
 
-/** A node's own figure in its unit. */
 export const customValue = ({ unit, value }: CustomMetric): string =>
   value == null ? "—" : unit === "By" ? bytes(value) : unit === "ns" ? ms(value / 1e6) : num(value);

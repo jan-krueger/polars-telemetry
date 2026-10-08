@@ -1,11 +1,4 @@
-/**
- * Everything the viewer is showing, and every way it can change.
- *
- * Selection is by `query_id` and session id, never by position, so reordering
- * or filtering a list cannot make it point at a different query. Each action
- * states once what it resets; before, six call sites each cleared their own
- * subset and two of them missed some.
- */
+// Selection is by id, never by position, so filtering a list cannot repoint it.
 
 import type { PlanNode, Profile, Session, SessionInfo } from "../model/profile";
 import { shapeName } from "../lib/format";
@@ -21,18 +14,15 @@ export interface NodeRef {
 export interface ViewerState {
   booted: boolean;
   sessions: Session[];
-  /** The page listing every session is open instead of a session's queries. */
+  /** The sessions page is open. */
   browsing: boolean;
   sessionId: string | null;
   queryId: string | null;
   compareId: string | null;
   node: NodeRef | null;
-  /** Filters the query list; kept across sessions, as a view setting. */
   search: string;
-  /** Orders the query list and overview; a view setting too. */
   sort: Sort;
-  /** Light only the nodes covering this percent of CPU time; null lights all.
-   *  A share rather than a count, so it means the same on every plan. */
+  /** Percent of CPU time to keep lit, so it means the same on every plan; null lights all. */
   focus: number | null;
 }
 
@@ -84,7 +74,6 @@ export function reducer(state: ViewerState, action: Action): ViewerState {
       return { ...state, ...nothingSelected, booted: true, sessions, sessionId: sessions[0]?.id ?? null };
     }
     case "stored": {
-      // Storage opened after the page did: add what it holds, keep what is open.
       const known = new Set(state.sessions.map((s) => s.id));
       const sessions = recent([...state.sessions, ...action.sessions.filter((s) => !known.has(s.id))]);
       return { ...state, sessions, sessionId: state.sessionId ?? sessions[0]?.id ?? null };
@@ -99,8 +88,7 @@ export function reducer(state: ViewerState, action: Action): ViewerState {
         sessionId: action.sessions[0]!.id,
       };
     case "read": {
-      // Only the open session is kept in memory; the others are read again
-      // from storage when opened. Link sessions have nowhere to come from.
+      // Link sessions cannot be read again, so they stay in memory.
       const sessions = state.sessions.map((s) => {
         if (s.id === action.sessionId) return { ...s, profiles: action.profiles, raw: action.raw };
         return action.forgetOthers && !s.shared ? { ...s, profiles: null, raw: null } : s;
@@ -119,7 +107,6 @@ export function reducer(state: ViewerState, action: Action): ViewerState {
     case "removed": {
       const gone = new Set(action.sessionIds);
       const sessions = state.sessions.filter((s) => !gone.has(s.id));
-      // With nothing left to list, the sessions page gives way to the empty start.
       const browsing = state.browsing && sessions.length > 0;
       if (!state.sessionId || !gone.has(state.sessionId)) return { ...state, sessions, browsing };
       return { ...state, ...nothingSelected, sessions, browsing, sessionId: recent(sessions)[0]?.id ?? null };
@@ -149,10 +136,8 @@ export function reducer(state: ViewerState, action: Action): ViewerState {
     case "searched":
       return { ...state, search: action.text };
     case "navigated": {
-      // A link to a session or query that is not here falls back to what is.
       const { route } = action;
       const session = state.sessions.find((s) => s.id === route.sessionId) ?? state.sessions[0] ?? null;
-      // Not read yet: keep what the link asks for until the profiles arrive.
       if (session && !session.profiles) {
         return { ...state, ...nothingSelected, browsing: false, sessionId: session.id, queryId: route.queryId, node: route.node };
       }
@@ -170,8 +155,6 @@ export function reducer(state: ViewerState, action: Action): ViewerState {
     case "focused":
       return { ...state, focus: action.focus };
     case "sorted": {
-      // The same column again flips it; a new one starts where it reads best:
-      // first run first, names A to Z, numbers largest first.
       const descending = state.sort.key === action.key
         ? !state.sort.descending
         : action.key !== "name" && action.key !== "order";
@@ -180,16 +163,12 @@ export function reducer(state: ViewerState, action: Action): ViewerState {
   }
 }
 
-// --- selectors ------------------------------------------------------------------
-
-/** The session already holding exactly these runs, so a file opened twice is not stored twice. */
 export function sameRuns(sessions: SessionInfo[], profiles: Profile[]): SessionInfo | null {
   const key = (ids: string[]) => [...ids].sort().join(",");
   const wanted = key(profiles.map((p) => p.query_id));
   return sessions.find((s) => s.runIds.length === profiles.length && key(s.runIds) === wanted) ?? null;
 }
 
-/** Most recently opened first; a session never opened counts from its import. */
 export const recent = <S extends SessionInfo>(sessions: S[]): S[] =>
   [...sessions].sort((a, b) => (b.openedAt ?? b.importedAt) - (a.openedAt ?? a.importedAt));
 
@@ -210,7 +189,6 @@ export function findNode(profile: Profile | null, ref: NodeRef | null): PlanNode
   return profile.plan[ref.plan].find((n) => n.id === ref.id) ?? null;
 }
 
-/** The physical node with the most CPU: what a reader looks at first. */
 export function hottest(profile: Profile): NodeRef | null {
   let best: PlanNode | null = null;
   for (const node of profile.plan.physical) {
@@ -225,11 +203,10 @@ export interface ShapeRow {
   runs: Profile[];
   wallMs: number;
   cpuMs: number;
-  /** 1 for the shape whose first run started first: the order the session ran them in. */
+  /** By first run's start, 1-based. */
   order: number;
 }
 
-/** Runs grouped by query shape, the most expensive shape first. */
 export function shapes(profiles: Profile[]): ShapeRow[] {
   const byShape = new Map<string, ShapeRow>();
   for (const p of profiles) {
@@ -239,7 +216,7 @@ export function shapes(profiles: Profile[]): ShapeRow[] {
     row.cpuMs += p.cpu_ms;
     byShape.set(p.fingerprint, row);
   }
-  // Start times where profiles have them; where they do not, the session's order.
+  // Session order where a start time is missing.
   const start = (row: ShapeRow) => Math.min(...row.runs.map((p) => p.started_unix_ns || Infinity));
   [...byShape.values()]
     .map((row, seen) => ({ row, seen, at: start(row) }))
@@ -248,7 +225,6 @@ export function shapes(profiles: Profile[]): ShapeRow[] {
   return [...byShape.values()].sort((a, b) => b.wallMs - a.wallMs);
 }
 
-/** What a search matches: the label, where it ran, the shape, the fingerprint. */
 export function matches(profile: Profile, search: string): boolean {
   const needle = search.trim().toLowerCase();
   if (!needle) return true;
@@ -266,27 +242,24 @@ const byName = new Intl.Collator(undefined, { numeric: true, sensitivity: "base"
 
 const SORTS: Record<SortKey, (a: ShapeRow, b: ShapeRow) => number> = {
   order: (a, b) => a.order - b.order,
-  // Numeric collation, so tpch/q2 comes before tpch/q10.
+  // tpch/q2 before tpch/q10.
   name: (a, b) => byName.compare(title(a.runs[0]!), title(b.runs[0]!)),
   runs: (a, b) => a.runs.length - b.runs.length,
   wall: (a, b) => a.wallMs - b.wallMs,
   cpu: (a, b) => a.cpuMs / a.runs.length - b.cpuMs / b.runs.length,
 };
 
-/** Shapes in the order asked for; ties keep the most expensive first. */
 export function sortShapes(rows: ShapeRow[], sort: Sort): ShapeRow[] {
   const compare = SORTS[sort.key];
   return [...rows].sort((a, b) => (sort.descending ? -1 : 1) * compare(a, b) || b.wallMs - a.wallMs);
 }
 
-/** The query shapes to list: grouped, narrowed by the search, and sorted. */
 export const visibleShapes = (state: ViewerState): ShapeRow[] =>
   sortShapes(shapes((currentSession(state)?.profiles ?? []).filter((p) => matches(p, state.search))), state.sort);
 
-/** What to call a query: its label, else a name derived from its plan. */
 export const title = (profile: Profile): string => profile.label ?? shapeName(profile);
 
-/** The label path every query shares, such as "pipeline/", so a list can show what differs. */
+/** e.g. "pipeline/" */
 export function sharedPrefix(profiles: Profile[]): string {
   if (profiles.length < 2) return "";
   const paths = profiles.map((p) => title(p).split("/"));

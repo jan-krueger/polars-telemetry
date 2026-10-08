@@ -18,12 +18,9 @@ interface Props {
 const Breakable = ({ text }: { text: string }) =>
   text.split(/(?<=[/._])/).map((part, i) => <span key={i}>{i ? <wbr /> : null}{part}</span>);
 
-/** The open session, and its queries grouped by shape. */
 export default function Sidebar({ sessions, current, shapes, prefix, search, queryId, dispatch, onKeep }: Props) {
   const list = useRef<HTMLElement>(null);
 
-  // A query picked anywhere -- the overview, a link, the back button -- is
-  // brought into view in the list with its other runs, ready to click.
   useEffect(() => {
     const run = list.current?.querySelector('.run[aria-pressed="true"]');
     const still = matchMedia("(prefers-reduced-motion: reduce)").matches;

@@ -10,7 +10,6 @@ interface Props {
   dispatch: Dispatch<Action>;
 }
 
-/** Every query shape in the open session, with what it cost. */
 export default function Overview({ session, shapes, sort, dispatch }: Props) {
   const widest = shapes.reduce((a, r) => Math.max(a, r.wallMs), 0) || 1;
   const totalWall = shapes.reduce((a, r) => a + r.wallMs, 0) || 1;
@@ -53,7 +52,6 @@ export default function Overview({ session, shapes, sort, dispatch }: Props) {
   );
 }
 
-/** A column header that sorts the overview, and says how it is sorted. */
 function SortHeader({ sort, by, dispatch, children }: { sort: Sort; by: SortKey; dispatch: Dispatch<Action>; children: ReactNode }) {
   const active = sort.key === by;
   return (

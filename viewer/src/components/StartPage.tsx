@@ -6,7 +6,6 @@ const EXAMPLES: Example[] = [
   { file: "tpch-sf10.jsonl", title: "Scale factor 10" },
 ];
 
-/** Nothing open yet: where profiles come from, and a way to try it without any. */
 export default function StartPage({ onChoose, onExample }: { onChoose: () => void; onExample: (e: Example) => void }) {
   return (
     <div className="blank">

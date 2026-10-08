@@ -9,7 +9,6 @@ const RECENT = 5;
 const lastUsed = (s: Session): number => s.openedAt ?? s.importedAt;
 const queries = (s: Session): string => `${num(s.count)} quer${s.count === 1 ? "y" : "ies"}`;
 
-/** The open session at the top of the sidebar, with the recent ones a click away. */
 interface SwitcherProps {
   sessions: Session[];
   current: Session | null;
@@ -78,7 +77,6 @@ const SORTS: Record<SortName, { label: string; key: (s: Session) => number | str
   size: { label: "Size", key: (s) => -s.bytes, when: lastUsed, grouped: false },
 };
 
-/** Every session, to find one, rename it, download it or make room. */
 interface PageProps {
   sessions: Session[];
   currentId: string | null;

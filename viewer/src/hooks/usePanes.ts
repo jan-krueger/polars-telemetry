@@ -10,16 +10,13 @@ export interface Channel {
 }
 
 export interface Panes {
-  /** The pane shown on its own, or null for both. */
   alone: Pane | null;
   toggleAlone: (pane: Pane) => void;
-  /** The pane that started moving both together, or null when they move apart. */
   linked: Pane | null;
   toggleLinked: (pane: Pane) => void;
   views: Channel;
 }
 
-/** How the two plan panes share the screen, kept across queries. */
 export default function usePanes(): Panes {
   const [alone, setAlone] = useState<Pane | null>(null);
   const [linked, setLinked] = useState<Pane | null>(null);

@@ -1,10 +1,4 @@
-/**
- * Raw profile documents in, the viewer's `Profile` out.
- *
- * One reader per schema version. Storage keeps the raw documents and they are
- * read on every load, so sessions stored today keep opening when the schema
- * moves on, and a better reader improves them too, with no migration.
- */
+// Storage keeps raw documents and reads them on every load: no migrations, and a newer reader improves old sessions.
 
 import { nodeLabel, roleOf, type RawNode } from "../lib/polars";
 import type { CustomMetric, Finding, FindingLevel, Measure, Metrics, PlanNode, Profile, SessionInfo } from "./profile";
@@ -23,8 +17,7 @@ const num = (value: unknown, fallback = 0): number =>
 
 const str = (value: unknown, fallback = ""): string => (typeof value === "string" ? value : fallback);
 
-/** `position` within its session gives a profile without a query_id the same
- *  id on every load. */
+/** `position` gives a profile without a query_id a stable id. */
 export function readProfile(raw: unknown, position?: number): Read {
   if (!isObject(raw)) return { problem: "not an object" };
   const schema = str(raw.schema);
@@ -108,7 +101,6 @@ function readV1(raw: Record<string, unknown>, schema: string, position?: number)
   };
 }
 
-/** Profiles from a .jsonl file, and a reason for each line that is not one. */
 export function readJsonl(text: string): { profiles: Profile[]; raw: unknown[]; rejected: string[] } {
   const profiles: Profile[] = [];
   const raw: unknown[] = [];
@@ -134,12 +126,10 @@ export function readJsonl(text: string): { profiles: Profile[]; raw: unknown[]; 
   return { profiles, raw, rejected };
 }
 
-/** A session's documents as a session file again, one per line. */
 export const toJsonl = (raw: unknown[]): string =>
   raw.map((doc) => JSON.stringify(doc)).join("\n") + "\n";
 
-/** Stored documents, read. Profiles that no longer read are dropped one by one
- *  rather than taking the whole viewer down. */
+/** Drops profiles that no longer read, one by one. */
 export function readProfiles(raw: unknown[]): Profile[] {
   const profiles: Profile[] = [];
   for (const [position, document] of raw.entries()) {
@@ -149,7 +139,6 @@ export function readProfiles(raw: unknown[]): Profile[] {
   return profiles;
 }
 
-/** The session list's entry for these profiles. */
 export function sessionInfo(
   base: Pick<SessionInfo, "id" | "name" | "importedAt" | "bytes"> & { openedAt?: number | null },
   profiles: Profile[],
@@ -168,7 +157,7 @@ export function sessionInfo(
 
 const LEVELS: readonly FindingLevel[] = ["warn", "info", "applied"];
 
-/** Findings polars-telemetry wrote; anything malformed is left out, never guessed. */
+/** Malformed findings are dropped, never guessed. */
 function readInsights(raw: unknown): Finding[] | null {
   if (!isObject(raw) || raw.schema !== "insights@1" || !Array.isArray(raw.findings)) return null;
   return raw.findings.flatMap((f): Finding[] => {

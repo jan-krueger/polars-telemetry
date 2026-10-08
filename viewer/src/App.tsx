@@ -25,7 +25,6 @@ export default function App() {
   const { problems, report, importFiles, remove, save, rename, keep, loadExample } = useSessions(state, dispatch);
   useAddressBar(state, dispatch);
   const panes = usePanes();
-  // One file input, opened by the header button and by the drop zone alike.
   const fileInput = useRef<HTMLInputElement>(null);
   const chooseFiles = () => fileInput.current?.click();
 

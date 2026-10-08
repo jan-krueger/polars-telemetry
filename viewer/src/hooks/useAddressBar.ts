@@ -3,7 +3,6 @@ import { isShareFragment } from "../share/link";
 import { fromHash, isNewPage, routeOf, toHash } from "../state/route";
 import { currentSession, type Action, type ViewerState } from "../state/viewer";
 
-/** The address bar follows what is on screen, and the back button follows the address bar. */
 export default function useAddressBar(state: ViewerState, dispatch: Dispatch<Action>): void {
   const { booted } = state;
 
@@ -15,9 +14,7 @@ export default function useAddressBar(state: ViewerState, dispatch: Dispatch<Act
     return () => removeEventListener("popstate", back);
   }, [dispatch]);
 
-  // A page the address did not name yet (a fresh load, a fallback) is filled
-  // in rather than added to history, so the back button never lands on a page
-  // that moves straight on.
+  // Replace, not push, when the address named no session: back must not land on a redirect.
   useEffect(() => {
     if (!booted) return;
     const open = currentSession(state);

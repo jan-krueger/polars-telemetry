@@ -1,11 +1,5 @@
-// Sessions live in IndexedDB so an imported file survives a reload. Opening
-// can hang outright (file:// origins, blocked site data), so every call is
-// time-boxed and failure degrades to in-memory rather than wedging the page.
-// A slow open is not a failed one: Firefox can take seconds after a browser
-// start, so the open carries on and `storageOpened` says when it is done.
-//
-// The session list and the profiles are separate stores: the list is read on
-// every load, a session's profiles only when it is opened.
+// Opening can hang (file://, blocked site data), so calls are time-boxed and
+// fall back to memory. A slow open (Firefox after start) still completes.
 import type { SessionInfo } from "../model/profile";
 import { readProfiles, sessionInfo } from "../model/read";
 
@@ -16,7 +10,7 @@ const PROFILES = "profiles";
 const OPEN_TIMEOUT_MS = 1500;
 
 let status: "opening" | "open" | "failed" = "opening";
-/** True until storage has opened: while it is still opening, and for good once it failed. */
+/** Also true while still opening. */
 export const storageUnavailable = () => status !== "open";
 
 let connection: Promise<IDBDatabase> | null = null;
@@ -38,7 +32,6 @@ function openDb(): Promise<IDBDatabase> {
 
 const timedOut = () => new Promise<null>((resolve) => setTimeout(() => resolve(null), OPEN_TIMEOUT_MS));
 
-/** Resolves true once storage opens, however late, or false when it cannot. */
 export const storageOpened = () => openDb().then(() => true, () => false);
 
 /** Version 1 kept each session's profiles in its list entry; move them out. */
@@ -57,8 +50,7 @@ function upgrade(db: IDBDatabase, transaction: IDBTransaction, from: number): vo
   };
 }
 
-/** The request's result, or null when storage cannot be opened at all. A
- *  failing transaction rejects, and leaves storage usable for the next one. */
+/** Null when storage cannot open; a failed transaction rejects. */
 async function tx<T>(stores: string[], mode: IDBTransactionMode,
                    fn: (store: (name: string) => IDBObjectStore) => IDBRequest<T>): Promise<T | null> {
   if (status === "failed") return null;
@@ -80,14 +72,11 @@ async function tx<T>(stores: string[], mode: IDBTransactionMode,
 
 const both = [LIST, PROFILES];
 
-/** Store a session: its list entry and its documents, together or not at all. */
 export const saveSession = (info: SessionInfo, raw: unknown[]) =>
   tx(both, "readwrite", (store) => { store(PROFILES).put({ id: info.id, raw }); return store(LIST).put(info); });
-/** Update a session's list entry only: a rename, when it was opened. */
 export const saveInfo = (info: SessionInfo) => tx([LIST], "readwrite", (store) => store(LIST).put(info));
 export const listSessions = (): Promise<SessionInfo[] | null> =>
   tx([LIST], "readonly", (store) => store(LIST).getAll()).catch(() => null);
-/** A session's documents as written, or null if they are not stored. */
 export const loadDocuments = async (id: string): Promise<unknown[] | null> =>
   ((await tx([PROFILES], "readonly", (store) => store(PROFILES).get(id))) as { raw?: unknown[] } | null)?.raw ?? null;
 export const dropSession = (id: string) =>

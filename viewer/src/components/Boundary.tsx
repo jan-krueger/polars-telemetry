@@ -2,9 +2,7 @@ import { Component, type ReactNode } from "react";
 import { dropAll, dropSession } from "../lib/storage";
 import { fromHash } from "../state/route";
 
-/** A malformed profile throws during render. Without this the whole tree
- *  unmounts to a blank page, and because the session was already stored the
- *  blank page survives a reload with no way back. */
+// A stored profile that throws in render would otherwise blank the page on every reload.
 export default class Boundary extends Component<{ children: ReactNode }, { error: unknown }> {
   state = { error: null as unknown };
 

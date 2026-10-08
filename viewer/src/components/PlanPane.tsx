@@ -167,7 +167,6 @@ function Warnings({ ids, selectedId, onPick }: { ids: number[]; selectedId: numb
   );
 }
 
-/** Light only the most expensive nodes; each step takes away the cheapest. */
 function Focus({ steps, step, onFocus }: { steps: FocusStep[]; step: number; onFocus: (focus: number | null) => void }) {
   const { coverage, shown, thresholdMs } = steps[step]!;
   const total = steps[0]!.shown;
@@ -259,7 +258,6 @@ function Distance({ onChange, onFitted }: { onChange: (far: boolean) => void; on
   return null;
 }
 
-/** Centre a node the header asked to see, close enough to read it. */
 function Reveal({ request, positions }: { request: Reveal; positions: Positions }) {
   const { getZoom, setCenter } = useReactFlow();
   useEffect(() => {

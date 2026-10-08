@@ -114,8 +114,7 @@ describe("layout", () => {
 });
 
 describe("focus", () => {
-  // A chain scan(1) -> filter(2) -> project(3) -> sink(4), costing 80, 15, 5
-  // and 0 of 100 ms.
+  // scan(1) -> filter(2) -> project(3) -> sink(4): 80, 15, 5, 0 ms
   const node = (id: number, kind: string, ms: number, inputs: number[]): PlanNode =>
     ({ id, kind, role: "selection", label: "", properties: {}, inputs,
        metrics: { total_time_ns: ms * 1e6 } }) as unknown as PlanNode;

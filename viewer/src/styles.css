@@ -67,8 +67,7 @@ h2{font:600 10.5px/1 ui-monospace,monospace;letter-spacing:.1em;text-transform:u
 .run .l1{font-size:12.5px;font-weight:500;overflow-wrap:break-word}
 .run .l2{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
 
-/* min-width:0 so a long code line scrolls inside its block rather than
-   widening the empty state past its column. */
+/* min-width:0: long code scrolls instead of widening the column */
 .blank{max-width:min(560px,100%);min-width:0;margin:8vh auto;text-align:center}
 .booting{margin:8vh auto;text-align:center;color:var(--muted);font-size:13px}
 .blank h3{font:600 19px/1.3 system-ui;margin:0 0 8px;letter-spacing:-.015em}
@@ -207,9 +206,7 @@ h2{font:600 10.5px/1 ui-monospace,monospace;letter-spacing:.1em;text-transform:u
 .ovw-name{font-weight:500}
 .ovw-fp{font:10.5px ui-monospace,monospace;color:var(--muted)}
 
-/* React Flow surfaces take our theme */
-/* React Flow is themed through the variables it publishes, set on our own
-   wrapper and inherited, so a release that restructures its DOM keeps them. */
+/* React Flow themed via its variables, which survive DOM changes */
 .planbox{
   --xy-minimap-background-color:var(--surface);
   --xy-minimap-mask-background-color:color-mix(in srgb,var(--plane) 70%,transparent);
@@ -229,8 +226,7 @@ h2{font:600 10.5px/1 ui-monospace,monospace;letter-spacing:.1em;text-transform:u
 .planbox.logical{--xy-minimap-node-background-color:var(--lnode-line)}
 .planbox .react-flow__minimap{border:1px solid var(--rule-2);border-radius:5px}
 
-/* No variable exists for these, so they still reach into React Flow's own
-   classes. Keep any such rule here, where an upgrade can check them at once. */
+/* No variables for these: check on React Flow upgrades */
 .react-flow__edge-text{font:9.5px ui-monospace,monospace}
 .react-flow__handle{opacity:0}
 .react-flow__attribution{font-size:9px}
@@ -238,8 +234,6 @@ h2{font:600 10.5px/1 ui-monospace,monospace;letter-spacing:.1em;text-transform:u
 .crash{max-width:640px;margin:48px auto;padding:0 16px}
 .crash pre{background:var(--surface-2);border:1px solid var(--border);border-radius:6px;
   padding:10px;overflow-x:auto;font:11.5px ui-monospace,SFMono-Regular,Menlo,monospace}
-/* Greek in a serif reads smaller than the monospace label beside it, so the
-   symbol is set larger and given a fixed slot to keep labels aligned. */
 .ra{font-family:"STIX Two Math","Cambria Math","Latin Modern Math","DejaVu Serif",Georgia,serif;
   font-size:1.5em;font-weight:400;line-height:1;min-width:1.1em;text-align:center;
   display:inline-block}
@@ -265,8 +259,7 @@ h2{font:600 10.5px/1 ui-monospace,monospace;letter-spacing:.1em;text-transform:u
   padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface-2);color:var(--ink)}
 .dialog-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
 
-/* Code is dark in both themes on purpose, like an editor pane; the palette is
-   fixed rather than tokenised for that reason. */
+/* dark in both themes on purpose */
 .code{--code-bg:#15181d;--code-ink:#e6edf3;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
 .code--block{background:var(--code-bg);color:var(--code-ink);text-align:left;font-size:12px;
   line-height:1.6;padding:12px 14px;border-radius:8px;margin:14px 0 0;overflow-x:auto;white-space:pre}
@@ -301,7 +294,6 @@ button.zone:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 
 .focus{display:flex;align-items:center;gap:8px;margin-left:auto;font-size:10.5px;color:var(--muted)}
 .focus input{width:90px;accent-color:var(--accent)}
-/* A fixed width, so the slider stays put while the text changes. */
 .focus-val{width:22ch;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;
   overflow:hidden;text-overflow:ellipsis}
 .react-flow__node.faded,.react-flow__edge.faded,.react-flow__minimap-node.faded{opacity:.16}
@@ -309,7 +301,6 @@ button.zone:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 @media (prefers-reduced-motion: reduce){.react-flow__node,.react-flow__edge,.react-flow__minimap-node{transition:none}}
 .planbox .ph{flex-wrap:wrap;row-gap:4px}
 
-/* Tooltips (components/Tip): above everything, never in the way of the pointer. */
 .tip{position:fixed;z-index:1000;max-width:min(320px,calc(100vw - 16px));pointer-events:none;
   padding:7px 10px;border-radius:6px;background:var(--surface-2);color:var(--ink);
   border:1px solid var(--border);box-shadow:0 6px 18px rgba(0,0,0,.18);

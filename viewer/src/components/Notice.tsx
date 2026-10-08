@@ -1,4 +1,3 @@
-/** What did not work, one line each, until dismissed. */
 export default function Notice({ problems, onDismiss }: { problems: string[]; onDismiss: () => void }) {
   if (!problems.length) return null;
   return (

@@ -6,13 +6,11 @@ import Tip, { TipText } from "./Tip";
 
 const bin = (p: number): number => (p >= 50 ? 4 : p >= 10 ? 3 : p >= 1 ? 2 : 1);
 
-/** The logical plan has no counters, so it is drawn as an outline: filling a
- *  node by CPU share would imply a cost it does not have. */
+// Logical nodes have no counters: outlined, never filled by CPU share.
 export default function PlanNode({ data, selected }: NodeProps<Node<FlowData>>) {
   const { node, share, logical, label, far, finding } = data;
   const role = roleOf(node);
   const info = ROLES[role];
-  // A relation is a leaf in the algebra: it is named, not given an operator.
   const relation = role === "scan" ? relationName(node.properties ?? {}) : "";
   const title = relation || node.kind;
   const className = `pnode${logical ? " logical" : ` pnode--b${bin(share)}`}${selected ? " pnode--sel" : ""}`;

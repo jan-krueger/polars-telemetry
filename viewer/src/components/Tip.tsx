@@ -1,10 +1,4 @@
-/**
- * A tooltip for whatever it wraps: shown on hover after a short pause, at
- * once on keyboard focus, and gone on leaving, blur or Escape.
- *
- * Rendered into document.body, so a scrolling pane or a React Flow canvas
- * cannot clip it, and placed above its anchor unless there is no room.
- */
+// Portalled to body so scrolling panes and the React Flow canvas cannot clip it.
 
 import {
   cloneElement, useCallback, useEffect, useId, useLayoutEffect, useRef, useState,
@@ -47,7 +41,6 @@ export default function Tip({ content, children }: { content: ReactNode; childre
   useEffect(() => {
     if (!open) return;
     const escape = (e: KeyboardEvent) => { if (e.key === "Escape") hide(); };
-    // Scrolling or zooming moves the anchor out from under the bubble.
     document.addEventListener("keydown", escape);
     window.addEventListener("scroll", hide, true);
     window.addEventListener("wheel", hide, { passive: true });
@@ -95,7 +88,6 @@ export default function Tip({ content, children }: { content: ReactNode; childre
   );
 }
 
-/** A term and what it means, as the `?` help and similar tips show it. */
 export function TipText({ term, children, note }: { term?: ReactNode; children?: ReactNode; note?: ReactNode }) {
   return (
     <>

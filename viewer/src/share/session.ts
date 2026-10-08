@@ -1,10 +1,7 @@
-/** Between share links and the viewer's sessions. */
-
 import type { Profile, Session } from "../model/profile";
 import { readProfile, sessionInfo } from "../model/read";
 import { title } from "../state/viewer";
 
-/** A session opened from a link: shown, not stored, until the reader keeps it. */
 export function sharedSession(fragment: string, documents: unknown[], now: number): Session {
   const profiles: Profile[] = [];
   documents.forEach((document, position) => {
@@ -20,7 +17,6 @@ export function sharedSession(fragment: string, documents: unknown[], now: numbe
   return { ...info, profiles, raw: documents, shared: fragment };
 }
 
-/** The documents as written for these profiles of the session, in their order. */
 export function documentsFor(session: Session, profiles: Profile[]): unknown[] {
   const byId = new Map<string, unknown>();
   (session.raw ?? []).forEach((document, position) => {

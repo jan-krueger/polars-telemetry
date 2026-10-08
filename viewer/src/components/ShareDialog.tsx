@@ -1,14 +1,10 @@
 import { useEffect, useRef } from "react";
 import { num } from "../lib/format";
 
-/** Where sharing a query stands: copied, or a question for the reader first. */
 export interface Sharing {
   copied?: boolean;
-  /** The fragment to copy once the reader accepts what it carries. */
   confirm?: string;
-  /** How many characters the link would have been. */
   tooLong?: number;
-  /** The link, for copying by hand where the browser would not. */
   manual?: string;
 }
 

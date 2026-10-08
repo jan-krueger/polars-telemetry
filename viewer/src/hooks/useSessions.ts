@@ -13,7 +13,6 @@ export interface Example {
 }
 
 export interface SessionActions {
-  /** What did not work, one line each; shown until dismissed or the next import. */
   problems: string[];
   report: (problems: string[]) => void;
   importFiles: (files: File[]) => Promise<void>;
@@ -27,14 +26,12 @@ export interface SessionActions {
 const reason = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 const unread = (info: SessionInfo): Session => ({ ...info, profiles: null, raw: null });
 
-/** Sessions as this browser stores them: listed on boot, read when opened, and every change written back. */
 export default function useSessions(state: ViewerState, dispatch: Dispatch<Action>): SessionActions {
   const { booted, sessions } = state;
   const [problems, report] = useState<string[]>([]);
 
   useEffect(() => {
     (async () => {
-      // Stored raw and read on every load, so a newer reader improves old sessions.
       const listed = (await listSessions()) || [];
       dispatch({ type: "loaded", sessions: listed.map(unread) });
       if (storageUnavailable()) {
@@ -100,8 +97,7 @@ export default function useSessions(state: ViewerState, dispatch: Dispatch<Actio
         rejected.push(`${f.name}: ${reason(e)}`);
         continue;
       }
-      // Only ever store what reads: a bad profile in IndexedDB would come back
-      // on every load.
+      // A stored bad profile would come back on every load.
       if (!read.profiles.length) {
         rejected.push(`${f.name}: ${read.rejected[0] || "no profiles found"}`);
         continue;
@@ -173,7 +169,7 @@ export default function useSessions(state: ViewerState, dispatch: Dispatch<Actio
     }
   };
 
-  // Served beside the hosted viewer; opened from disk there is nothing to fetch.
+  // Only served beside the hosted viewer.
   const loadExample = async ({ file }: Example) => {
     try {
       const response = await fetch(`examples/${file}`);
@@ -188,7 +184,6 @@ export default function useSessions(state: ViewerState, dispatch: Dispatch<Actio
   return { problems, report, importFiles, remove, save, rename, keep, loadExample };
 }
 
-/** Files dropped anywhere on the page are imported. */
 function useFileDrop(importFiles: (files: File[]) => void): void {
   useEffect(() => {
     const over = (e: DragEvent) => { e.preventDefault(); document.body.classList.add("dragging"); };
@@ -203,7 +198,6 @@ function useFileDrop(importFiles: (files: File[]) => void): void {
   }, [importFiles]);
 }
 
-/** Save a session as the .jsonl it was imported from. */
 function download(name: string, raw: unknown[]): void {
   const url = URL.createObjectURL(new Blob([toJsonl(raw)], { type: "application/jsonl" }));
   const link = Object.assign(document.createElement("a"), {
@@ -213,7 +207,6 @@ function download(name: string, raw: unknown[]): void {
   URL.revokeObjectURL(url);
 }
 
-/** A session's list entry, as storage keeps it. */
 function infoOf({ id, name, importedAt, openedAt, bytes, count, runIds, ran }: SessionInfo): SessionInfo {
   return { id, name, importedAt, openedAt, bytes, count, runIds, ran };
 }

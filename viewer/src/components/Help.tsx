@@ -1,7 +1,6 @@
 import { GLOSSARY } from "../lib/glossary";
 import Tip, { TipText } from "./Tip";
 
-/** A `?` that explains a counter or diagnostic, on hover or keyboard focus. */
 export default function Help({ term, extra }: { term: string; extra?: string }) {
   const g = GLOSSARY[term];
   if (!g) return null;

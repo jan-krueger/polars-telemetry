@@ -1,16 +1,7 @@
-/**
- * A bare single-class selector (`.right`) applies to every element carrying
- * that class anywhere. When two components use the same generic name, one
- * silently inherits the other's rules -- a `.right` meant for a header group
- * once turned an aside into a centred flex row, visible only in a screenshot.
- *
- * Fails when a bare selector's class is used from more than one component,
- * unless it is listed as shared on purpose.
- */
+// Fails when a bare `.class` selector is used by more than one component.
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
-// `ra` is the relational-algebra notation, styled the same wherever it appears.
 const SHARED_ON_PURPOSE = new Set(["delta-up", "delta-down", "btn", "link", "small", "ra", "ra--muted", "x", "picker", "search", "rail", "code"]);
 
 const walk = (dir) =>
