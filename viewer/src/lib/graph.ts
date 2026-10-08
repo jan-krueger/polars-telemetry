@@ -1,12 +1,4 @@
-/**
- * A plan as a graph: laid out, then shaped for React Flow.
- *
- * Two seams. `layout` sees only a neutral graph, so replacing dagre (with elk,
- * say) changes that one function. `toFlow` is pure, so what React Flow is
- * handed is testable without a DOM — which is where the minimap bug lived:
- * React Flow reads node dimensions off the objects it is given, never the
- * measured DOM, so an unsized node silently vanished from the minimap.
- */
+// React Flow takes node sizes from the node objects, not the DOM: unsized nodes vanish from the minimap.
 
 import dagre from "@dagrejs/dagre";
 import type { Edge, Node } from "@xyflow/react";
@@ -19,7 +11,7 @@ export const NODE_H = 56;
 export const EDGE_MIN = 1;
 export const EDGE_MAX = 6;
 
-/** Stroke width for an edge carrying `rows`, on a log scale up to the plan's busiest edge. */
+/** Log scale up to the busiest edge. */
 export function edgeWidth(rows: number | undefined, busiest: number): number {
   if (!rows || rows < 1 || busiest < 1) return EDGE_MIN;
   return EDGE_MIN + ((EDGE_MAX - EDGE_MIN) * Math.log1p(rows)) / Math.log1p(busiest);
@@ -28,13 +20,12 @@ export function edgeWidth(rows: number | undefined, busiest: number): number {
 export interface Graph {
   nodes: { id: string; width: number; height: number }[];
   edges: [source: string, target: string][];
-  /** Pairs to draw left of each other, as a node lists its inputs. */
+  /** Left-to-right pairs, in input order. */
   order: [left: string, right: string][];
 }
 
 export type Positions = Record<string, { x: number; y: number }>;
 
-/** The plan's nodes, and an edge for every input that exists in it. */
 export function planGraph(plan: PlanNode[]): Graph {
   const ids = new Set(plan.map((n) => String(n.id)));
   const inputs = plan.map((n) => [...new Set(n.inputs.map(String).filter((i) => ids.has(i)))]);
@@ -45,8 +36,7 @@ export function planGraph(plan: PlanNode[]): Graph {
   };
 }
 
-/** Layered placement, sinks at the top and sources at the bottom as polars
- *  prints its plans. Top-left corners, as React Flow positions nodes. */
+/** Sinks on top, as polars prints plans. Returns top-left corners. */
 export function layout(graph: Graph): Positions {
   const g = new dagre.graphlib.Graph();
   g.setGraph({ rankdir: "BT", nodesep: 28, ranksep: 46, marginx: 16, marginy: 16 });
@@ -63,10 +53,9 @@ export function layout(graph: Graph): Positions {
   return positions;
 }
 
-/** Below this zoom node text is unreadable, so nodes draw as plain boxes and edges lose their labels. */
+/** Below this zoom text is unreadable, so nodes and edges drop it. */
 export const FAR_ZOOM = 0.2;
 
-/** The flow as seen from far away: bare nodes, unlabelled edges. */
 export function distant(flow: { nodes: Node<FlowData>[]; edges: Edge[] }): { nodes: Node<FlowData>[]; edges: Edge[] } {
   return {
     nodes: flow.nodes.map((n) => ({ ...n, data: { ...n.data, far: true } })),
@@ -74,7 +63,6 @@ export function distant(flow: { nodes: Node<FlowData>[]; edges: Edge[] }): { nod
   };
 }
 
-/** Whether a plan this size, fitted into a pane this size, starts out far away. */
 export const startsFar = (plan: Box, pane = { width: 600, height: 700 }): boolean =>
   Math.min(pane.width / plan.width, pane.height / plan.height) < FAR_ZOOM;
 
@@ -84,7 +72,7 @@ const isFaded = (className: string | undefined): boolean => !!className?.split("
 const unfaded = (className: string | undefined): string | undefined =>
   classes(...(className?.split(" ").filter((c) => c !== "faded") ?? []));
 
-/** The same flow with one node selected; every other node and edge keeps its identity. */
+/** Untouched nodes and edges keep their identity. */
 export function withSelection(
   flow: { nodes: Node<FlowData>[]; edges: Edge[] },
   selectedId: number | null,
@@ -104,10 +92,9 @@ export function withSelection(
 
 export interface Box { x: number; y: number; width: number; height: number }
 export interface Viewport { x: number; y: number; zoom: number }
-/** Where a pane looks, independent of the plan's size: its centre as a fraction of the plan's extent. */
+/** A pane's centre as a fraction of the plan's extent, so it carries across plans of any size. */
 export interface SharedView { fx: number; fy: number; zoom: number }
 
-/** The area every node of a laid-out plan covers. */
 export function extent(positions: Positions): Box {
   const placed = Object.values(positions);
   if (!placed.length) return { x: 0, y: 0, width: 1, height: 1 };
@@ -141,23 +128,17 @@ export interface FlowData extends Record<string, unknown> {
   finding?: "warn" | "info" | null;
 }
 
-/** A node's own CPU time in milliseconds; 0 without counters. */
 export const cpuMs = (n: PlanNode): number => Number(n.metrics?.total_time_ns ?? 0) / 1e6;
 
 export interface FocusStep {
-  /** Nodes costing at least this much CPU time stay lit; 0 lights every node. */
+  /** 0 lights every node. */
   thresholdMs: number;
-  /** Their share of the query's CPU time, in percent. */
+  /** Percent of the query's CPU time. */
   coverage: number;
-  /** How many nodes that is. */
   shown: number;
 }
 
-/**
- * The focus slider's stops for one plan. The first lights every node; each
- * one after it takes away the cheapest nodes still lit, so the last lights
- * only the most expensive. Nodes that cost the same come and go together.
- */
+/** Each stop drops the cheapest lit nodes; equal costs drop together. */
 export function focusSteps(plan: PlanNode[]): FocusStep[] {
   const all: FocusStep = { thresholdMs: 0, coverage: 100, shown: plan.length };
   const total = plan.reduce((sum, n) => sum + cpuMs(n), 0);
@@ -175,10 +156,7 @@ export function focusSteps(plan: PlanNode[]): FocusStep[] {
   return steps[0]!.shown === plan.length ? [all, ...steps.slice(1)] : [all, ...steps];
 }
 
-/**
- * The step that keeps a focus when moving to another plan: the fewest nodes
- * still covering at least as much of its CPU time. Null focus lights all.
- */
+/** The fewest nodes still covering `coverage`, so a focus carries across plans. */
 export function stepFor(steps: FocusStep[], coverage: number | null): number {
   if (coverage === null) return 0;
   let chosen = 0;
@@ -188,7 +166,6 @@ export function stepFor(steps: FocusStep[], coverage: number | null): number {
   return chosen;
 }
 
-/** React Flow's nodes and edges for a laid-out plan. */
 export function toFlow(
   plan: PlanNode[],
   positions: Positions,
@@ -197,8 +174,7 @@ export function toFlow(
 ): { nodes: Node<FlowData>[]; edges: Edge[] } {
   const total = plan.reduce((sum, n) => sum + cpuMs(n), 0) || 1;
   const byId = new Map(plan.map((n) => [n.id, n]));
-  // The logical plan has no times to focus on. The selected node stays lit,
-  // so the details beside the plan never describe a node that has faded.
+  // The selected node stays lit so the details never describe a faded node.
   const faded = (n: PlanNode): boolean =>
     !logical && thresholdMs > 0 && n.id !== selectedId && cpuMs(n) < thresholdMs;
 
@@ -223,11 +199,9 @@ export function toFlow(
     n.inputs.flatMap((input): Edge[] => {
       const upstream = byId.get(input);
       if (!upstream) return [];
-      // The logical plan has no counters, so no row counts to put on edges.
       const rows = logical ? undefined : sent(upstream);
       return [{
         id: `${input}-${n.id}`,
-        // An edge stays lit only between two lit nodes.
         className: faded(upstream) || faded(n) ? "faded" : undefined,
         source: String(input),
         target: String(n.id),

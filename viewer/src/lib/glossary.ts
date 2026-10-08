@@ -1,6 +1,4 @@
-// What each counter means. Most are specific to polars' streaming engine and
-// are not guessable from the name.
-export const GLOSSARY = {
+export const GLOSSARY: Record<string, [term: string, meaning: string]> = {
   rows_received: ["Rows in", "Rows this node received from the nodes feeding it."],
   rows_sent: ["Rows out", "Rows this node passed on. Compare with rows in to see what the node removed or produced."],
   morsels_received: ["Morsels received", "A morsel is the unit of work in the streaming engine — a batch of rows handed between nodes. Rows ÷ morsels is the average batch size."],
@@ -28,11 +26,10 @@ export const GLOSSARY = {
   has_table_statistics: ["Table statistics", "Whether the source carried statistics the engine could use to skip data before reading it."],
   projection_efficiency: ["Projection", "Columns read ÷ columns in the file. Lower is better: unread columns are never decoded."],
   "group_by.actual_groups": ["Groups", "Distinct keys this group-by found: one output row each. Close to rows in means the grouping barely reduces anything."],
-  "group_by.estimated_groups": ["Groups estimated", "How many groups polars expected before running, to size its hash tables. Far from the actual count means it sized them wrongly."],
+  "group_by.estimated_groups": ["Groups estimated", "How many groups Polars expected before running, to size its hash tables. Far from the actual count means it sized them wrongly."],
 };
 
-// polars' property names are precise but not prose.
-export const PROP_LABELS = {
+export const PROP_LABELS: Record<string, string> = {
   first_source: "Source", scan_type: "Format", num_sources: "Sources", format_str: "Runs",
   file_columns: "File columns", projected_file_columns: "Projected columns",
   projection: "Projection", predicate: "Predicate",

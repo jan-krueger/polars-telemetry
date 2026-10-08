@@ -1,8 +1,10 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { busy, compact, customLabel, customValue, joinGrowth, nodeFacts, shapeName, span } from "../src/lib/format.js";
+import type { PlanNode, Profile } from "../src/model/profile";
+import { busy, compact, inputs, customLabel, customValue, joinGrowth, nodeFacts, shapeName, span } from "../src/lib/format";
 
-const profile = (over = {}) => ({
+const asProfile = (p: object) => p as unknown as Profile;
+const profile = (over = {}) => asProfile({
   schema: "polars-telemetry/profile@1",
   plan: { physical: [{ id: 0, inputs: [] }], logical: [{ id: 0, inputs: [] }] },
   ...over,
@@ -16,15 +18,15 @@ describe("shapeName", () => {
 
 describe("busy", () => {
   it("reads CPU over wall as threads busy, judged against the threads polars had", () => {
-    const b = busy({ wall_ms: 100, cpu_ms: 570, diagnostics: { cpu_count: 48 } });
+    const b = busy(asProfile({ wall_ms: 100, cpu_ms: 570, diagnostics: { cpu_count: 48 } }))!;
     expect(b.threads).toBeCloseTo(5.7);
     expect(b.verdict).toBe("crit");
-    expect(busy({ wall_ms: 100, cpu_ms: 760, diagnostics: { cpu_count: 8 } }).verdict).toBe("good");
+    expect(busy(asProfile({ wall_ms: 100, cpu_ms: 760, diagnostics: { cpu_count: 8 } }))!.verdict).toBe("good");
   });
 
   it("still counts threads when the profile does not say how many there were", () => {
-    expect(busy({ wall_ms: 10, cpu_ms: 30, diagnostics: {} })).toMatchObject({ of: null, share: null });
-    expect(busy({ wall_ms: 10, cpu_ms: 0 })).toBeNull();
+    expect(busy(asProfile({ wall_ms: 10, cpu_ms: 30, diagnostics: {} }))).toMatchObject({ of: null, share: null });
+    expect(busy(asProfile({ wall_ms: 10, cpu_ms: 0 }))).toBeNull();
   });
 });
 
@@ -48,12 +50,23 @@ describe("shapeName, contents", () => {
         ],
       },
     };
-    expect(shapeName(p)).toBe("part.parquet");
+    expect(shapeName(asProfile(p))).toBe("part.parquet");
+  });
+
+  it("lists every table read, once each, in plan order", () => {
+    const scan = (id: number, source: string) => ({ id, kind: "Scan", role: "scan", inputs: [], properties: { first_source: source } });
+    const p = asProfile({ plan: { physical: [], logical: [
+      { id: 0, kind: "Join", role: "join", inputs: [1, 2, 3], properties: {} },
+      scan(1, "/d/orders.parquet"), scan(2, "/d/lineitem.parquet"), scan(3, "/e/orders.parquet"),
+      { id: 4, kind: "DataFrameScan", role: "scan", inputs: [], properties: {} },
+    ] } });
+    expect(inputs(p)).toEqual(["orders.parquet", "lineitem.parquet"]);
   });
 });
 
 describe("join growth", () => {
-  const node = (id, kind, inputs, rows) => ({ id, kind, inputs, metrics: { rows_sent: rows } });
+  const node = (id: number, kind: string, inputs: number[], rows: number) =>
+    ({ id, kind, inputs, metrics: { rows_sent: rows } }) as unknown as PlanNode;
 
   it("compares a join with its larger input, so a small table joined to a big one is no explosion", () => {
     expect(joinGrowth([node(1, "MultiScan", [], 100), node(2, "MultiScan", [], 1_000_000), node(3, "EquiJoin", [1, 2], 1_000_000)])).toBe(1);
@@ -68,11 +81,11 @@ describe("join growth", () => {
 
   it("is a node's own figure, next to its rows kept and morsel skew", () => {
     const plan = [node(1, "MultiScan", [], 2_000), node(2, "MultiScan", [], 1_000), node(3, "EquiJoin", [1, 2], 10_000),
-      { id: 4, kind: "Filter", inputs: [3], metrics: { rows_received: 10_000, rows_sent: 2_500, morsels_received: 10, largest_morsel_received: 3_000 } }];
-    expect(nodeFacts(plan[2], plan).map((f) => [f.key, f.value])).toEqual([["join_growth", "5.00×"]]);
-    expect(nodeFacts(plan[3], plan).map((f) => [f.key, f.value, f.note])).toEqual([
+      { id: 4, kind: "Filter", inputs: [3], metrics: { rows_received: 10_000, rows_sent: 2_500, morsels_received: 10, largest_morsel_received: 3_000 } } as unknown as PlanNode];
+    expect(nodeFacts(plan[2]!, plan).map((f) => [f.key, f.value])).toEqual([["join_growth", "5.00×"]]);
+    expect(nodeFacts(plan[3]!, plan).map((f) => [f.key, f.value, f.note])).toEqual([
       ["rows_kept", "25.0%", "7,500 dropped"], ["morsel_skew", "3.00×", "largest batch above the mean"]]);
-    expect(nodeFacts(plan[0], plan)).toEqual([]);
+    expect(nodeFacts(plan[0]!, plan)).toEqual([]);
   });
 });
 
@@ -86,7 +99,7 @@ describe("join growth parity", () => {
 describe("join growth on healthy plans", () => {
   it("stays at or below 2 for every TPC-H query, where the deprecated amplification flagged q9 as fan-out", () => {
     const lines = readFileSync(new URL("../../examples/tpch-sf1.jsonl", import.meta.url), "utf8").split("\n").filter(Boolean);
-    const worst = Math.max(...lines.map((line) => joinGrowth(JSON.parse(line).plan.physical) ?? 0));
+    const worst = Math.max(...lines.map((line: string) => joinGrowth(JSON.parse(line).plan.physical) ?? 0));
     expect(worst).toBeLessThanOrEqual(2);
   });
 });
@@ -94,9 +107,9 @@ describe("join growth on healthy plans", () => {
 describe("custom node metrics", () => {
   it("are named for a reader and shown in their unit", () => {
     expect(customLabel("group_by.actual_groups")).toBe("Actual groups");
-    expect(customValue({ unit: "1", value: 12345 })).toBe("12,345");
-    expect(customValue({ unit: "By", value: 2 * 1048576 })).toBe("2.0 MiB");
-    expect(customValue({ unit: "ns", value: 5e6 })).toBe("5.00 ms");
-    expect(customValue({ unit: "1", value: null })).toBe("—");
+    expect(customValue({ key: "k", unit: "1", value: 12345 })).toBe("12,345");
+    expect(customValue({ key: "k", unit: "By", value: 2 * 1048576 })).toBe("2.0 MiB");
+    expect(customValue({ key: "k", unit: "ns", value: 5e6 })).toBe("5.00 ms");
+    expect(customValue({ key: "k", unit: "1", value: null })).toBe("—");
   });
 });

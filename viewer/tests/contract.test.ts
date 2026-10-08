@@ -1,15 +1,15 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { COUNTERS } from "../src/lib/counters";
-import { GLOSSARY } from "../src/lib/glossary.js";
+import { GLOSSARY } from "../src/lib/glossary";
 import { readProfile } from "../src/model/read";
 
-const profile = JSON.parse(
+type RawNode = { metrics?: { custom?: { key: string }[] } & Record<string, unknown> };
+const profile: { plan: { physical: RawNode[] } } = JSON.parse(
   readFileSync(new URL("./fixtures/profile.json", import.meta.url), "utf8"),
 );
 
-// Written by the Python side but deliberately not surfaced. Anything else new
-// must be shown or added here on purpose, never by omission.
+// Written but deliberately not shown.
 const NOT_SHOWN = new Set(["node_id", "done"]);
 
 
@@ -42,8 +42,6 @@ describe("the profile contract", () => {
 
 
   it("reads every top-level field the exporter writes, or says why not", () => {
-    // `failed` was written and never shown: a query that failed before
-    // planning looked like an empty plan.
     const NOT_READ = new Set(["polars_telemetry_version", "trace_id", "span_id"]);
     const read = readProfile(profile);
     const kept = new Set(Object.keys("profile" in read ? read.profile : {}));

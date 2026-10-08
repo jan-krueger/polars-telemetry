@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { beforeEach, expect, it, vi } from "vitest";
+import type { SessionInfo } from "../src/model/profile";
 
 const fixture = JSON.parse(readFileSync(new URL("./fixtures/profile.json", import.meta.url), "utf8"));
 
@@ -92,10 +93,10 @@ beforeEach(() => {
   vi.stubGlobal("indexedDB", fakeIndexedDb());
 });
 
-const info = (id: string, extra: object = {}) => ({ id, name: `${id}.jsonl`, ...extra });
+const info = (id: string, extra: object = {}) => ({ id, name: `${id}.jsonl`, ...extra }) as unknown as SessionInfo;
 
 it("a failed save is reported, and later removals still reach the store", async () => {
-  const storage = await import("../src/lib/storage.js");
+  const storage = await import("../src/lib/storage");
   await storage.saveSession(info("old"), []);
   await expect(storage.saveSession(info("big", { huge: true }), [])).rejects.toThrow("Quota");
   expect(storage.storageUnavailable()).toBe(false);
@@ -106,7 +107,7 @@ it("a failed save is reported, and later removals still reach the store", async 
 });
 
 it("opens one connection for every operation", async () => {
-  const storage = await import("../src/lib/storage.js");
+  const storage = await import("../src/lib/storage");
   await storage.saveSession(info("a"), []);
   await storage.dropSession("a");
   await storage.listSessions();
@@ -114,7 +115,7 @@ it("opens one connection for every operation", async () => {
 });
 
 it("lists sessions without their documents, and reads those on request", async () => {
-  const storage = await import("../src/lib/storage.js");
+  const storage = await import("../src/lib/storage");
   await storage.saveSession(info("a"), [fixture]);
   expect(await storage.listSessions()).toEqual([info("a")]);
   expect(await storage.loadDocuments("a")).toEqual([fixture]);
@@ -124,9 +125,9 @@ it("lists sessions without their documents, and reads those on request", async (
 it("moves version 1 sessions' documents out of the list, once", async () => {
   stores.set("sessions", new Map([["old", { id: "old", name: "old.jsonl", importedAt: 7, bytes: 9, profiles: [fixture] }]]));
   version = 1;
-  const storage = await import("../src/lib/storage.js");
+  const storage = await import("../src/lib/storage");
 
-  const [entry] = (await storage.listSessions()) as Row[];
+  const [entry] = (await storage.listSessions()) as unknown as Row[];
   expect(entry).toMatchObject({ id: "old", name: "old.jsonl", importedAt: 7, bytes: 9, count: 1, openedAt: null });
   expect(entry!.runIds).toEqual([fixture.query_id]);
   expect(entry).not.toHaveProperty("profiles");
@@ -138,7 +139,7 @@ it("a slow open is not a failed one: it lists the sessions once storage answers"
   stores.set("profiles", new Map());
   version = 2;
   openDelayMs = 2_000;
-  const storage = await import("../src/lib/storage.js");
+  const storage = await import("../src/lib/storage");
 
   expect(await storage.listSessions()).toBeNull();
   expect(storage.storageUnavailable()).toBe(true);
@@ -150,7 +151,7 @@ it("a slow open is not a failed one: it lists the sessions once storage answers"
 
 it("a failed open stays failed", async () => {
   openFails = true;
-  const storage = await import("../src/lib/storage.js");
+  const storage = await import("../src/lib/storage");
   expect(await storage.listSessions()).toBeNull();
   expect(await storage.storageOpened()).toBe(false);
   expect(storage.storageUnavailable()).toBe(true);

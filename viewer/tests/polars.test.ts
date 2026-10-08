@@ -10,7 +10,6 @@ const everyNode = [...profile.plan.physical, ...profile.plan.logical];
 
 describe("roles", () => {
   it("derives the same role the Python dialect wrote, for every node", () => {
-    // The fallback for profiles that predate `role` must agree with the source.
     const disagreements = everyNode
       .filter((n) => derivedRole(n) !== n.role)
       .map((n) => `${n.kind}: viewer ${derivedRole(n)} vs dialect ${n.role}`);
@@ -55,7 +54,6 @@ describe("exprColumn", () => {
 
 describe("nodeLabel", () => {
   it("labels every aggregation and join on both plans", () => {
-    // The physical GroupBy keeps its keys under key_per_input; it was blank.
     const blank = everyNode
       .filter((n) => ["aggregation", "join"].includes(roleOf(n)))
       .filter((n) => !nodeLabel(n))

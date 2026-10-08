@@ -38,7 +38,9 @@ opened from disk, the viewer works for the current page only and says so.
 ## Finding a query
 
 The session overview lists each query shape (the runs of one query) with its
-total and mean times. Click a column header to sort.
+total and mean times, numbered in the order the session first ran them. The
+overview and the query list follow that order until you click a column header
+to sort by another.
 
 Queries are titled by their [label](labels.md), or else by the first table they
 read. Search matches labels, file names, tables and fingerprints.
@@ -52,10 +54,11 @@ Above the plans, a query shows:
 
 - wall time;
 - average busy threads (node CPU ÷ wall time, as a bar against Polars' thread
-  count);
-- rows returned.
+  count).
 
-Hover the figures for exact times, planning and CPU.
+Hover the figures for exact times, planning and CPU. The ⓘ beside the query's
+name holds the tables it reads, its shape fingerprint, start time, rows
+returned, Polars version and the line of code that ran it.
 
 A selected node's metrics open with derived figures: the share of rows a filter
 kept, a join's rows out against its larger input, and how uneven its batches
@@ -92,15 +95,10 @@ each query down.
 Profiles written before 0.6.0, or with `Config(insights=False)`, show none;
 `polars-telemetry insights FILE --write OUT` adds them.
 
-## Comparing runs
-
-When a query ran more than once, pick another run under **compare with…** and
-every figure gains its change in percent.
-
 ## Sharing a query
 
-**Copy link** puts the query on screen, and the run it is compared with, into a
-link. The profiles travel after the `#`, which browsers never send to a server:
+**Share** offers three ways to pass a query on. **Copy link** puts the query on
+screen into a link. The profiles travel after the `#`, which browsers never send to a server:
 the recipient sees the same plans and nothing is uploaded.
 
 A link opens as a session named after its query, marked *opened from a link,
@@ -109,6 +107,13 @@ gave it.
 
 Anyone with the link can read everything in those profiles, and chat tools and
 browser history keep it. For a profile not [masked](privacy.md) before export,
-the viewer asks before copying. Profiles too large for a link get no link:
-download the session and send the file.
+the viewer asks before copying, unless you ticked *Don't ask again in this
+browser* there. For a link too long for chat tools, the viewer suggests sending
+the session file instead.
+
+**Copy as Markdown** copies it for a GitHub issue or pull request: its
+figures, its findings with links to their rules, and the physical plan as a tree with each node's time, share of
+CPU and rows. It carries the same literals, paths and labels a link does, so
+the viewer asks the same question first. **Download session** saves the whole
+session as the `.jsonl` it was opened from.
 

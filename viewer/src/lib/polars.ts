@@ -1,12 +1,3 @@
-/**
- * polars' plan vocabulary, interpreted in one place.
- *
- * Profiles carry each node's `role` — the stable, relational-algebra name for
- * what it does — assigned on the Python side. Files written before that field
- * existed only carry polars' own kind names, so `roleOf` falls back to a table
- * that mirrors the Python dialect; a test keeps the two in step.
- */
-
 export type Role =
   | "scan"
   | "dataframe"
@@ -37,10 +28,10 @@ export interface RawNode {
 }
 
 interface RoleInfo {
-  /** Relational-algebra symbol; empty for relations, which are shown by name. */
+  /** Empty for relations, which are shown by name. */
   symbol: string;
   name: string;
-  /** Plumbing or output rather than an operator on your data: drawn muted. */
+  /** Plumbing, drawn muted. */
   muted?: boolean;
 }
 
@@ -142,7 +133,6 @@ const BY_KIND: Record<string, Role> = {
 const isRole = (value: unknown): value is Role =>
   typeof value === "string" && Object.hasOwn(ROLES, value);
 
-/** The role the profile states, else one derived the way the dialect would. */
 export function roleOf(node: RawNode): Role {
   if (isRole(node.role)) return node.role;
   return derivedRole(node);
@@ -162,11 +152,7 @@ export function derivedRole(node: Pick<RawNode, "kind" | "properties">): Role {
   return BY_KIND[node.kind] ?? "unknown";
 }
 
-/**
- * The column an expression names: `col("region")` → `region`. Anything else —
- * a computed expression, a repr polars has changed — comes back as written,
- * never empty and never throwing.
- */
+/** `col("region")` → `region`; anything else comes back as written. */
 export function exprColumn(expr: unknown): string {
   const text = String(expr ?? "");
   const match = /^col\("((?:[^"\\]|\\.)*)"\)$/.exec(text);
@@ -175,27 +161,24 @@ export function exprColumn(expr: unknown): string {
 
 const asList = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
 
-/** Grouping keys: a flat `keys` in the IR, `key_per_input` in the physical plan. */
+/** `keys` in the IR, `key_per_input` in the physical plan. */
 export function groupKeys(properties: Record<string, unknown>): string[] {
   const flat = asList(properties.keys);
   const nested = asList(properties.key_per_input).flatMap(asList);
   return (flat.length ? flat : nested).map(exprColumn);
 }
 
-/** A path's last part, whichever separator the writing machine used. */
+/** Either separator. */
 export const basename = (path: string): string => path.split(/[\\/]/).pop() ?? path;
 
-/** The relation a scan reads: the file name, without its directory. */
 export function relationName(properties: Record<string, unknown>): string {
   const source = properties.first_source;
   return typeof source === "string" ? basename(source) : "";
 }
 
-/** The short parameter shown under a node: its keys, columns or source. */
 export function nodeLabel(node: RawNode): string {
   const p = node.properties ?? {};
   const role = roleOf(node);
-  // The title already names the relation, so only pushdown is worth adding.
   if (role === "scan") return p.predicate ? "pushdown" : "";
   if (role === "aggregation") return groupKeys(p).join(", ");
   if (role === "join") return typeof p.how === "string" ? p.how : "";
@@ -211,19 +194,10 @@ export function nodeLabel(node: RawNode): string {
   return "";
 }
 
-/** Expressions this short read better on one line than broken up. */
 const CHAIN_WIDTH = 36;
-/** A condition already has a line to itself, so it can run a little longer. */
 const CONDITION_WIDTH = 48;
 
-/**
- * A polars expression split into one line per method call, the way it would be
- * written: `col("a").sum().alias("b")` becomes `col("a")`, `  .sum()`,
- * `  .alias("b")`. Breaks only at a dot that follows a call's closing
- * parenthesis outside any brackets or string, so namespaces (`.dt.year()`)
- * and nested expressions stay whole. A line that is still too wide is left
- * for the reader to scroll, never split mid-token.
- */
+/** One line per method call; breaks only after a top-level `)`, so `.dt.year()` stays whole. */
 export function chainLines(expr: string, width = CHAIN_WIDTH): string[] {
   if (expr.length <= width) return [expr];
   const lines: string[] = [];
@@ -256,14 +230,11 @@ type Op = "&" | "|";
 
 interface Scanned {
   text: string;
-  /** For each opening bracket, where it closes; -1 elsewhere. */
   closes: Int32Array;
-  /** Positions of each operator, by the bracket depth it sits at. */
   ops: Map<number, Record<Op, number[]>>;
 }
 
-/** polars prints strings unescaped: one ends at a quote that can be followed
- *  by the end, a closing bracket, a comma, a dot or a binary operator. */
+/** polars prints strings unescaped: one ends at a quote followed by the end, `)`, `]`, `,`, `.` or an operator. */
 const STRING_END = /^(?:$|[)\],.]| [&|=!<>+\-*\/%])/;
 
 function scan(text: string): Scanned {
@@ -289,7 +260,6 @@ function scan(text: string): Scanned {
   return { text, closes, ops };
 }
 
-/** The first index in sorted `values` that is at least `target`. */
 function lowerBound(values: number[], target: number): number {
   let lo = 0;
   let hi = values.length;
@@ -305,7 +275,6 @@ type Condition = string | { op: Op; terms: Condition[]; length: number; text: ()
 
 type Range = [lo: number, hi: number, depth: number];
 
-/** `(a & b)` → `a & b`, as often as the whole range is one parenthesis. */
 function unwrap(s: Scanned, [lo, hi, depth]: Range): Range {
   for (;;) {
     while (lo < hi && s.text[lo] === " ") lo++;
@@ -317,7 +286,6 @@ function unwrap(s: Scanned, [lo, hi, depth]: Range): Range {
   }
 }
 
-/** Where `op` splits the range at its top level. */
 function cutsOf(s: Scanned, [lo, hi, depth]: Range, op: Op): number[] {
   const all = s.ops.get(depth)?.[op] ?? [];
   return all.slice(lowerBound(all, lo), lowerBound(all, hi));
@@ -328,8 +296,7 @@ function parts([lo, hi, depth]: Range, cuts: number[]): Range[] {
   return cuts.map((cut, k) => [bounds[k]!, cut, depth] as Range).concat([[bounds[cuts.length]!, hi, depth]]);
 }
 
-/** Split at the top-level `|`, else `&`; `|` binds loosest. A run of one
- *  operator, which polars nests a pair at a time, is flattened in a loop. */
+/** `|` binds loosest; Polars nests runs pairwise, flattened here. */
 function condition(s: Scanned, range: Range): Condition {
   const whole = unwrap(s, range);
   for (const op of ["|", "&"] as const) {
@@ -355,8 +322,6 @@ function conditionLines(c: Condition): string[] {
   const lines: string[] = [];
   c.terms.forEach((term, k) => {
     let sub = conditionLines(term);
-    // A group of the other operator keeps its parentheses, opening where the
-    // operator column is, so its own operators line up beneath them.
     if (typeof term !== "string" && sub.length > 1)
       sub = sub.map((line, j) => (j === 0 ? `(${line.slice(1)}` : line)).map((line, j, all) =>
         j === all.length - 1 ? `${line})` : line);
@@ -366,13 +331,7 @@ function conditionLines(c: Condition): string[] {
   return lines;
 }
 
-/**
- * An expression laid out to read: one condition per line where it combines
- * conditions with `&` and `|`, otherwise one method call per line. polars
- * parenthesises every pair of conditions; only the parentheses that change
- * the meaning are kept.
- */
-/** One predicate from the conditions polars lists separately, all of which must hold. */
+/** One condition per line, keeping only parentheses that change the meaning; else one call per line. */
 export const conjunction = (conditions: string[]): string =>
   conditions.length === 1 ? conditions[0]! : conditions.map((c) => `(${c})`).join(" & ");
 

@@ -1,5 +1,3 @@
-/** Laid-out plans, kept by structure so reopening a plan does not lay it out again. */
-
 import type { Graph, Positions } from "./graph";
 
 export const SYNC_LAYOUT_MAX = 250;

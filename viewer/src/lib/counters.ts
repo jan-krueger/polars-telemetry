@@ -1,9 +1,4 @@
-/**
- * The per-node counters a profile carries, and how each is shown.
- *
- * One registry: the details rail renders from it, and the contract test checks
- * it against what the exporter writes, so a new counter cannot be forgotten.
- */
+// The contract test checks this against what the exporter writes.
 
 export type Unit = "rows" | "ns" | "bytes" | "count";
 
@@ -36,10 +31,7 @@ export const COUNTERS: readonly Counter[] = [
   { key: "io_total_bytes_sent", label: "IO bytes sent", unit: "bytes", group: "io" },
 ];
 
-/**
- * The counters worth a row for this node. A group shows if any of its members
- * is non-zero, so a sink that only writes still shows its IO.
- */
+/** A group shows if any member is non-zero. */
 export function visibleCounters(metrics: Record<string, unknown>): Counter[] {
   const groupActive = (group: Counter["group"]) =>
     COUNTERS.some((c) => c.group === group && Number(metrics[c.key]) > 0);

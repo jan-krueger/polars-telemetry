@@ -1,8 +1,4 @@
-/**
- * A small tokenizer for the two kinds of code the viewer shows: a Python
- * snippet, and polars' expression text (`col("a").sum().alias("b")`), which
- * reads the same way. Enough to colour it; not a parser.
- */
+// Enough to colour Python and polars expressions; not a parser.
 
 export type TokenKind = "keyword" | "string" | "call" | "number" | "punct" | "text";
 
@@ -30,7 +26,6 @@ export function tokenize(code: string): Token[] {
     } else if (num) kind = "number";
     else if (punct) kind = "punct";
     const last = tokens[tokens.length - 1];
-    // Merge runs of plain text so the DOM stays small.
     if (last && last.kind === kind && (kind === "text" || kind === "punct")) last.text += whole;
     else tokens.push({ kind, text: whole });
   }
