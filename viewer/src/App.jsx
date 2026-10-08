@@ -433,6 +433,7 @@ polars_telemetry.install(exporter=FileExporter("profiles/session.jsonl"))`} />
               </div>
               <table className="ovw">
                 <thead><tr>
+                  <SortHeader sort={state.sort} by="order" dispatch={dispatch}>#</SortHeader>
                   <SortHeader sort={state.sort} by="name" dispatch={dispatch}>query</SortHeader>
                   <SortHeader sort={state.sort} by="runs" dispatch={dispatch}>runs</SortHeader>
                   <SortHeader sort={state.sort} by="wall" dispatch={dispatch}>total wall</SortHeader>
@@ -443,6 +444,7 @@ polars_telemetry.install(exporter=FileExporter("profiles/session.jsonl"))`} />
                 <tbody>
                   {overview.map((r) => (
                     <tr key={r.fingerprint} onClick={() => pick(r.runs[0].query_id)}>
+                      <td className="order">{r.order}</td>
                       <td><div style={{ fontWeight: 500 }}>{title(r.runs[0])}</div>
                         <div style={{ font: "10.5px ui-monospace,monospace", color: "var(--muted)" }}>
                           {r.runs[0].label && tableName(r.runs[0]) ? `${tableName(r.runs[0])} · ` : ""}{r.fingerprint}</div></td>

@@ -36,7 +36,7 @@ export interface ViewerState {
   focus: number | null;
 }
 
-export type SortKey = "name" | "runs" | "wall" | "cpu";
+export type SortKey = "order" | "name" | "runs" | "wall" | "cpu";
 export interface Sort {
   key: SortKey;
   descending: boolean;
@@ -71,7 +71,7 @@ export const initialState: ViewerState = {
   compareId: null,
   node: null,
   search: "",
-  sort: { key: "wall", descending: true },
+  sort: { key: "order", descending: false },
   focus: null,
 };
 
@@ -169,8 +169,10 @@ export function reducer(state: ViewerState, action: Action): ViewerState {
       return { ...state, focus: action.focus };
     case "sorted": {
       // The same column again flips it; a new one starts where it reads best:
-      // names A to Z, numbers largest first.
-      const descending = state.sort.key === action.key ? !state.sort.descending : action.key !== "name";
+      // first run first, names A to Z, numbers largest first.
+      const descending = state.sort.key === action.key
+        ? !state.sort.descending
+        : action.key !== "name" && action.key !== "order";
       return { ...state, sort: { key: action.key, descending } };
     }
   }
@@ -221,18 +223,26 @@ export interface ShapeRow {
   runs: Profile[];
   wallMs: number;
   cpuMs: number;
+  /** 1 for the shape whose first run started first: the order the session ran them in. */
+  order: number;
 }
 
 /** Runs grouped by query shape, the most expensive shape first. */
 export function shapes(profiles: Profile[]): ShapeRow[] {
   const byShape = new Map<string, ShapeRow>();
   for (const p of profiles) {
-    const row = byShape.get(p.fingerprint) ?? { fingerprint: p.fingerprint, runs: [], wallMs: 0, cpuMs: 0 };
+    const row = byShape.get(p.fingerprint) ?? { fingerprint: p.fingerprint, runs: [], wallMs: 0, cpuMs: 0, order: 0 };
     row.runs.push(p);
     row.wallMs += p.wall_ms;
     row.cpuMs += p.cpu_ms;
     byShape.set(p.fingerprint, row);
   }
+  // Start times where profiles have them; where they do not, the session's order.
+  const start = (row: ShapeRow) => Math.min(...row.runs.map((p) => p.started_unix_ns || Infinity));
+  [...byShape.values()]
+    .map((row, seen) => ({ row, seen, at: start(row) }))
+    .sort((a, b) => a.at - b.at || a.seen - b.seen)
+    .forEach(({ row }, k) => { row.order = k + 1; });
   return [...byShape.values()].sort((a, b) => b.wallMs - a.wallMs);
 }
 
@@ -253,6 +263,7 @@ export function matches(profile: Profile, search: string): boolean {
 const byName = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
 
 const SORTS: Record<SortKey, (a: ShapeRow, b: ShapeRow) => number> = {
+  order: (a, b) => a.order - b.order,
   // Numeric collation, so tpch/q2 comes before tpch/q10.
   name: (a, b) => byName.compare(title(a.runs[0]!), title(b.runs[0]!)),
   runs: (a, b) => a.runs.length - b.runs.length,

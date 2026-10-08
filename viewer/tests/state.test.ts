@@ -181,6 +181,28 @@ describe("sorting", () => {
   });
 });
 
+describe("execution order", () => {
+  const at = (id: string, fingerprint: string, started: number) => ({ ...profile(id, fingerprint, 1), started_unix_ns: started });
+
+  it("numbers shapes by their first run's start and lists them in that order by default", () => {
+    const state = loaded(session("s1", at("a", "late", 30), at("b", "early", 10), at("c", "late", 20), at("d", "mid", 25)));
+    const rows = visibleShapes(state);
+    expect(rows.map((r) => [r.fingerprint, r.order])).toEqual([["early", 1], ["late", 2], ["mid", 3]]);
+    expect(state.sort).toEqual({ key: "order", descending: false });
+  });
+
+  it("falls back to the session's order without start times", () => {
+    const rows = shapes([at("a", "x", 0), at("b", "y", 0), at("c", "x", 0)]);
+    expect(Object.fromEntries(rows.map((r) => [r.fingerprint, r.order]))).toEqual({ x: 1, y: 2 });
+  });
+
+  it("starts ascending when picked again after another column", () => {
+    let state = reducer(initialState, { type: "sorted", key: "wall" });
+    state = reducer(state, { type: "sorted", key: "order" });
+    expect(state.sort).toEqual({ key: "order", descending: false });
+  });
+});
+
 describe("focus", () => {
   it("is a view setting that survives picking another query", () => {
     expect(initialState.focus).toBeNull();

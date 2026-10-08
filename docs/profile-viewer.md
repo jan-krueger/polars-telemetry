@@ -38,7 +38,9 @@ opened from disk, the viewer works for the current page only and says so.
 ## Finding a query
 
 The session overview lists each query shape (the runs of one query) with its
-total and mean times. Click a column header to sort.
+total and mean times, numbered in the order the session first ran them. The
+overview and the query list follow that order until you click a column header
+to sort by another.
 
 Queries are titled by their [label](labels.md), or else by the first table they
 read. Search matches labels, file names, tables and fingerprints.
