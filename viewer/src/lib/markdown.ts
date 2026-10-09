@@ -21,6 +21,8 @@ function rowsOut(node: PlanNode): number | undefined {
 function summary(profile: Profile): string[] {
   const cells: [string, string][] = [["Wall time", span(profile.wall_ms)]];
   if (profile.cpu_ms > 0) cells.push(["Node CPU", span(profile.cpu_ms)]);
+  const io = profile.query_metrics?.io_total_active_ns;
+  if (io != null) cells.push(["IO in flight", span(io / 1e6)]);
   if (profile.result_rows != null) cells.push(["Rows out", compact(profile.result_rows)]);
   return [
     `| ${cells.map(([name]) => name).join(" | ")} |`,

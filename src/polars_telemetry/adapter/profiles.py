@@ -73,7 +73,18 @@ def read_profile(document: Mapping[str, Any]) -> Query:
         insights=_insights(document.get("insights")),
         planning_ms=_optional_ms(document.get("planning_ms")),
         telemetry_ms=_optional_ms(document.get("telemetry_ms")),
+        query_metrics=_query_metrics(document.get("query_metrics")),
     )
+
+
+def _query_metrics(value: Any) -> dict[str, int] | None:
+    if not isinstance(value, dict):
+        return None
+    return {
+        str(key): number
+        for key, number in value.items()
+        if isinstance(number, int) and not isinstance(number, bool)
+    }
 
 
 def read_profiles(path: Path) -> Iterator[Query | Skipped]:

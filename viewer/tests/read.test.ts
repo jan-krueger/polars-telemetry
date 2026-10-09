@@ -53,6 +53,14 @@ describe("readProfile", () => {
   });
 });
 
+describe("query metrics", () => {
+  it("keeps Polars' numeric query counters and nothing else", () => {
+    expect(read(minimal()).query_metrics).toBeNull();
+    const profile = read(minimal({ query_metrics: { io_total_active_ns: 5, num_threads: 12, odd: "x" } }));
+    expect(profile.query_metrics).toEqual({ io_total_active_ns: 5, num_threads: 12 });
+  });
+});
+
 describe("readJsonl", () => {
   it("keeps the raw documents for storage alongside what it read", () => {
     const { profiles, raw } = readJsonl(JSON.stringify(minimal()));

@@ -207,6 +207,7 @@ class QueryRecorder:
             return
         wall_ms = (time.perf_counter() - run.started) * 1000
 
+        query_metrics = None
         if run.handle is None:
             metrics = {}
         else:
@@ -215,10 +216,11 @@ class QueryRecorder:
             # spend the retry budget inside the caller's exception path.
             records = run.handle.snapshot() if failure else run.handle.settled_snapshot()
             metrics = build_metrics(records)
+            query_metrics = run.handle.query
 
         self._emit(
             enrich(
-                _query(run, wall_ms, metrics, failure),
+                _query(run, wall_ms, metrics, failure, query_metrics),
                 insights=self._config.insights,
             )
         )
@@ -229,7 +231,11 @@ class QueryRecorder:
 
 
 def _query(
-    run: _Run, wall_ms: float, metrics: dict[int, NodeMetrics], failure: str | None
+    run: _Run,
+    wall_ms: float,
+    metrics: dict[int, NodeMetrics],
+    failure: str | None,
+    query_metrics: dict[str, int] | None = None,
 ) -> Query:
     return Query(
         query_id=run.query_id,
@@ -245,4 +251,5 @@ def _query(
         started_unix_ns=run.started_unix_ns,
         planning_ms=run.planning_ms,
         telemetry_ms=run.telemetry_ms,
+        query_metrics=query_metrics,
     )
