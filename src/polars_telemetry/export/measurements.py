@@ -24,6 +24,7 @@ HISTOGRAMS: Final[tuple[tuple[str, str, str], ...]] = (
     (semconv.QUERY_DURATION, "ms", "Wall time per query"),
     (semconv.QUERY_CPU_TIME, "ms", "Summed node self time per query"),
     (semconv.QUERY_PLANNING_TIME, "ms", "Time to optimise and lower a query's plan"),
+    (semconv.QUERY_IO_TIME, "ms", "Time any IO of a query was in flight"),
     (semconv.QUERY_PARALLEL_EFFICIENCY, "1", "CPU time over wall time over cores"),
     (semconv.NODE_CPU_TIME, "ms", "Self time per plan node"),
     (semconv.NODE_POLL_TIME, "ms", "Time a node spent being polled"),
@@ -84,6 +85,16 @@ def measurements(query: Query, diagnostics: Diagnostics) -> Iterator[Measurement
     yield histogram(semconv.QUERY_DURATION, query.wall_ms, shape)
     if query.planning_ms is not None:
         yield histogram(semconv.QUERY_PLANNING_TIME, query.planning_ms, shape)
+    io = query.query_metrics or {}
+    for key, direction in (
+        ("io_total_active_ns", "any"),
+        ("io_rx_active_ns", "received"),
+        ("io_tx_active_ns", "sent"),
+    ):
+        if key in io:
+            yield histogram(
+                semconv.QUERY_IO_TIME, io[key] / 1e6, {**shape, semconv.DIRECTION: direction}
+            )
     if query.metrics:
         yield histogram(semconv.QUERY_CPU_TIME, query.cpu_ms, shape)
     if diagnostics.parallel_efficiency is not None:

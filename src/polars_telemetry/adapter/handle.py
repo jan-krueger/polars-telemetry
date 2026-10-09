@@ -6,7 +6,7 @@ import logging
 import time
 from typing import Any
 
-from polars_telemetry.adapter.decode import decode_metrics
+from polars_telemetry.adapter.decode import decode_snapshot
 
 _log = logging.getLogger("polars_telemetry")
 
@@ -23,16 +23,19 @@ class MetricsHandle:
     Each call serialises every node's counters, so polling is not free.
     """
 
-    __slots__ = ("_failures", "_raw")
+    __slots__ = ("_failures", "_raw", "query")
 
     def __init__(self, raw: Any) -> None:
         self._raw = raw
         self._failures = 0
+        self.query: dict[str, int] | None = None
+        """Query-level counters from the latest snapshot, when polars sends them."""
 
     def snapshot(self) -> list[dict[str, Any]]:
         """Current per-node counters; empty list on failure."""
         try:
-            return decode_metrics(self._raw.snapshot_query_metrics())
+            records, self.query = decode_snapshot(self._raw.snapshot_query_metrics())
+            return records
         except Exception as exc:
             self._failures += 1
             if self._failures == 1:

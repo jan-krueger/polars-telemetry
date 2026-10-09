@@ -23,6 +23,8 @@ function summary(profile: Profile): string[] {
   if (profile.cpu_ms > 0) cells.push(["Node CPU", span(profile.cpu_ms)]);
   const b = busy(profile);
   if (b) cells.push(["Threads busy", `${num(b.threads, 1)}${b.of ? ` of ${b.of}` : ""}`]);
+  const io = profile.query_metrics?.io_total_active_ns;
+  if (io != null) cells.push(["IO in flight", span(io / 1e6)]);
   if (profile.result_rows != null) cells.push(["Rows out", compact(profile.result_rows)]);
   return [
     `| ${cells.map(([name]) => name).join(" | ")} |`,

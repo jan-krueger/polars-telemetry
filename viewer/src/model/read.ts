@@ -29,6 +29,13 @@ export function readProfile(raw: unknown, position?: number): Read {
 
 const MAX_DATE_NS = 8.64e21;
 
+function counters(value: unknown): Record<string, number> | null {
+  if (!isObject(value)) return null;
+  const out: Record<string, number> = {};
+  for (const [key, n] of Object.entries(value)) if (typeof n === "number" && Number.isFinite(n)) out[key] = n;
+  return out;
+}
+
 function scalars(record: Record<string, unknown>): Record<string, number | boolean> {
   const kept: Record<string, number | boolean> = {};
   for (const [key, value] of Object.entries(record)) {
@@ -88,6 +95,7 @@ function readV1(raw: Record<string, unknown>, schema: string, position?: number)
       wall_ms: num(raw.wall_ms),
       planning_ms: Number.isFinite(raw.planning_ms) ? (raw.planning_ms as number) : null,
       telemetry_ms: Number.isFinite(raw.telemetry_ms) ? (raw.telemetry_ms as number) : null,
+      query_metrics: counters(raw.query_metrics),
       cpu_ms: num(raw.cpu_ms),
       result_rows: Number.isFinite(raw.result_rows) ? (raw.result_rows as number) : null,
       call_site: site

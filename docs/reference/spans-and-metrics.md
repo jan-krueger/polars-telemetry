@@ -18,6 +18,7 @@ The span is named `polars.collect`.
 | `polars.cpu_ms` | float | Summed node self time; exceeds wall time when parallel |
 | `polars.planning_ms` | float | Start to execution: Polars optimising and lowering the plan |
 | `polars.telemetry_ms` | float | polars-telemetry's own work before execution |
+| `polars.query_metrics.<key>` | int | One per query-level counter Polars sends, under the prefix `polars.query_metrics.` and Polars' own name, such as `polars.query_metrics.io_total_active_ns`: the time any IO of the query was in flight. Absent on Polars versions that send none |
 | `polars.parallelism` | float | `cpu_ms / wall_ms` |
 | `polars.parallel_efficiency` | float | `cpu_ms / wall_ms / cpu_count`, 0–1 |
 | `polars.cpu_count` | int | Threads Polars can use: its pool size, which honours CPU affinity, a container or systemd CPU quota, and `POLARS_MAX_THREADS` |
@@ -158,6 +159,7 @@ Query-level, dimensioned by `polars.plan.fingerprint` and `polars.engine`:
 | `polars.query.duration` | histogram | ms |
 | `polars.query.cpu_time` | histogram | ms |
 | `polars.query.planning_time` | histogram | ms |
+| `polars.query.io_time` | histogram | ms |
 | `polars.query.parallel_efficiency` | histogram | 1 |
 
 Node-level, dimensioned by `polars.node.kind` and `polars.engine`:
@@ -190,9 +192,12 @@ Query-level, dimensioned by `polars.plan.fingerprint`, `polars.insight.rule` and
 It counts `warn` and `info` findings; `applied` ones are span events only.
 `polars.engine` is `unknown` when a query failed before planning.
 
-`polars.node.io_bytes` and `polars.node.largest_morsel` carry one extra
-dimension, `polars.direction`. For bytes its values are `requested`,
-`received` and `sent`; for morsels, `received` and `sent`.
+`polars.node.io_bytes`, `polars.node.largest_morsel` and `polars.query.io_time`
+carry one extra dimension, `polars.direction`. For bytes its values are
+`requested`, `received` and `sent`; for morsels, `received` and `sent`; for
+query IO time, `any`, `received` and `sent`. Query IO time counts concurrent
+IO once, so `any` is less than the sum of the other two when reads and sends
+overlap. It is recorded only on Polars versions that report it.
 
 Every metric dimension is in `semconv.METRIC_DIMENSIONS`, and each is drawn
 from a bounded set. Plan literals are **never** metric attributes.

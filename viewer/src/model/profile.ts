@@ -69,6 +69,8 @@ export interface Profile {
   planning_ms: number | null;
   /** Included in wall_ms. */
   telemetry_ms: number | null;
+  /** Polars' query-level counters as sent, e.g. io_total_active_ns; null when Polars sends none. */
+  query_metrics: Record<string, number> | null;
   cpu_ms: number;
   result_rows: number | null;
   call_site: CallSite | null;
