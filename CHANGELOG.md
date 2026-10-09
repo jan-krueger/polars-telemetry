@@ -4,6 +4,20 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Query-level counters, once Polars sends them (pola-rs/polars#29792): profiles
+  gain `query_metrics`, spans one `polars.query_metrics.<key>` attribute per
+  counter, and the new `polars.query.io_time` histogram records the time any IO
+  of the query was in flight, also split into reads and sends. The console line
+  shows it as `io=`.
+
+### Fixed
+- Node metrics keep working on Polars versions whose metrics snapshot holds
+  query-level counters next to the node rows. Before, polars-telemetry read that
+  snapshot as broken and recorded no node metrics or findings at all.
+
 ## [0.8.3] - 2026-10-06
 
 ### Fixed

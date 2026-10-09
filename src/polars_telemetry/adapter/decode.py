@@ -2,7 +2,9 @@
 
 Payload shapes (polars 1.44.x and 2.x, which agree):
   IR plan, physical plan: [{id, input_ids, properties}]
-  metrics snapshot:       [{phys_node_key, ...19 counters}]
+  metrics snapshot:       [{phys_node_key, ...19 counters}], or
+                          {query: {...}, nodes: [{phys_node_key, ...}]} once polars
+                          adds query-level metrics (pola-rs/polars#29792)
 
 Physical plan ids and phys_node_key share a namespace; metrics join on it.
 """
@@ -62,8 +64,27 @@ def decode_optional_plan(payload: bytes) -> list[dict[str, Any]] | None:
 
 
 def decode_metrics(payload: bytes) -> list[dict[str, Any]]:
-    """Decode a metrics snapshot payload."""
-    return _unpack(payload)
+    """Decode a metrics snapshot payload into its node rows."""
+    return decode_snapshot(payload)[0]
+
+
+def _query_metrics(query: Any) -> dict[str, int] | None:
+    if not isinstance(query, dict):
+        return None
+    return {
+        str(key): value
+        for key, value in query.items()
+        if isinstance(value, int) and not isinstance(value, bool)
+    }
+
+
+def decode_snapshot(payload: bytes) -> tuple[list[dict[str, Any]], dict[str, int] | None]:
+    """Decode a metrics snapshot into node rows and query-level metrics, if sent."""
+    decoded = msgpack.unpackb(payload, raw=False, strict_map_key=False)
+    if isinstance(decoded, dict) and "nodes" in decoded:
+        query = decoded.get("query")
+        return _coerce(decoded["nodes"]), _query_metrics(query)
+    return _coerce(decoded), None
 
 
 def plan_problems(records: list[dict[str, Any]]) -> list[str]:

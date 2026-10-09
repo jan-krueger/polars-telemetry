@@ -58,6 +58,7 @@ mid-write still reads up to the last complete line.
 | `diagnostics` | Derived figures, as on the [span](../reference/spans-and-metrics.md#diagnostics) |
 | `plan.physical` | Physical nodes with `kind`, `role`, `inputs`, `properties` and `metrics`: every Polars counter, `done`, and on Polars 2 [custom node metrics](../reference/spans-and-metrics.md#custom-node-metrics) |
 | `plan.logical` | The logical plan's nodes, with your own column names |
+| `query_metrics` | Polars' query-level counters as it sends them, such as `io_total_active_ns`: the time any IO of the query was in flight, with concurrent IO counted once. Absent on Polars versions that send none |
 | `insights` | The [findings](../insights.md), when `Config(insights=True)`, the default |
 
 ## Options

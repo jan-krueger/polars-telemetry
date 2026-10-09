@@ -283,6 +283,9 @@ class Query:
     lowering. None when the query failed before planning."""
     telemetry_ms: float | None = None
     """polars-telemetry's own work before execution, within wall time."""
+    query_metrics: dict[str, int] | None = None
+    """polars' query-level counters as sent, such as IO time in flight across all
+    nodes; None when polars sends none."""
 
     @property
     def cpu_ms(self) -> float:
