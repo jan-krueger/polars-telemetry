@@ -50,6 +50,7 @@ pub fn app_router(pipeline: Arc<Pipeline>) -> Router {
         .route("/api/queries/{id}", get(api::query))
         .route("/api/queries/{id}/recording", get(api::recording))
         .route("/api/groups", get(api::groups))
+        .route("/api/facets", get(api::facets))
         .route("/api/{*rest}", get(api::unknown))
         .fallback(get(|| async { Html(PAGE) }))
         .with_state(pipeline)

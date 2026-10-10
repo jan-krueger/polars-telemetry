@@ -22,6 +22,33 @@ export interface QuerySummary {
   recording: string | null;
 }
 
+export interface GroupSummary {
+  key: string | null;
+  runs: number;
+  failed: number;
+  last_started_unix_ns: number;
+  total_wall_ms: number;
+  usual_wall_ms: number | null;
+  slow_wall_ms: number | null;
+  shapes: number;
+  warnings: number;
+  recent_wall_ms: number[];
+}
+
+export interface Count {
+  value: string | null;
+  runs: number;
+}
+
+export interface Facets {
+  service: Count[];
+  environment: Count[];
+  host: Count[];
+  status: Count[];
+}
+
+export type Filter = Partial<Record<"label" | "fingerprint" | "service" | "environment" | "host" | "status", string>> & { since?: number; limit?: number };
+
 export class NotFound extends Error {}
 
 async function json<T>(path: string): Promise<T> {
@@ -33,11 +60,15 @@ async function json<T>(path: string): Promise<T> {
 
 export const query = (id: string): Promise<QuerySummary> => json(`/api/queries/${encodeURIComponent(id)}`);
 
-export function queries(filter: Partial<Record<"label" | "fingerprint" | "service" | "environment" | "status", string>> & { limit?: number }): Promise<QuerySummary[]> {
-  const params = new URLSearchParams();
-  for (const [key, value] of Object.entries(filter)) if (value !== undefined && value !== null) params.set(key, String(value));
-  return json(`/api/queries?${params}`);
+function search(filter: Filter, extra: Record<string, string> = {}): string {
+  const params = new URLSearchParams(extra);
+  for (const [key, value] of Object.entries(filter)) if (value !== undefined && value !== null && value !== "") params.set(key, String(value));
+  return params.toString();
 }
+
+export const queries = (filter: Filter): Promise<QuerySummary[]> => json(`/api/queries?${search(filter)}`);
+export const groups = (filter: Filter): Promise<GroupSummary[]> => json(`/api/groups?${search(filter, { by: "label" })}`);
+export const facets = (filter: Filter): Promise<Facets> => json(`/api/facets?${search(filter)}`);
 
 export async function recording(id: string): Promise<Profile | null> {
   const response = await fetch(`/api/queries/${encodeURIComponent(id)}/recording`);

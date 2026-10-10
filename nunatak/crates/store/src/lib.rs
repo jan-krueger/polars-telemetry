@@ -93,6 +93,7 @@ pub struct Filter {
     pub fingerprint: Option<String>,
     pub service: Option<String>,
     pub environment: Option<String>,
+    pub host: Option<String>,
     pub status: Option<Status>,
     pub since_unix_ns: Option<i64>,
     pub until_unix_ns: Option<i64>,
@@ -116,8 +117,83 @@ pub struct GroupSummary {
     pub runs: u64,
     pub failed: u64,
     pub last_started_unix_ns: i64,
-    pub mean_wall_ms: Option<f64>,
-    pub max_wall_ms: Option<f64>,
+    pub total_wall_ms: f64,
+    pub usual_wall_ms: Option<f64>,
+    pub slow_wall_ms: Option<f64>,
+    pub shapes: u64,
+    pub warnings: u64,
+    pub recent_wall_ms: Vec<f64>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct GroupRun {
+    pub status: Status,
+    pub started_unix_ns: i64,
+    pub wall_ms: Option<f64>,
+    pub fingerprint: Option<String>,
+    pub warnings: u32,
+}
+
+pub const RECENT_RUNS: usize = 30;
+
+#[must_use]
+pub fn quantile(sorted: &[f64], q: f64) -> Option<f64> {
+    if sorted.is_empty() {
+        return None;
+    }
+    #[allow(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        clippy::cast_precision_loss
+    )]
+    let at = ((sorted.len() - 1) as f64 * q).floor() as usize;
+    sorted.get(at.min(sorted.len() - 1)).copied()
+}
+
+#[must_use]
+pub fn summarize(key: Option<String>, runs: &[GroupRun]) -> GroupSummary {
+    let mut order: Vec<&GroupRun> = runs.iter().collect();
+    order.sort_by_key(|run| run.started_unix_ns);
+    let finished: Vec<f64> = order
+        .iter()
+        .filter(|run| run.status == Status::Finished)
+        .filter_map(|run| run.wall_ms)
+        .collect();
+    let mut sorted = finished.clone();
+    sorted.sort_by(f64::total_cmp);
+    let shapes: BTreeSet<&str> = runs
+        .iter()
+        .filter_map(|run| run.fingerprint.as_deref())
+        .collect();
+    GroupSummary {
+        key,
+        runs: runs.len() as u64,
+        failed: runs
+            .iter()
+            .filter(|run| run.status == Status::Failed)
+            .count() as u64,
+        last_started_unix_ns: order.last().map_or(0, |run| run.started_unix_ns),
+        total_wall_ms: finished.iter().fold(0.0, |total, wall| total + wall),
+        usual_wall_ms: quantile(&sorted, 0.5),
+        slow_wall_ms: quantile(&sorted, 0.9),
+        shapes: shapes.len() as u64,
+        warnings: runs.iter().map(|run| u64::from(run.warnings)).sum(),
+        recent_wall_ms: finished[finished.len().saturating_sub(RECENT_RUNS)..].to_vec(),
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct Count {
+    pub value: Option<String>,
+    pub runs: u64,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+pub struct Facets {
+    pub service: Vec<Count>,
+    pub environment: Vec<Count>,
+    pub host: Vec<Count>,
+    pub status: Vec<Count>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -150,6 +226,7 @@ pub trait Index: Send + Sync {
     async fn query(&self, query_id: &str) -> Result<Option<QuerySummary>>;
     async fn list(&self, filter: &Filter, page: Page) -> Result<Vec<QuerySummary>>;
     async fn groups(&self, filter: &Filter, by: Grouping) -> Result<Vec<GroupSummary>>;
+    async fn facets(&self, filter: &Filter) -> Result<Facets>;
     async fn seen(&self, stream_id: &str) -> Result<Seen>;
     async fn set_seen(&self, stream_id: &str, seen: &Seen) -> Result<()>;
 }

@@ -4,7 +4,7 @@ use axum::Json;
 use axum::extract::{Path, Query, State};
 use axum::http::{StatusCode, header};
 use axum::response::{IntoResponse, Response};
-use nunatak_store::{Filter, Grouping, Page, Status};
+use nunatak_store::{Count, Facets, Filter, Grouping, Index, Page, Status};
 use serde::Deserialize;
 use std::sync::Arc;
 
@@ -16,6 +16,7 @@ pub(crate) struct Params {
     fingerprint: Option<String>,
     service: Option<String>,
     environment: Option<String>,
+    host: Option<String>,
     status: Option<String>,
     since: Option<i64>,
     until: Option<i64>,
@@ -38,6 +39,7 @@ impl Params {
             fingerprint: self.fingerprint.clone(),
             service: self.service.clone(),
             environment: self.environment.clone(),
+            host: self.host.clone(),
             status,
             since_unix_ns: self.since,
             until_unix_ns: self.until,
@@ -131,6 +133,68 @@ pub(crate) async fn groups(
 
 pub(crate) async fn unknown() -> Response {
     problem(StatusCode::NOT_FOUND, "no such API", None)
+}
+
+pub(crate) async fn facets(
+    State(pipeline): State<Arc<Pipeline>>,
+    Query(params): Query<Params>,
+) -> Response {
+    let filter = match params.filter(pipeline.project()) {
+        Ok(filter) => filter,
+        Err(reason) => return problem(StatusCode::BAD_REQUEST, &reason, None),
+    };
+    match facets_for(pipeline.index(), &filter).await {
+        Ok(facets) => Json(facets).into_response(),
+        Err(error) => failed(&error),
+    }
+}
+
+async fn facets_for(index: &dyn Index, filter: &Filter) -> nunatak_store::Result<Facets> {
+    let everything = Filter {
+        project: filter.project.clone(),
+        label: filter.label.clone(),
+        since_unix_ns: filter.since_unix_ns,
+        until_unix_ns: filter.until_unix_ns,
+        ..Filter::default()
+    };
+    let all = index.facets(&everything).await?;
+    let service = Filter {
+        service: None,
+        ..filter.clone()
+    };
+    let environment = Filter {
+        environment: None,
+        ..filter.clone()
+    };
+    let host = Filter {
+        host: None,
+        ..filter.clone()
+    };
+    let status = Filter {
+        status: None,
+        ..filter.clone()
+    };
+    Ok(Facets {
+        service: within(all.service, &index.facets(&service).await?.service),
+        environment: within(
+            all.environment,
+            &index.facets(&environment).await?.environment,
+        ),
+        host: within(all.host, &index.facets(&host).await?.host),
+        status: within(all.status, &index.facets(&status).await?.status),
+    })
+}
+
+fn within(all: Vec<Count>, matching: &[Count]) -> Vec<Count> {
+    all.into_iter()
+        .map(|count| Count {
+            runs: matching
+                .iter()
+                .find(|m| m.value == count.value)
+                .map_or(0, |m| m.runs),
+            value: count.value,
+        })
+        .collect()
 }
 
 fn failed(error: &nunatak_store::Error) -> Response {

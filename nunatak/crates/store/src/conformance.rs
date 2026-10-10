@@ -1,6 +1,6 @@
 #![allow(clippy::missing_panics_doc)]
 
-use crate::{Filter, Grouping, Index, Page, QuerySummary, RecordingKey, Seen, Status};
+use crate::{Count, Filter, Grouping, Index, Page, QuerySummary, RecordingKey, Seen, Status};
 
 const PAGE: Page = Page {
     limit: 100,
@@ -89,6 +89,14 @@ pub async fn a_list_is_newest_first_filtered_and_paged(index: &dyn Index) {
         started(index.list(&window, PAGE).await.unwrap()),
         [3_000, 2_000]
     );
+    let mut moved = query(2, "b", 3_000);
+    moved.host = "worker-9".into();
+    index.put_query(&moved).await.unwrap();
+    let on_host = Filter {
+        host: Some("worker-9".into()),
+        ..Filter::default()
+    };
+    assert_eq!(started(index.list(&on_host, PAGE).await.unwrap()), [3_000]);
     let elsewhere = Filter {
         project: Some("other".into()),
         ..Filter::default()
@@ -108,10 +116,15 @@ pub async fn a_list_is_newest_first_filtered_and_paged(index: &dyn Index) {
 }
 
 pub async fn groups_count_runs_failures_and_times(index: &dyn Index) {
-    let mut slow = query(1, "a", 1_000);
-    slow.wall_ms = Some(300.0);
-    index.put_query(&slow).await.unwrap();
-    index.put_query(&query(2, "a", 2_000)).await.unwrap();
+    for (id, wall, started) in [(1, 300.0, 1_000), (2, 100.0, 2_000), (5, 200.0, 2_500)] {
+        let mut run = query(id, "a", started);
+        run.wall_ms = Some(wall);
+        index.put_query(&run).await.unwrap();
+    }
+    let mut reshaped = query(6, "a", 2_600);
+    reshaped.fingerprint = Some("shape-a2".into());
+    reshaped.wall_ms = Some(400.0);
+    index.put_query(&reshaped).await.unwrap();
     let mut failed = query(3, "b", 3_000);
     failed.status = Status::Failed;
     index.put_query(&failed).await.unwrap();
@@ -124,13 +137,19 @@ pub async fn groups_count_runs_failures_and_times(index: &dyn Index) {
         .iter()
         .find(|g| g.key.as_deref() == Some("a"))
         .unwrap();
-    assert_eq!((a.runs, a.failed, a.last_started_unix_ns), (2, 0, 2_000));
-    assert_eq!((a.mean_wall_ms, a.max_wall_ms), (Some(200.0), Some(300.0)));
+    assert_eq!((a.runs, a.failed, a.last_started_unix_ns), (4, 0, 2_600));
+    assert_eq!(
+        (a.usual_wall_ms, a.slow_wall_ms),
+        (Some(200.0), Some(300.0))
+    );
+    assert!((a.total_wall_ms - 1_000.0).abs() < 1e-9);
+    assert_eq!((a.shapes, a.warnings), (2, 4));
+    assert_eq!(a.recent_wall_ms, [300.0, 100.0, 200.0, 400.0]);
     let b = groups
         .iter()
         .find(|g| g.key.as_deref() == Some("b"))
         .unwrap();
-    assert_eq!((b.runs, b.failed), (1, 1));
+    assert_eq!((b.runs, b.failed, b.usual_wall_ms), (1, 1, None));
     assert_eq!(groups[0].key.as_deref(), Some("b"));
     let shapes = index
         .groups(&Filter::default(), Grouping::Fingerprint)
@@ -139,7 +158,41 @@ pub async fn groups_count_runs_failures_and_times(index: &dyn Index) {
     assert!(
         shapes
             .iter()
-            .any(|g| g.key.as_deref() == Some("shape-a") && g.runs == 2)
+            .any(|g| g.key.as_deref() == Some("shape-a") && g.runs == 3)
+    );
+}
+
+pub async fn facets_count_runs_per_value(index: &dyn Index) {
+    index.put_query(&query(1, "a", 1_000)).await.unwrap();
+    let mut elsewhere = query(2, "a", 2_000);
+    elsewhere.host = "worker-9".into();
+    elsewhere.environment = None;
+    elsewhere.status = Status::Failed;
+    index.put_query(&elsewhere).await.unwrap();
+    index.put_query(&query(3, "b", 3_000)).await.unwrap();
+
+    let facets = index.facets(&Filter::default()).await.unwrap();
+    let count = |value: Option<&str>, runs| Count {
+        value: value.map(str::to_owned),
+        runs,
+    };
+    assert_eq!(facets.service, [count(Some("orders-etl"), 3)]);
+    assert_eq!(
+        facets.host,
+        [count(Some("worker-3"), 2), count(Some("worker-9"), 1)]
+    );
+    assert_eq!(facets.environment, [count(Some("prod"), 2), count(None, 1)]);
+    assert_eq!(
+        facets.status,
+        [count(Some("finished"), 2), count(Some("failed"), 1)]
+    );
+    let only_b = Filter {
+        label: Some("b".into()),
+        ..Filter::default()
+    };
+    assert_eq!(
+        index.facets(&only_b).await.unwrap().service,
+        [count(Some("orders-etl"), 1)]
     );
 }
 
@@ -178,6 +231,11 @@ macro_rules! conformance {
             #[tokio::test]
             async fn groups_count_runs_failures_and_times() {
                 $crate::conformance::groups_count_runs_failures_and_times(&$index).await;
+            }
+
+            #[tokio::test]
+            async fn facets_count_runs_per_value() {
+                $crate::conformance::facets_count_runs_per_value(&$index).await;
             }
 
             #[tokio::test]

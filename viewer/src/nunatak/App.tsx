@@ -1,4 +1,5 @@
 import { useEffect, useState, type MouseEvent } from "react";
+import QueriesPage from "./QueriesPage";
 import RunPage from "./RunPage";
 
 export function go(path: string) {
@@ -35,7 +36,9 @@ export default function App() {
           <a href="/queries" onClick={follow} aria-current={tab === "queries" ? "page" : undefined}>Queries</a>
         </nav>
       </header>
-      {run ? <RunPage id={decodeURIComponent(run[1]!)} /> : <div className="nsoon">This page comes next.</div>}
+      {run ? <RunPage id={decodeURIComponent(run[1]!)} />
+        : path === "/queries" ? <QueriesPage />
+        : <div className="nsoon">This page comes next.</div>}
     </>
   );
 }

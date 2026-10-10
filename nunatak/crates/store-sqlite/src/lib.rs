@@ -1,11 +1,12 @@
 use async_trait::async_trait;
 use nunatak_store::{
-    Error, Filter, GroupSummary, Grouping, Index, Page, QuerySummary, RecordingKey, Result, Seen,
-    Status,
+    Count, Error, Facets, Filter, GroupRun, GroupSummary, Grouping, Index, Page, QuerySummary,
+    RecordingKey, Result, Seen, Status, summarize,
 };
 use rusqlite::types::Value;
 use rusqlite::{Connection, OptionalExtension, Row, params, params_from_iter};
 use rusqlite_migration::{M, Migrations, SchemaVersion};
+use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 
@@ -151,6 +152,7 @@ fn conditions(filter: &Filter) -> (String, Vec<Value>) {
         ("fingerprint", &filter.fingerprint),
         ("service", &filter.service),
         ("environment", &filter.environment),
+        ("host", &filter.host),
     ];
     for (column, value) in text {
         if let Some(value) = value {
@@ -228,23 +230,62 @@ impl Index for SqliteIndex {
             Grouping::Fingerprint => "fingerprint",
         };
         let (clause, values) = conditions(filter);
+        let rows = self
+            .run(move |c| {
+                let sql = format!(
+                    "SELECT {column}, status, started_unix_ns, wall_ms, fingerprint, warnings FROM queries {clause}"
+                );
+                c.prepare(&sql)?
+                    .query_map(params_from_iter(values), |row| {
+                        let status: String = row.get(1)?;
+                        Ok((
+                            row.get::<_, Option<String>>(0)?,
+                            GroupRun {
+                                status: Status::parse(&status).unwrap_or(Status::Unfinished),
+                                started_unix_ns: row.get(2)?,
+                                wall_ms: row.get(3)?,
+                                fingerprint: row.get(4)?,
+                                warnings: row.get(5)?,
+                            },
+                        ))
+                    })?
+                    .collect::<rusqlite::Result<Vec<_>>>()
+            })
+            .await?;
+        let mut by_key: BTreeMap<Option<String>, Vec<GroupRun>> = BTreeMap::new();
+        for (key, run) in rows {
+            by_key.entry(key).or_default().push(run);
+        }
+        let mut groups: Vec<GroupSummary> = by_key
+            .into_iter()
+            .map(|(key, runs)| summarize(key, &runs))
+            .collect();
+        groups.sort_by_key(|group| std::cmp::Reverse(group.last_started_unix_ns));
+        Ok(groups)
+    }
+
+    async fn facets(&self, filter: &Filter) -> Result<Facets> {
+        let (clause, values) = conditions(filter);
         self.run(move |c| {
-            let sql = format!(
-                "SELECT {column}, COUNT(*), SUM(status = 'failed'), MAX(started_unix_ns), AVG(wall_ms), MAX(wall_ms) \
-                 FROM queries {clause} GROUP BY {column} ORDER BY MAX(started_unix_ns) DESC"
-            );
-            c.prepare(&sql)?
-                .query_map(params_from_iter(values), |row| {
-                    Ok(GroupSummary {
-                        key: row.get(0)?,
-                        runs: count(row.get(1)?),
-                        failed: count(row.get(2)?),
-                        last_started_unix_ns: row.get(3)?,
-                        mean_wall_ms: row.get(4)?,
-                        max_wall_ms: row.get(5)?,
-                    })
-                })?
-                .collect()
+            let by = |column: &str| -> rusqlite::Result<Vec<Count>> {
+                let sql = format!(
+                    "SELECT {column}, COUNT(*) FROM queries {clause} GROUP BY {column} ORDER BY COUNT(*) DESC, {column}"
+                );
+                c.prepare(&sql)?
+                    .query_map(params_from_iter(values.iter()), |row| {
+                        Ok(Count {
+                            value: row.get(0)?,
+                            runs: count(row.get(1)?),
+                        })
+                    })?
+                    .collect()
+            };
+            Ok(Facets {
+                service: by("service")?,
+                environment: by("environment")?,
+                host: by("host")?,
+                status: by("status")?,
+            })
         })
         .await
     }

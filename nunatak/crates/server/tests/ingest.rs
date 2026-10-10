@@ -248,6 +248,14 @@ async fn groups_and_filters_answer_and_refuse_what_they_do_not_know() {
     let (_, groups) = get_json(&app, "/api/groups?by=label").await;
     assert_eq!(groups[0]["key"], "clickbench/regex_domains");
     assert_eq!(groups[0]["runs"], 1);
+    assert!(groups[0]["usual_wall_ms"].as_f64().unwrap() > 0.0);
+    assert_eq!(groups[0]["recent_wall_ms"].as_array().unwrap().len(), 1);
+    let (_, facets) = get_json(&app, "/api/facets").await;
+    assert_eq!(facets["service"][0]["value"], "clickbench");
+    assert_eq!(
+        facets["status"][0],
+        serde_json::json!({ "value": "finished", "runs": 1 })
+    );
     let (status, body) = get_json(&app, "/api/groups?by=color").await;
     assert_eq!(
         (status, body["error"].as_str()),
@@ -348,5 +356,49 @@ async fn every_page_path_gets_the_dashboard_and_unknown_api_paths_a_json_404() {
     assert_eq!(
         (status, body["error"].as_str()),
         (StatusCode::NOT_FOUND, Some("no such API"))
+    );
+}
+
+#[tokio::test]
+async fn facets_keep_every_value_and_count_each_field_under_the_other_filters() {
+    let data = tempfile::tempdir().unwrap();
+    let app = app(data.path());
+    post(&app, TOKEN, gzip(&example("finished.jsonl"))).await;
+    let process: Value =
+        serde_json::from_str(example("finished.jsonl").lines().next().unwrap()).unwrap();
+    let started: Value =
+        serde_json::from_str(example("finished.jsonl").lines().nth(1).unwrap()).unwrap();
+    let other = example("finished.jsonl")
+        .replace(
+            process["id"].as_str().unwrap(),
+            "5f0c2a1e-0000-4000-8000-000000000002",
+        )
+        .replace(
+            started["query_id"].as_str().unwrap(),
+            "01a12532-0000-7000-8000-000000000001",
+        )
+        .replace("\"worker-3\"", "\"worker-4\"");
+    post(&app, TOKEN, gzip(&other)).await;
+
+    let (_, on_host) = get_json(&app, "/api/queries?host=worker-4").await;
+    assert_eq!(on_host.as_array().unwrap().len(), 1);
+    let (_, facets) = get_json(&app, "/api/facets?host=worker-4&status=failed").await;
+    let hosts: Vec<(String, u64)> = facets["host"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| {
+            (
+                c["value"].as_str().unwrap().to_owned(),
+                c["runs"].as_u64().unwrap(),
+            )
+        })
+        .collect();
+    assert_eq!(hosts.len(), 2);
+    assert!(hosts.iter().all(|(_, runs)| *runs == 0));
+    let statuses = facets["status"].as_array().unwrap();
+    assert_eq!(
+        statuses[0],
+        serde_json::json!({ "value": "finished", "runs": 1 })
     );
 }
