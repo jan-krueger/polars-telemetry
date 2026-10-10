@@ -311,3 +311,19 @@ class Query:
         node_id, metric = max(self.metrics.items(), key=lambda item: item[1].total_time_ns)
         node = self.plan.get(node_id)
         return (node, metric) if node is not None else None
+
+
+@dataclass(frozen=True, slots=True)
+class Progress:
+    """A sample of a running query's counters.
+
+    Counters are cumulative, so any sample may be dropped without losing what
+    the next one says.
+    """
+
+    query_id: UUID
+    elapsed_ms: float
+    """Since the query started."""
+    nodes: dict[int, NodeMetrics]
+    """Nodes whose counters changed since the previous sample of this query;
+    every node in the first."""

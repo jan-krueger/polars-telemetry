@@ -23,6 +23,8 @@ export interface ViewerState {
   sort: Sort;
   /** Percent of CPU time to keep lit, so it means the same on every plan; null lights all. */
   focus: number | null;
+  /** Milliseconds into the open query being replayed; null shows how it ended. */
+  replayAt: number | null;
 }
 
 export type SortKey = "order" | "name" | "runs" | "wall" | "cpu";
@@ -48,6 +50,7 @@ export type Action =
   | { type: "searched"; text: string }
   | { type: "sorted"; key: SortKey }
   | { type: "focused"; focus: number | null }
+  | { type: "replayed"; at: number | null }
   | { type: "navigated"; route: Route };
 
 export const initialState: ViewerState = {
@@ -60,11 +63,19 @@ export const initialState: ViewerState = {
   search: "",
   sort: { key: "order", descending: false },
   focus: null,
+  replayAt: null,
 };
 
 const nothingSelected = { queryId: null, node: null } as const;
 
 export function reducer(state: ViewerState, action: Action): ViewerState {
+  const next = step(state, action);
+  return next.replayAt !== null && (next.queryId !== state.queryId || next.sessionId !== state.sessionId)
+    ? { ...next, replayAt: null }
+    : next;
+}
+
+function step(state: ViewerState, action: Action): ViewerState {
   switch (action.type) {
     case "loaded": {
       const sessions = recent(action.sessions);
@@ -149,6 +160,8 @@ export function reducer(state: ViewerState, action: Action): ViewerState {
     }
     case "focused":
       return { ...state, focus: action.focus };
+    case "replayed":
+      return { ...state, replayAt: action.at };
     case "sorted": {
       const descending = state.sort.key === action.key
         ? !state.sort.descending

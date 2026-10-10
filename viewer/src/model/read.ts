@@ -1,16 +1,14 @@
 // Storage keeps raw documents and reads them on every load: no migrations, and a newer reader improves old sessions.
 
-import { nodeLabel, roleOf, type RawNode } from "../lib/polars";
-import type { CustomMetric, Finding, FindingLevel, Measure, Metrics, PlanNode, Profile, SessionInfo } from "./profile";
+import { nodeMarks, nodeSubject, nodeVariant, roleOf, type RawNode } from "../lib/polars";
+import type { CustomMetric, Finding, FindingLevel, Measure, Metrics, PlanNode, Profile, Replay, Series, SessionInfo } from "./profile";
+import { isEvent, profilesFromEvents } from "./events";
+import { SCHEMA_PREFIX, isObject } from "./schema";
 import { ranOf } from "../lib/time";
 
-export const SCHEMA_PREFIX = "polars-telemetry/profile@";
 export const SUPPORTED_VERSIONS: ReadonlySet<number> = new Set([1]);
 
 export type Read = { profile: Profile } | { problem: string };
-
-const isObject = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
 
 const num = (value: unknown, fallback = 0): number =>
   typeof value === "number" && Number.isFinite(value) ? value : fallback;
@@ -54,7 +52,9 @@ function readNodes(value: unknown, side: string): PlanNode[] | string {
     nodes.push({
       ...node,
       role: roleOf(node),
-      label: nodeLabel(node),
+      label: nodeSubject(node),
+      variant: nodeVariant(node),
+      marks: nodeMarks(node),
       properties: node.properties ?? {},
       metrics: isObject(entry.metrics) ? (scalars(entry.metrics) as Metrics) : null,
       custom: isObject(entry.metrics) && Array.isArray(entry.metrics.custom) ? entry.metrics.custom.flatMap(readCustom) : [],
@@ -76,6 +76,9 @@ function readV1(raw: Record<string, unknown>, schema: string, position?: number)
   if (typeof logical === "string") return { problem: logical };
 
   const site = isObject(raw.call_site) ? raw.call_site : null;
+  const unfinished = raw.unfinished === true;
+  const replay = readReplay(raw.replay, unfinished ? null : physical, num(raw.wall_ms));
+  const nodes = unfinished ? lastCounters(physical, replay) : physical;
   return {
     profile: {
       query_id: str(raw.query_id) || (position === undefined ? crypto.randomUUID() : `profile-${position}`),
@@ -88,7 +91,7 @@ function readV1(raw: Record<string, unknown>, schema: string, position?: number)
       wall_ms: num(raw.wall_ms),
       planning_ms: Number.isFinite(raw.planning_ms) ? (raw.planning_ms as number) : null,
       telemetry_ms: Number.isFinite(raw.telemetry_ms) ? (raw.telemetry_ms as number) : null,
-      cpu_ms: num(raw.cpu_ms),
+      cpu_ms: unfinished ? nodes.reduce((sum, n) => sum + num(n.metrics?.total_time_ns), 0) / 1e6 : num(raw.cpu_ms),
       result_rows: Number.isFinite(raw.result_rows) ? (raw.result_rows as number) : null,
       call_site: site
         ? { filepath: str(site.filepath), lineno: num(site.lineno), function: str(site.function) }
@@ -96,15 +99,62 @@ function readV1(raw: Record<string, unknown>, schema: string, position?: number)
       failed: typeof raw.failed === "string" ? raw.failed : null,
       diagnostics: isObject(raw.diagnostics) ? scalars(raw.diagnostics) : {},
       insights: readInsights(raw.insights),
-      plan: { physical, logical },
+      plan: { physical: nodes, logical },
+      replay,
+      unfinished,
     },
   };
+}
+
+/**
+ * Each sample lists only the nodes whose counters changed; keep it that sparse. A finished query's own
+ * counters close the replay as one more sample at its end, so it runs all the way to how the query ended.
+ */
+function readReplay(value: unknown, final: PlanNode[] | null, end: number): Replay | null {
+  if (!isObject(value) || !Array.isArray(value.samples)) return null;
+  const byTime = new Map<number, Record<string, unknown>>();
+  for (const sample of value.samples) {
+    if (!isObject(sample) || !Number.isFinite(sample.t)) continue;
+    const nodes = isObject(sample.nodes) ? sample.nodes : {};
+    byTime.set(sample.t as number, { ...byTime.get(sample.t as number), ...nodes });
+  }
+  if (!byTime.size) return null;
+  const times = [...byTime.keys()].sort((a, b) => a - b);
+  const nodes = new Map<number, Series>();
+  const record = (id: number, index: number, metrics: Metrics) => {
+    let series = nodes.get(id);
+    if (!series) nodes.set(id, (series = { at: [], metrics: [] }));
+    if (series.at[series.at.length - 1] === index) series.metrics[series.metrics.length - 1] = metrics;
+    else {
+      series.at.push(index);
+      series.metrics.push(metrics);
+    }
+  };
+  times.forEach((t, index) => {
+    for (const [key, counters] of Object.entries(byTime.get(t)!)) {
+      const id = Number(key);
+      if (isObject(counters) && Number.isFinite(id)) record(id, index, scalars(counters) as Metrics);
+    }
+  });
+  if (final) {
+    const index = end > times[times.length - 1]! ? times.push(end) - 1 : times.length - 1;
+    for (const node of final) if (node.metrics) record(node.id, index, node.metrics);
+  }
+  return { times, nodes };
+}
+
+/** A query the recording ended before keeps the counters of its last sample. */
+function lastCounters(nodes: PlanNode[], replay: Replay | null): PlanNode[] {
+  if (!replay) return nodes;
+  return nodes.map((n) => (n.metrics ? n : { ...n, metrics: replay.nodes.get(n.id)?.metrics.at(-1) ?? null }));
 }
 
 export function readJsonl(text: string): { profiles: Profile[]; raw: unknown[]; rejected: string[] } {
   const profiles: Profile[] = [];
   const raw: unknown[] = [];
   const rejected: string[] = [];
+  const parsedLines: unknown[] = [];
+  const events: Record<string, unknown>[] = [];
   for (const line of text.split("\n")) {
     const trimmed = line.trim();
     if (!trimmed) continue;
@@ -115,6 +165,10 @@ export function readJsonl(text: string): { profiles: Profile[]; raw: unknown[]; 
       rejected.push("not valid JSON");
       continue;
     }
+    if (isEvent(parsed)) events.push(parsed);
+    else parsedLines.push(parsed);
+  }
+  for (const parsed of [...parsedLines, ...profilesFromEvents(events)]) {
     const read = readProfile(parsed, raw.length);
     if ("problem" in read) {
       rejected.push(read.problem);

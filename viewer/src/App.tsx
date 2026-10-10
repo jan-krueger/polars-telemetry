@@ -6,6 +6,7 @@ import NodeDetails from "./components/NodeDetails";
 import Notice from "./components/Notice";
 import Overview from "./components/Overview";
 import QueryView from "./components/QueryView";
+import { momentAt, nodeAt, replayEnd } from "./lib/replay";
 import { SessionsPage } from "./components/Sessions";
 import Sidebar from "./components/Sidebar";
 import StartPage from "./components/StartPage";
@@ -35,6 +36,15 @@ export default function App() {
     [state.sessions, state.sessionId, state.search, state.sort]);
   const prefix = useMemo(() => sharedPrefix(profiles), [profiles]);
   const findings = useMemo(() => byNode(profile), [profile]);
+  const moment = useMemo(
+    () => (profile?.replay && state.replayAt !== null ? momentAt(profile.replay, state.replayAt) : null),
+    [profile, state.replayAt],
+  );
+  const physicalAt = useMemo(
+    () => (profile && moment ? profile.plan.physical.map((n) => nodeAt(n, moment)) : profile?.plan.physical),
+    [profile, moment],
+  );
+  const picked = findNode(profile, state.node);
   const physical = state.node?.plan === "physical";
 
   return (
@@ -63,16 +73,18 @@ export default function App() {
           ) : !profile ? (
             <Overview session={current} shapes={shapes} sort={state.sort} dispatch={dispatch} />
           ) : (
-            <QueryView state={state} dispatch={dispatch} session={current} profile={profile}
+            <QueryView state={state} dispatch={dispatch} session={current} profile={profile} moment={moment}
                        findings={findings} panes={panes} onDownload={save} />
           )}
         </main>
 
         <aside className="rail right">
           {!state.browsing && (
-            <NodeDetails node={findNode(profile, state.node)}
-                         plan={physical ? profile?.plan.physical : undefined}
-                         findings={physical ? findings.get(state.node!.id) : undefined} />
+            <NodeDetails node={physical && moment ? (physicalAt?.find((n) => n.id === picked?.id) ?? picked) : picked}
+                         plan={physical ? physicalAt : undefined}
+                         findings={physical ? findings.get(state.node!.id) : undefined}
+                         recorded={physical && profile?.replay && picked
+                           ? { replay: profile.replay, final: picked, end: replayEnd(profile), t: moment?.t ?? null } : undefined} />
           )}
         </aside>
       </div>

@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { basename, chainLines, conjunction, exprLines, derivedRole, exprColumn, nodeLabel, relationName, roleOf, type RawNode } from "../src/lib/polars";
+import { basename, chainLines, conjunction, exprLines, derivedRole, nodeMarks, nodeSubject, nodeVariant, relationName, roleOf, type RawNode } from "../src/lib/polars";
 
 const profile = JSON.parse(
   readFileSync(new URL("./fixtures/profile.json", import.meta.url), "utf8"),
@@ -35,36 +35,62 @@ describe("roles", () => {
   });
 });
 
-describe("exprColumn", () => {
-  it.each([
-    ['col("region")', "region"],
-    ['col("with \\"quote\\"")', 'with \\"quote\\"'],
-    ['col("a").dt.year()', 'col("a").dt.year()'],
-    ["lit(5)", "lit(5)"],
-    ["", ""],
-  ])("%s → %s", (input, expected) => {
-    expect(exprColumn(input)).toBe(expected);
-  });
+describe("node text", () => {
+  const node = (kind: string, properties: Record<string, unknown>, id = 1): RawNode => ({ id, kind, inputs: [], properties });
 
-  it("never throws on a value that is not a string", () => {
-    expect(exprColumn(undefined)).toBe("");
-    expect(exprColumn(42)).toBe("42");
-  });
-});
-
-describe("nodeLabel", () => {
-  it("labels every aggregation and join on both plans", () => {
+  it("says what every aggregation and join works on, on both plans", () => {
     const blank = everyNode
       .filter((n) => ["aggregation", "join"].includes(roleOf(n)))
-      .filter((n) => !nodeLabel(n))
+      .filter((n) => !nodeSubject(n))
       .map((n) => n.kind);
     expect(blank).toEqual([]);
   });
 
-  it("names every scan by its relation, and labels only what the name lacks", () => {
+  it("names every scan by what it reads", () => {
     const scans = everyNode.filter((n) => roleOf(n) === "scan");
-    expect(scans.every((n) => relationName(n.properties ?? {}))).toBe(true);
-    expect(scans.map(nodeLabel).every((l) => l === "" || l === "pushdown")).toBe(true);
+    expect(scans.every((n) => nodeSubject(n).startsWith(relationName(n.properties ?? {})) && relationName(n.properties ?? {}))).toBe(true);
+  });
+
+  it("puts the operator's kind on the first line, its subject on the second", () => {
+    const join = node("EquiJoin", { how: "INNER", left_on: ['col("a")'], right_on: ['col("b")'] });
+    expect([nodeVariant(join), nodeSubject(join)]).toEqual(["inner", "on a = b"]);
+    const scan = node("MultiScan", { scan_type: "parquet", first_source: "/d/hits_0.parquet", num_sources: 20 });
+    expect([nodeVariant(scan), nodeSubject(scan)]).toEqual(["parquet", "hits_0.parquet +19 files"]);
+  });
+
+  it("never shows Polars' temporary columns, only how many keys there are", () => {
+    const sort = node("Sort", { sort_columns: [{ expr: 'col("_POLARS_TMP_PHYS_16")', descending: false }] });
+    const group = node("GroupBy", { key_per_input: [['col("_POLARS_TMP_PHYS_1")', 'col("b")']] });
+    const filter = node("Filter", { predicate: 'col("_POLARS_TMP_PHYS_272")' });
+    expect([sort, group, filter].map((n) => nodeSubject(n))).toEqual(["by 1 key", "by 2 keys", "computed condition"]);
+    expect(nodeSubject(node("Sort", { sort_columns: [{ expr: 'col("a")', descending: true }, { expr: 'col("b")' }] }))).toBe("by a ↓, b");
+    expect(nodeSubject(node("GroupBy", { keys: ['col("a").dt.year()'] }))).toBe("by 1 key");
+  });
+
+  it("shows a filter's condition, and only the columns of one set while running", () => {
+    expect(nodeSubject(node("Filter", { predicate: 'col("qty") > 300' }))).toBe("qty > 300");
+    expect(nodeSubject(node("Filter", { predicate: ['col("revenue").dynamic_predicate()'] }))).toBe("revenue · set while running");
+  });
+
+  it("leaves the second line empty where it would say nothing", () => {
+    expect(nodeSubject(node("SimpleProjection", { columns: ["a", "b"] }))).toBe("");
+    expect(nodeSubject(node("InMemorySink", {}))).toBe("");
+    expect(nodeSubject(node("Select", { selectors: ['col("a").alias("total")'], extend_original: true }))).toBe("adds total");
+  });
+
+  it("never puts an internal name in a mark, and reads a tail as the last rows", () => {
+    const scan = node("MultiScan", { predicate: 'col("_POLARS_TMP_PHYS_3")', projected_file_columns: ["a", "_POLARS_TMP_PHYS_4"] });
+    expect(nodeMarks(scan).map((m) => m.detail)).toEqual(["computed condition", "2: a"]);
+    expect(nodeSubject(node("Slice", { offset: -5, length: 5 }))).toBe("last 5 rows");
+    expect(nodeSubject(node("Select", { selectors: ['col("a").alias("x")', 'col("b").alias("_POLARS_TMP_PHYS_1")'], extend_original: true }))).toBe("adds 2 columns");
+  });
+
+  it("marks the work a scan or sort did not have to do", () => {
+    const scan = node("MultiScan", { predicate: 'col("d") <= 3', projected_file_columns: ["a", "d"], pre_slice: null, predicate_file_skip_applied: true });
+    expect(nodeMarks(scan).map((m) => m.kind)).toEqual(["filter", "columns", "skip"]);
+    expect(nodeMarks(scan)[0]!.detail).toBe("d <= 3");
+    expect(nodeMarks(node("Sort", { sort_columns: [], slice: [0, 100] }))[0]).toMatchObject({ name: "slice", detail: "rows 0–100" });
+    expect(nodeMarks(node("Sort", { sort_columns: [], slice: null, limit: null }))).toEqual([]);
   });
 });
 

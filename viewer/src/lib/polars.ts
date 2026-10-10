@@ -28,7 +28,7 @@ export interface RawNode {
 }
 
 interface RoleInfo {
-  /** Empty for relations, which are shown by name. */
+  /** Empty for scans and frames, which have no operator symbol. */
   symbol: string;
   name: string;
   /** Plumbing, drawn muted. */
@@ -36,25 +36,25 @@ interface RoleInfo {
 }
 
 export const ROLES: Record<Role, RoleInfo> = {
-  scan: { symbol: "", name: "relation (file scan)" },
-  dataframe: { symbol: "", name: "relation (in-memory frame)" },
-  selection: { symbol: "σ", name: "selection — keeps the rows that match" },
-  projection: { symbol: "π", name: "projection — keeps or replaces columns" },
-  map: { symbol: "χ", name: "map — adds computed columns, keeps the rest" },
+  scan: { symbol: "", name: "scan" },
+  dataframe: { symbol: "", name: "in-memory frame" },
+  selection: { symbol: "σ", name: "selection" },
+  projection: { symbol: "π", name: "projection" },
+  map: { symbol: "χ", name: "extended projection" },
   rename: { symbol: "ρ", name: "rename" },
-  function: { symbol: "λ", name: "function over the frame (explode, unpivot, a UDF)" },
-  join: { symbol: "⋈", name: "join on equal keys" },
-  theta_join: { symbol: "⋈θ", name: "join on an inequality" },
-  cross_join: { symbol: "×", name: "cross product" },
-  semi_anti_join: { symbol: "⋉", name: "semi or anti join — the physical plan does not say which" },
-  aggregation: { symbol: "γ", name: "grouping and aggregation" },
+  function: { symbol: "λ", name: "function" },
+  join: { symbol: "⋈", name: "equi-join" },
+  theta_join: { symbol: "⋈θ", name: "theta join" },
+  cross_join: { symbol: "×", name: "cross join" },
+  semi_anti_join: { symbol: "⋉", name: "semi / anti join" },
+  aggregation: { symbol: "γ", name: "aggregation" },
   sort: { symbol: "τ", name: "sort" },
-  top_k: { symbol: "τₖ", name: "top-k — sort with a limit" },
-  distinct: { symbol: "δ", name: "duplicate elimination" },
-  union: { symbol: "⊎", name: "union — duplicates kept" },
-  sink: { symbol: "⤓", name: "where the result goes", muted: true },
-  engine: { symbol: "◦", name: "streaming-engine plumbing", muted: true },
-  unknown: { symbol: "?", name: "a node kind this viewer does not recognise", muted: true },
+  top_k: { symbol: "τₖ", name: "top-k" },
+  distinct: { symbol: "δ", name: "distinct" },
+  union: { symbol: "⊎", name: "union all" },
+  sink: { symbol: "⤓", name: "sink", muted: true },
+  engine: { symbol: "◦", name: "engine", muted: true },
+  unknown: { symbol: "?", name: "unknown kind", muted: true },
 };
 
 // Mirrors polars_telemetry/adapter/dialect.py for profiles that predate `role`.
@@ -152,21 +152,7 @@ export function derivedRole(node: Pick<RawNode, "kind" | "properties">): Role {
   return BY_KIND[node.kind] ?? "unknown";
 }
 
-/** `col("region")` → `region`; anything else comes back as written. */
-export function exprColumn(expr: unknown): string {
-  const text = String(expr ?? "");
-  const match = /^col\("((?:[^"\\]|\\.)*)"\)$/.exec(text);
-  return match?.[1] ?? text;
-}
-
 const asList = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
-
-/** `keys` in the IR, `key_per_input` in the physical plan. */
-export function groupKeys(properties: Record<string, unknown>): string[] {
-  const flat = asList(properties.keys);
-  const nested = asList(properties.key_per_input).flatMap(asList);
-  return (flat.length ? flat : nested).map(exprColumn);
-}
 
 /** Either separator. */
 export const basename = (path: string): string => path.split(/[\\/]/).pop() ?? path;
@@ -176,22 +162,162 @@ export function relationName(properties: Record<string, unknown>): string {
   return typeof source === "string" ? basename(source) : "";
 }
 
-export function nodeLabel(node: RawNode): string {
+const TEMP = /^_POLARS_TMP/;
+
+const columnsIn = (expr: unknown): string[] =>
+  [...String(expr ?? "").matchAll(/col\("((?:[^"\\]|\\.)*)"\)/g)].map((m) => m[1]!);
+
+/** `col("a") > 3` → `a > 3`. */
+const plain = (expr: unknown): string => String(expr ?? "").replace(/col\("((?:[^"\\]|\\.)*)"\)/g, "$1");
+
+const outputName = (expr: unknown): string | null =>
+  /\.alias\("((?:[^"\\]|\\.)*)"\)$/.exec(String(expr))?.[1] ?? /^col\("((?:[^"\\]|\\.)*)"\)$/.exec(String(expr))?.[1] ?? null;
+
+/** `a, b +3` */
+const few = (names: string[], shown = 2): string =>
+  names.length <= shown ? names.join(", ") : `${names.slice(0, shown).join(", ")} +${names.length - shown}`;
+
+const counted = (n: number, word: string): string => `${n} ${word}${n === 1 ? "" : "s"}`;
+
+/** A plain column's name; null for anything computed, including Polars' temporary columns. */
+const named = (expr: unknown): string | null => {
+  const text = String(expr ?? "");
+  const name = /^col\("((?:[^"\\]|\\.)*)"\)$/.exec(text)?.[1] ?? (/^[\w.]+$/.test(text) ? text : null);
+  return name && !TEMP.test(name) ? name : null;
+};
+
+/** Every column by name when the plan names them all, else only how many there are. */
+function keyText(exprs: unknown[], word = "key"): string {
+  const names = exprs.map(named);
+  return names.every((n) => n !== null) ? few(names as string[]) : counted(exprs.length, word);
+}
+
+const lower = (value: unknown): string => (typeof value === "string" && value !== "None" ? value.toLowerCase() : "");
+
+/** What kind of the operator this is, when it comes in kinds: `inner`, `parquet`. */
+export function nodeVariant(node: RawNode): string {
   const p = node.properties ?? {};
   const role = roleOf(node);
-  if (role === "scan") return p.predicate ? "pushdown" : "";
-  if (role === "aggregation") return groupKeys(p).join(", ");
-  if (role === "join") return typeof p.how === "string" ? p.how : "";
-  if (role === "sort") {
-    const first = asList(p.sort_columns)[0] as { expr?: unknown } | undefined;
-    return first ? exprColumn(first.expr) : "";
-  }
-  if (role === "projection" || role === "map") {
-    const columns = asList(p.columns);
-    return columns.length ? `${columns.length} cols` : "";
-  }
-  if (role === "function" && typeof p.function === "string") return p.function;
+  if (role === "scan") return lower(p.scan_type);
+  if (role === "join" || role === "semi_anti_join") return lower(p.how);
+  if (role === "sink") return lower(p.file_format);
   return "";
+}
+
+/** What the node works on: its source, keys, columns or condition. Empty when there is nothing to add. */
+export function nodeSubject(node: RawNode): string {
+  const p = node.properties ?? {};
+  const role = roleOf(node);
+  switch (role) {
+    case "scan": {
+      const more = Number(p.num_sources) > 1 ? ` +${counted(Number(p.num_sources) - 1, "file")}` : "";
+      return relationName(p) + more;
+    }
+    case "aggregation": {
+      if (node.kind === "Reduce") {
+        const exprs = asList(p.exprs);
+        const first = exprs[0];
+        const call = /^col\("((?:[^"\\]|\\.)*)"\)\.(\w+)\(\)(?:\.alias\(.*\))?$/.exec(String(first));
+        const column = call && !TEMP.test(call[1]!) ? call[1] : null;
+        return column ? `${call![2]}(${column})${exprs.length > 1 ? ` +${exprs.length - 1}` : ""}` : counted(exprs.length, "expression");
+      }
+      const keys = asList(p.keys).length ? asList(p.keys) : asList(p.key_per_input).flatMap(asList);
+      return keys.length ? `by ${keyText(keys)}` : "";
+    }
+    case "join": case "semi_anti_join": case "theta_join": {
+      const left = asList(p.left_on).map(named);
+      const right = asList(p.right_on).map(named);
+      if (!left.length) return "";
+      if (![...left, ...right].every((n) => n !== null)) return `on ${counted(left.length, "key")}`;
+      if (left.join() === right.join()) return `on ${few(left as string[])}`;
+      return `on ${left[0]} = ${right[0] ?? "…"}${left.length > 1 ? ` +${left.length - 1}` : ""}`;
+    }
+    case "sort": {
+      const columns = asList(p.sort_columns) as { expr?: unknown; descending?: unknown }[];
+      const names = columns.map((c) => named(c.expr));
+      if (!columns.length) return "";
+      if (!names.every((n) => n !== null)) return `by ${counted(columns.length, "key")}`;
+      return `by ${few(names.map((n, i) => (columns[i]!.descending === true ? `${n} ↓` : n!)))}`;
+    }
+    case "top_k": {
+      const by = asList(p.by_exprs);
+      return by.length ? `by ${keyText(by)}` : "";
+    }
+    case "selection": {
+      const conditions = Array.isArray(p.predicate) ? p.predicate : p.predicate ? [p.predicate] : [];
+      const columns = conditions.flatMap(columnsIn);
+      if (columns.some((c) => TEMP.test(c))) return "computed condition";
+      if (conditions.some((c) => String(c).includes("dynamic_predicate"))) return `${few(columns)} · set while running`;
+      return conditions.map(plain).join(" & ");
+    }
+    case "projection": case "map": {
+      const exprs = asList(p.selectors).length ? asList(p.selectors) : asList(p.exprs);
+      const names = exprs.map(outputName);
+      if (!names.some((n) => n && !TEMP.test(n))) return "";
+      const adds = p.extend_original === true || node.kind === "HStack" ? "adds " : "";
+      return adds + (names.every((n) => n && !TEMP.test(n)) ? few(names as string[]) : counted(names.length, "column"));
+    }
+    case "function":
+      if (node.kind === "Slice" && Number.isFinite(Number(p.offset)) && Number.isFinite(Number(p.length))) {
+        return rows([p.offset, p.length]);
+      }
+      return typeof p.function === "string" ? p.function : "";
+    case "sink": {
+      const target = typeof p.target === "string" ? p.target : typeof p.dest === "string" && p.dest !== "Memory" ? p.dest : "";
+      return target ? `→ ${basename(target)}` : "";
+    }
+    default:
+      return "";
+  }
+}
+
+export type MarkKind = "filter" | "columns" | "limit" | "skip";
+
+export interface Mark {
+  kind: MarkKind;
+  name: string;
+  detail: string;
+}
+
+const present = (value: unknown): boolean => value != null && value !== "None" && !(Array.isArray(value) && !value.length);
+
+/** `[0, 100]` → `rows 0–100`; any other shape as written. */
+function rows(slice: unknown): string {
+  const [offset, length] = asList(slice).map(Number);
+  if (!Number.isFinite(offset) || !Number.isFinite(length)) return String(slice);
+  return offset! < 0 ? `last ${-offset!} rows` : `rows ${offset}–${offset! + length!}`;
+}
+
+/** Work a node did not have to do: what was pushed into a scan, or a sort that keeps only some rows. */
+export function nodeMarks(node: RawNode): Mark[] {
+  const p = node.properties ?? {};
+  const role = roleOf(node);
+  const marks: Mark[] = [];
+  if (role === "scan") {
+    if (present(p.predicate)) {
+      const conditions = Array.isArray(p.predicate) ? p.predicate : [p.predicate];
+      const computed = conditions.flatMap(columnsIn).some((c) => TEMP.test(c));
+      marks.push({ kind: "filter", name: "predicate pushdown", detail: computed ? "computed condition" : conditions.map(plain).join(" & ") });
+    }
+    const read = asList(p.projected_file_columns).length ? asList(p.projected_file_columns) : asList(p.projection);
+    if (read.length) {
+      const all = asList(p.file_columns).length;
+      const named = read.map(String).filter((c) => !TEMP.test(c));
+      marks.push({
+        kind: "columns",
+        name: "projection pushdown",
+        detail: `${all ? `${read.length}/${all}` : read.length}${named.length ? `: ${named.join(", ")}` : ""}`,
+      });
+    }
+    if (present(p.pre_slice)) marks.push({ kind: "limit", name: "slice pushdown", detail: rows(p.pre_slice) });
+    if (p.predicate_file_skip_applied === true) {
+      marks.push({ kind: "skip", name: "file skipping", detail: "statistics" });
+    }
+  }
+  if (role === "sort" && (present(p.slice) || present(p.limit))) {
+    marks.push({ kind: "limit", name: present(p.slice) ? "slice" : "limit", detail: present(p.slice) ? rows(p.slice) : `${String(p.limit)} rows` });
+  }
+  return marks;
 }
 
 const CHAIN_WIDTH = 36;

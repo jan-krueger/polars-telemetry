@@ -17,6 +17,11 @@ class Exporter(Protocol):
 
     An exporter that holds data, such as a buffer, may also have a `close()`
     method. `uninstall()` calls it, and so does the process on exit.
+
+    To follow queries while they run, an exporter may also have
+    `started(query)`, called with the plan at a query's first sample, and
+    `progress(progress)`, called at every sample from that one on. Both run on a
+    background thread, and never after the query's `export()`.
     """
 
     def export(self, query: Query) -> None:

@@ -1,8 +1,9 @@
 // React Flow takes node sizes from the node objects, not the DOM: unsized nodes vanish from the minimap.
 
 import dagre from "@dagrejs/dagre";
-import type { Edge, Node } from "@xyflow/react";
+import { Position, type Edge, type Node, type NodeHandle } from "@xyflow/react";
 import { rows as formatRows } from "./format";
+import { nodeAt, type Moment, type NodeState } from "./replay";
 import type { Finding, PlanNode } from "../model/profile";
 import { badge } from "./insights";
 
@@ -85,7 +86,9 @@ export function withSelection(
     nodes: flow.nodes.map((n) => (n.id === id ? { ...n, selected: true, className: unfaded(n.className) } : n)),
     edges: flow.edges.map((e) =>
       e.source === id || e.target === id
-        ? { ...e, className: lit.has(e.source) && lit.has(e.target) ? undefined : "faded" }
+        ? lit.has(e.source) && lit.has(e.target)
+          ? { ...e, className: unfaded(e.className) }
+          : { ...e, className: classes(unfaded(e.className), "faded") }
         : e),
   };
 }
@@ -166,6 +169,26 @@ export function stepFor(steps: FocusStep[], coverage: number | null): number {
   return chosen;
 }
 
+/** Faster dots for more rows per second: 1.6 s per step at a thousand, 0.25 s from a hundred million. */
+export const flowSeconds = (rowsPerSecond: number): number =>
+  Math.min(1.6, Math.max(0.25, 1.6 - 0.27 * Math.max(0, Math.log10(rowsPerSecond) - 3)));
+
+const HANDLE = 6;
+
+/** Fixed, so React Flow never re-measures a node whose data changed. */
+const HANDLES: NodeHandle[] = [
+  { type: "target", position: Position.Bottom, x: NODE_W / 2 - HANDLE / 2, y: NODE_H - HANDLE / 2, width: HANDLE, height: HANDLE },
+  { type: "source", position: Position.Top, x: NODE_W / 2 - HANDLE / 2, y: -HANDLE / 2, width: HANDLE, height: HANDLE },
+];
+
+const sent = (n: PlanNode | undefined): number | undefined => {
+  const rows = n?.metrics?.rows_sent;
+  return typeof rows === "number" ? rows : undefined;
+};
+
+const busiestOf = (plan: PlanNode[]): number => Math.max(0, ...plan.map((n) => sent(n) ?? 0));
+
+/** The plan as it ended. While replaying it stays as it is; `liveFlow` lays the moment over it. */
 export function toFlow(
   plan: PlanNode[],
   positions: Positions,
@@ -184,17 +207,14 @@ export function toFlow(
     position: positions[String(n.id)] ?? { x: 0, y: 0 },
     width: NODE_W,
     height: NODE_H,
+    measured: { width: NODE_W, height: NODE_H },
+    handles: HANDLES,
     selected: selectedId === n.id,
     className: classes(faded(n) && "faded", badge(findings?.get(n.id)) && `flag-${badge(findings?.get(n.id))}`),
     data: { node: n, share: (cpuMs(n) / total) * 100, logical, label: n.label, finding: badge(findings?.get(n.id)) },
   }));
 
-  const sent = (n: PlanNode | undefined): number | undefined => {
-    const rows = n?.metrics?.rows_sent;
-    return typeof rows === "number" ? rows : undefined;
-  };
-  const busiest = logical ? 0 : Math.max(0, ...plan.map((n) => sent(n) ?? 0));
-
+  const busiest = logical ? 0 : busiestOf(plan);
   const edges = plan.flatMap((n) =>
     n.inputs.flatMap((input): Edge[] => {
       const upstream = byId.get(input);
@@ -202,7 +222,8 @@ export function toFlow(
       const rows = logical ? undefined : sent(upstream);
       return [{
         id: `${input}-${n.id}`,
-        className: faded(upstream) || faded(n) ? "faded" : undefined,
+        ...(logical ? {} : { type: "flow" }),
+        className: classes(faded(upstream) || faded(n) ? "faded" : false),
         source: String(input),
         target: String(n.id),
         label: rows === undefined ? undefined : `${formatRows(rows)} rows`,
@@ -213,4 +234,61 @@ export function toFlow(
     }),
   );
   return { nodes, edges };
+}
+
+/** A node at the replayed moment. */
+export interface NodeLive {
+  node: PlanNode;
+  share: number;
+  state: NodeState;
+}
+
+/** An edge at the replayed moment; `rate` only while rows flow along it. */
+export interface EdgeLive {
+  label?: string;
+  width: number;
+  rate?: number;
+}
+
+export interface Live {
+  nodes: Map<string, NodeLive>;
+  edges: Map<string, EdgeLive>;
+}
+
+/**
+ * The physical plan at `moment`, scaled like the whole run so a node or edge that did not change keeps its entry:
+ * with `previous`, each one that is the same as before is the very same object.
+ */
+export function liveFlow(plan: PlanNode[], moment: Moment, previous?: Live | null): Live {
+  const total = plan.reduce((sum, n) => sum + cpuMs(n), 0) || 1;
+  const busiest = busiestOf(plan);
+  const shown = new Map(plan.map((n) => [n.id, nodeAt(n, moment)]));
+  const nodes = new Map<string, NodeLive>();
+  const edges = new Map<string, EdgeLive>();
+  for (const [id, node] of shown) {
+    const live: NodeLive = { node, share: (cpuMs(node) / total) * 100, state: moment.state.get(id) ?? "waiting" };
+    nodes.set(String(id), reuse(previous?.nodes.get(String(id)), live));
+    for (const input of node.inputs) {
+      const upstream = shown.get(input);
+      if (!upstream) continue;
+      const rows = sent(upstream);
+      const flow = moment.flow.get(input) ?? 0;
+      const edge: EdgeLive = {
+        label: rows === undefined ? undefined : `${formatRows(rows)} rows`,
+        width: edgeWidth(rows, busiest),
+        ...(flow > 0 ? { rate: 1 / flowSeconds(flow) } : {}),
+      };
+      const key = `${input}-${id}`;
+      edges.set(key, reuse(previous?.edges.get(key), edge));
+    }
+  }
+  return { nodes, edges };
+}
+
+function reuse<T extends object>(old: T | undefined, next: T): T {
+  if (!old) return next;
+  const a = old as Record<string, unknown>;
+  const b = next as Record<string, unknown>;
+  const keys = Object.keys(a);
+  return keys.length === Object.keys(b).length && keys.every((k) => a[k] === b[k]) ? old : next;
 }

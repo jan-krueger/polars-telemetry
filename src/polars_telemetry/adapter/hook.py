@@ -40,6 +40,7 @@ class Recorder(Protocol):
     ) -> None: ...
     def failed(self, message: str) -> None: ...
     def closed(self) -> None: ...
+    def release(self) -> None: ...
 
 
 def _message(args: tuple[Any, ...]) -> str:
@@ -121,7 +122,9 @@ class QueryObserver:
         return ExecutionGuard(self, delegate_guard)
 
     def on_query_failed(self, *args: Any) -> None:
-        if not self._tracker.disarmed:
+        if self._tracker.disarmed:
+            self._release()
+        else:
             try:
                 self._recorder.failed(_message(args))
             except Exception as exc:
@@ -131,9 +134,16 @@ class QueryObserver:
     def close_query(self) -> None:
         """Called by the guard when polars ends the query."""
         if self._tracker.disarmed:
+            self._release()
             return
         try:
             self._recorder.closed()
+        except Exception as exc:
+            self._tracker.record(exc)
+
+    def _release(self) -> None:
+        try:
+            self._recorder.release()
         except Exception as exc:
             self._tracker.record(exc)
 

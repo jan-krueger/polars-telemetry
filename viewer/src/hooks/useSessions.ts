@@ -1,3 +1,4 @@
+import { fileText } from "../lib/gzip";
 import { useCallback, useEffect, useRef, useState, type Dispatch } from "react";
 import type { Session, SessionInfo } from "../model/profile";
 import { readJsonl, readProfiles, sessionInfo, toJsonl } from "../model/read";
@@ -91,7 +92,7 @@ export default function useSessions(state: ViewerState, dispatch: Dispatch<Actio
     for (const f of files) {
       let read: ReturnType<typeof readJsonl>;
       try {
-        read = readJsonl(await f.text());
+        read = readJsonl(await fileText(f));
       } catch (e) {
         rejected.push(`${f.name}: ${reason(e)}`);
         continue;

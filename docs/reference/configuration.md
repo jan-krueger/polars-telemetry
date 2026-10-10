@@ -16,6 +16,7 @@ polars_telemetry.install(Config(include_plan=True, redaction=Redaction()))
 | `call_site` | `True` | Record the file, line and function that ran the query | Under a microsecond |
 | `describe_fallbacks` | `True` | Have Polars describe what an in-memory fallback node runs, by setting `POLARS_STREAM_ALWAYS_PREPARE_VISUALIZATION_DATA=1` at `install()` when it is unset. Polars reads it for the rest of the process | A fraction of a millisecond per query |
 | `insights` | `True` | Find what slows each query down, as `polars-telemetry insights` does; see [Insights](../insights.md) | About 10 ms at the end of a query with a thousand plan nodes |
+| `progress_interval` | `1.0` | Seconds between samples of a running query, for exporters that follow queries while they run, such as [`FileEventExporter`](../exporters/events.md). One background thread samples for all of them; nothing is sampled while none is installed | Under a millisecond per sample for a small plan, about 15 ms for 500 nodes, on a background thread |
 | `redaction` | `None` | What to mask before any exporter receives a query: `None` masks URL query strings only, `Redaction()` also literal values; see [Data and privacy](../privacy.md) | Small, once per query and setting |
 
 An `OTelExporter(config)` you build yourself reads only `include_plan` from its

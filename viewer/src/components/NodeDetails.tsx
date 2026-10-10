@@ -3,7 +3,10 @@ import { PROP_LABELS, GLOSSARY } from "../lib/glossary";
 import { visibleCounters } from "../lib/counters";
 import { ROLES, conjunction, exprLines, roleOf } from "../lib/polars";
 import { impact, measured, ruleDocs } from "../lib/insights";
+import { useId } from "react";
+import type { Replay } from "../model/profile";
 import { bytes, customLabel, customValue, ms, nodeFacts, num } from "../lib/format";
+import { history } from "../lib/replay";
 import Help from "./Help";
 import Tip, { TipText } from "./Tip";
 import Code from "./Code";
@@ -64,20 +67,47 @@ interface Props {
   node: PlanNode | null;
   plan?: PlanNode[];
   findings?: Finding[];
+  /** With a recording: the node as it ended, and the moment being replayed. */
+  recorded?: { replay: Replay; final: PlanNode; end: number; t: number | null };
 }
 
-export default function NodeDetails({ node, plan = [], findings }: Props) {
+function MetricLine({ points, end, t, peak }: { points: [number, number][]; end: number; t: number | null; peak: boolean }) {
+  const clip = useId();
+  const top = Math.max(1e-9, ...points.map(([, v]) => v));
+  const xy = points.map(([ms, v]): [number, number] => [(ms / end) * 100, 29 - (v / top) * 26]);
+  const steps = peak ? xy.flatMap((p, i) => (i ? [[p[0], xy[i - 1]![1]] as [number, number], p] : [p])) : xy;
+  const line = steps.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(2)},${y.toFixed(2)}`).join("");
+  const area = `${line}L100,30L0,30Z`;
+  const x = t === null ? 100 : (t / end) * 100;
+  return (
+    <svg className="mline" viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true">
+      <clipPath id={clip}><rect width={x} height={30} /></clipPath>
+      <path className="mline-area mline--ahead" d={area} />
+      <path className="mline-line mline--ahead" d={line} vectorEffect="non-scaling-stroke" />
+      <g clipPath={`url(#${clip})`}>
+        <path className="mline-area" d={area} />
+        <path className="mline-line" d={line} vectorEffect="non-scaling-stroke" />
+      </g>
+      {t !== null && <line className="mline-at" x1={x} x2={x} y1={0} y2={30} vectorEffect="non-scaling-stroke" />}
+    </svg>
+  );
+}
+
+export default function NodeDetails({ node, plan = [], findings, recorded }: Props) {
   if (!node) return <div className="empty">Select a node in a plan.</div>;
   const m = node.metrics;
   const props = Object.entries(node.properties || {})
     .filter(([k, v]) => v != null && k !== "type" && !(Array.isArray(v) && !v.length));
   const info = ROLES[roleOf(node)];
+  const replaying = recorded !== undefined && recorded.t !== null;
+  const between = replaying && !recorded.replay.times.includes(recorded.t!);
+  const started = !!m && Object.entries(m).some(([k, v]) => k !== "done" && typeof v === "number" && v > 0);
 
   return (
     <>
       <div className="card">
         <div className="hd">
-          <Tip content={<TipText term={info.name} note={`Polars: ${node.kind}`} />}>
+          <Tip content={<TipText term={`${info.symbol} ${info.name}`.trim()} />}>
             <span className="nm-wrap" tabIndex={0}>
               {info.symbol ? <span className={`ra${info.muted ? " ra--muted" : ""}`}>{info.symbol}</span> : null}
               <span className="nm">{node.kind}</span>
@@ -116,16 +146,15 @@ export default function NodeDetails({ node, plan = [], findings }: Props) {
           <div className="hd">
             <span className="ic">☰</span><span className="nm">Node metrics</span>
             <Tip content={<TipText term={GLOSSARY.done![0]}>{GLOSSARY.done![1]}</TipText>}>
-              <span className={m.done ? "badge badge--done" : "badge badge--open"} tabIndex={0}>
-                {m.done ? "✓ Completed" : "⚠ Unfinished"}
+              <span className={m.done ? "badge badge--done" : replaying ? "badge badge--live" : "badge badge--open"} tabIndex={0}>
+                {m.done ? "✓ Completed" : replaying ? (started ? "Running" : "Waiting") : "⚠ Unfinished"}
               </span>
             </Tip>
           </div>
           {nodeFacts(node, plan).map((f) => (
-            <div className="mrow mrow--fact" key={f.key}>
+            <div className="mrow" key={f.key}>
               <span className="k">{f.label}<Help term={f.key} /></span>
               <span className="v">{f.value}</span>
-              <span className="fact-note">{f.note}</span>
             </div>
           ))}
           {node.custom?.map((c) => {
@@ -143,15 +172,21 @@ export default function NodeDetails({ node, plan = [], findings }: Props) {
               </div>
             );
           })}
-          {visibleCounters(m).map(({ label, key, unit }) => {
-            const raw = m[key] as number;
+          {visibleCounters(recorded?.final.metrics ?? m).map(({ label, key, unit, peak }) => {
+            const raw = Number(m[key] ?? 0);
             const v = unit === "ns" ? ms(raw / 1e6)
               : unit === "bytes" ? bytes(raw)
               : num(raw);
             return (
-              <div className="mrow" key={key}>
+              <div className={recorded ? "mrow mrow--line" : "mrow"} key={key}>
+                {recorded ? (
+                  <MetricLine points={history(recorded.replay, recorded.final, recorded.end, key)}
+                              end={recorded.end} t={recorded.t} peak={!!peak} />
+                ) : null}
                 <span className="k">{label}<Help term={key} /></span>
-                <span className="v">{v}{unit === "rows"
+                <span className="v">
+                  {between ? <span className="approx" title="Estimated between two samples">≈</span> : null}
+                  {v}{unit === "rows"
                   ? <span className="u">rows</span> : null}</span>
               </div>
             );

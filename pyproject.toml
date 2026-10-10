@@ -148,6 +148,7 @@ ignore = [
 "src/polars_telemetry/compat.py" = ["BLE001"]
 "src/polars_telemetry/export/profile.py" = ["BLE001"]
 "src/polars_telemetry/export/file.py" = ["BLE001"]
+"src/polars_telemetry/export/events.py" = ["BLE001"]
 "noxfile.py" = ["ANN"]
 
 [tool.ruff.lint.flake8-tidy-imports]

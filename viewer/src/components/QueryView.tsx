@@ -11,6 +11,8 @@ import { MAX_LINK_CHARS, shareFragment } from "../share/link";
 import { documentsFor } from "../share/session";
 import { title, type Action, type ViewerState } from "../state/viewer";
 import PlanPane from "./PlanPane";
+import ReplayBar from "./ReplayBar";
+import { replayEnd, type Moment } from "../lib/replay";
 import ShareDialog, { type Copy, type Sharing } from "./ShareDialog";
 import ShareMenu from "./ShareMenu";
 import Tip, { TipText } from "./Tip";
@@ -20,12 +22,15 @@ interface Props {
   dispatch: Dispatch<Action>;
   session: Session;
   profile: Profile;
+  /** While replaying, the counters at that moment; null shows how the query ended. */
+  moment: Moment | null;
   findings: Map<number, Finding[]>;
   panes: Panes;
   onDownload: (session: Session) => void;
 }
 
-export default function QueryView({ state, dispatch, session, profile, findings, panes, onDownload }: Props) {
+export default function QueryView({ state, dispatch, session, profile, moment, findings, panes, onDownload }: Props) {
+  const now = moment ? { ...profile, wall_ms: moment.t, cpu_ms: moment.cpu_ms } : profile;
   const profiles = session.profiles ?? [];
   const withDates = useMemo(() => spansDays(profiles), [profiles]);
   const warnings = useMemo(() => warned(profile), [profile]);
@@ -81,12 +86,12 @@ export default function QueryView({ state, dispatch, session, profile, findings,
             </span>
           </Tip>
           <div className="qstats">
-            <Tip content={<TipText term="Wall time">{num(profile.wall_ms, 1)} ms from collect() to the result
+            <Tip content={<TipText term="Wall time">{num(now.wall_ms, 1)} ms {moment ? "into the run" : "from collect() to the result"}
               {profile.planning_ms != null ? `, of which ${num(profile.planning_ms, 1)} ms planning` : ""}
               {profile.telemetry_ms != null ? ` and ${num(profile.telemetry_ms, 1)} ms polars-telemetry` : ""}.</TipText>}>
-              <span tabIndex={0}><b className="qwall">{span(profile.wall_ms)}</b> wall</span>
+              <span tabIndex={0}><b className="qwall">{span(now.wall_ms)}</b> wall</span>
             </Tip>
-            <Busy profile={profile} />
+            <Busy profile={now} />
             {profile.diagnostics?.incomplete_nodes ? (
               <Tip content={<TipText term="Counters incomplete">{String(profile.diagnostics.incomplete_nodes)} nodes had not finished reporting when the query ended, so their figures are a floor, not a total.</TipText>}>
                 <span className="masked" tabIndex={0}>· incomplete</span>
@@ -114,7 +119,12 @@ export default function QueryView({ state, dispatch, session, profile, findings,
         {profile.failed && (
           <div className="qfail" role="alert"><b>Failed</b> {profile.failed}</div>
         )}
+        {profile.unfinished && (
+          <div className="qnote">Still running when the recording ended; its counters are from the last sample.</div>
+        )}
       </div>
+
+      {profile.replay && replayEnd(profile) > 0 && <ReplayBar key={profile.query_id} profile={profile} at={state.replayAt} dispatch={dispatch} />}
 
       <div className={alone ? `plans alone-${alone}` : "plans"}>
         <PlanPane key={`logical-${profile.query_id}`} title="Logical plan"
@@ -128,7 +138,7 @@ export default function QueryView({ state, dispatch, session, profile, findings,
                   alone={alone === "physical"} onAlone={() => toggleAlone("physical")}
                   linked={!!linked} leads={linked === "physical"} onLink={() => toggleLinked("physical")} channel={views}
                   findings={findings} reveal={reveal} warnings={warnings} onWarning={showWarning}
-                  focus={state.focus} onFocus={(focus) => dispatch({ type: "focused", focus })}
+                  focus={state.focus} onFocus={(focus) => dispatch({ type: "focused", focus })} moment={moment}
                   selectedId={state.node?.plan === "physical" ? state.node.id : null}
                   onSelect={(id) => dispatch({ type: "nodePicked", node: { plan: "physical", id } })} />
       </div>

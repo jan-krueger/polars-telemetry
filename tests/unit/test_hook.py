@@ -24,6 +24,9 @@ class Log:
     def closed(self) -> None:
         self.events.append("closed")
 
+    def release(self) -> None:
+        self.events.append("released")
+
 
 class Raises(Log):
     def planned(self, *args: Any) -> None:
@@ -53,6 +56,18 @@ def test_a_failing_recorder_still_yields_a_guard_and_never_raises():
     assert isinstance(guard, ExecutionGuard)
     guard.close()
     assert factory.tracker.errors == 1
+
+
+def test_a_query_that_ends_after_recording_was_switched_off_is_still_released():
+    log = Log()
+    factory = ObserverFactory(lambda _: log)
+    observer = factory()
+    observer.on_query_started(uuid4())
+    guard = observer.on_query_planned(uuid4(), None, b"", b"")
+    factory.tracker.disarm()
+    guard.close()
+    observer.on_query_failed(uuid4(), "late")
+    assert log.events == ["started", "planned", "released", "released"]
 
 
 def test_polars_cloud_is_forwarded_every_callback():

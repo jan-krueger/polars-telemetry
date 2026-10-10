@@ -1,8 +1,13 @@
 import type { CustomMetric, PlanNode, Profile } from "../model/profile";
 import { relationName, roleOf } from "./polars";
 
-export const num = (v: number | null | undefined, d = 0): string =>
-  (v ?? 0).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
+const formats = new Map<number, Intl.NumberFormat>();
+
+export function num(v: number | null | undefined, d = 0): string {
+  let format = formats.get(d);
+  if (!format) formats.set(d, (format = new Intl.NumberFormat("en-US", { minimumFractionDigits: d, maximumFractionDigits: d })));
+  return format.format(v ?? 0);
+}
 export const ms = (v: number): string =>
   v >= 10 ? num(v, 1) + " ms" : v >= 0.1 ? num(v, 2) + " ms" : num(v * 1000, 0) + " µs";
 export const bytes = (b: number): string =>
@@ -74,24 +79,20 @@ export interface Fact {
   key: string;
   label: string;
   value: string;
-  note: string;
 }
 
 export function nodeFacts(node: PlanNode, plan: PlanNode[]): Fact[] {
   const m = (node.metrics ?? {}) as Record<string, number>, out: Fact[] = [];
   if (roleOf(node) === "selection" && m.rows_received) {
-    out.push({ key: "rows_kept", label: "Rows kept", value: `${num((m.rows_sent! / m.rows_received) * 100, 1)}%`,
-               note: `${compact(m.rows_received - m.rows_sent!)} dropped` });
+    out.push({ key: "rows_kept", label: "Rows kept", value: `${num((m.rows_sent! / m.rows_received) * 100, 1)}%` });
   }
   const growth = nodeGrowth(node, plan);
   if (growth !== undefined) {
-    out.push({ key: "join_growth", label: "Growth", value: `${num(growth, 2)}×`,
-               note: growth <= 2 ? "no row explosion" : "more rows than its larger input" });
+    out.push({ key: "join_growth", label: "Growth", value: `${num(growth, 2)}×` });
   }
   if (m.morsels_received && m.rows_received) {
     const skew = m.largest_morsel_received! / (m.rows_received / m.morsels_received);
-    out.push({ key: "morsel_skew", label: "Morsel skew", value: `${num(skew, 2)}×`,
-               note: skew <= 2 ? "batches even" : "largest batch above the mean" });
+    out.push({ key: "morsel_skew", label: "Morsel skew", value: `${num(skew, 2)}×` });
   }
   return out;
 }

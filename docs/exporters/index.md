@@ -1,17 +1,17 @@
 # Exporters
 
-An exporter receives every finished query and sends it somewhere. Four ship
+An exporter receives every finished query and sends it somewhere. Five ship
 with the package; [writing your own](custom.md) takes one method.
 
-| | [OpenTelemetry](opentelemetry.md) | [DogStatsD](dogstatsd.md) | [JSONL](jsonl.md) | [Console](console.md) |
-| --- | --- | --- | --- | --- |
-| Sends to | your OpenTelemetry SDK | the Datadog Agent or Telegraf | a `.jsonl` file | standard error |
-| Needs | `polars-telemetry[otlp]` and an SDK set up | `polars-telemetry[datadog]` | nothing more | nothing more |
-| Use it when | monitoring in production | monitoring with Datadog or InfluxDB | the viewer and `polars-telemetry insights` | debugging locally |
-| Per query | a span, plus per-node metrics | per-node metrics with tags | both plans and every counter | a few lines of text |
-| Your data | span attributes and status | none, or labels with `tag_labels` | in the file, which stays local | on your terminal |
-| Cost | ~0.1–2.4 ms, ~9 µs per value | ~0.1–1 ms, buffered | ~0.1–0.4 ms, 2–25 KB | negligible |
-| When it fails | disabled after 5 errors | lost silently over UDP | first error logged, keeps trying | disabled after 5 errors |
+| | [OpenTelemetry](opentelemetry.md) | [DogStatsD](dogstatsd.md) | [JSONL](jsonl.md) | [Events](events.md) | [Console](console.md) |
+| --- | --- | --- | --- | --- | --- |
+| Sends to | your OpenTelemetry SDK | the Datadog Agent or Telegraf | a `.jsonl` file | a `.jsonl.gz` file | standard error |
+| Needs | `polars-telemetry[otlp]` and an SDK set up | `polars-telemetry[datadog]` | nothing more | nothing more | nothing more |
+| Use it when | monitoring in production | monitoring with Datadog or InfluxDB | the viewer and `polars-telemetry insights` | recording how queries progress | debugging locally |
+| Per query | a span, plus per-node metrics | per-node metrics with tags | both plans and every counter | the same, plus a sample every second while it runs | a few lines of text |
+| Your data | span attributes and status | none, or labels with `tag_labels` | in the file, which stays local | in the file, which stays local | on your terminal |
+| Cost | ~0.1–2.4 ms, ~9 µs per value | ~0.1–1 ms, buffered | ~0.1–0.4 ms, 2–25 KB | ~15 ms per sample of 500 nodes, in the background | negligible |
+| When it fails | disabled after 5 errors | lost silently over UDP | first error logged, keeps trying | first error logged, keeps trying | disabled after 5 errors |
 
 With no `exporter` argument, `install()` uses OpenTelemetry.
 

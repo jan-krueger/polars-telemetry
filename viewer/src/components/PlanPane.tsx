@@ -1,19 +1,25 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
-  ReactFlow, Background, BackgroundVariant, MiniMap, Controls, useReactFlow, useStore, type Node, type NodeSelectionChange,
+  ReactFlow, Background, BackgroundVariant, MiniMap, Controls, useReactFlow, useStore, type Node, type NodeChange, type NodeSelectionChange, type Viewport,
 } from "@xyflow/react";
 import PlanNode from "./PlanNode";
+import FlowEdge from "./FlowEdge";
+import type { Moment } from "../lib/replay";
 import type { Finding, PlanNode as PlanNodeData } from "../model/profile";
 import type { Channel, Pane } from "../hooks/usePanes";
 import {
-  FAR_ZOOM, NODE_H, NODE_W, applyView, distant, extent, focusSteps, shareView, startsFar, stepFor, toFlow, withSelection,
+  FAR_ZOOM, NODE_H, NODE_W, applyView, distant, extent, focusSteps, liveFlow, shareView, startsFar, stepFor, toFlow, withSelection,
   type Box, type FocusStep, type Positions,
 } from "../lib/graph";
 import useLayout from "../hooks/useLayout";
+import { LiveContext, LiveStore } from "../hooks/useLive";
 import { span } from "../lib/format";
 import Tip from "./Tip";
 
 const nodeTypes = { plan: PlanNode };
+const edgeTypes = { flow: FlowEdge };
+const MINI = { width: 112, height: 172 };
+const miniClass = (n: Node): string => n.className ?? "";
 
 type Reveal = { id: number } | null;
 
@@ -28,6 +34,8 @@ interface Shared {
   channel: Channel;
   findings?: Map<number, Finding[]>;
   reveal?: Reveal;
+  /** While replaying, the counters at that moment; the layout and focus steps stay those of the whole run. */
+  moment?: Moment | null;
 }
 
 interface Props extends Shared {
@@ -41,13 +49,13 @@ interface Props extends Shared {
 }
 
 export default function PlanPane({ title, plan, logical, selectedId, onSelect, focus = null, onFocus,
-                                   alone, onAlone, linked, leads, onLink, channel, findings, reveal,
+                                   alone, onAlone, linked, leads, onLink, channel, findings, reveal, moment,
                                    warnings = [], onWarning }: Props) {
   const positions = useLayout(plan);
   const steps = useMemo(() => focusSteps(plan), [plan]);
   const step = logical ? 0 : stepFor(steps, focus);
   const thresholdMs = steps[step]!.thresholdMs;
-  const view = { plan, positions, logical, selectedId, onSelect, thresholdMs, alone, linked, leads, channel, findings, reveal };
+  const view = { plan, positions, logical, selectedId, onSelect, thresholdMs, alone, linked, leads, channel, findings, reveal, moment };
 
   return (
     <div className={logical ? "planbox logical" : "planbox"}>
@@ -87,11 +95,15 @@ export default function PlanPane({ title, plan, logical, selectedId, onSelect, f
 }
 
 function PlanView({ plan, positions, logical, selectedId, onSelect, thresholdMs, alone, linked, leads, channel,
-                    findings, reveal = null }: Shared & { positions: Positions; thresholdMs: number }) {
+                    findings, reveal = null, moment = null }: Shared & { positions: Positions; thresholdMs: number }) {
   const flow = useMemo(
     () => toFlow(plan, positions, { logical, selectedId: null, thresholdMs, findings }),
     [plan, positions, logical, thresholdMs, findings],
   );
+  const live = useMemo(() => new LiveStore(), []);
+  useLayoutEffect(() => {
+    live.set(moment && !logical ? liveFlow(plan, moment, live.current()) : null);
+  }, [live, plan, moment, logical]);
   const box = useMemo(() => extent(positions), [positions]);
   const [far, setFar] = useState(() => startsFar(box));
   const [fitted, setFitted] = useState(false);
@@ -103,36 +115,42 @@ function PlanView({ plan, positions, logical, selectedId, onSelect, thresholdMs,
   const touched = useRef(false);
   const following = useRef(false);
   const touch = () => { touched.current = true; };
+  const latest = useRef({ linked, channel, pane, box, onSelect });
+  latest.current = { linked, channel, pane, box, onSelect };
+  const onMove = useCallback((_: unknown, viewport: Viewport) => {
+    const { linked, channel, pane, box } = latest.current;
+    if (linked && touched.current && !following.current) channel.publish({ ...shareView(viewport, size(), box), from: pane });
+  }, []);
+  const onNodesChange = useCallback((changes: NodeChange[]) => {
+    const picked = changes.find((c): c is NodeSelectionChange => c.type === "select" && c.selected);
+    if (picked) latest.current.onSelect(Number(picked.id));
+  }, []);
 
   return (
     <div className="body" ref={body} onPointerDownCapture={touch} onWheelCapture={touch} onKeyDownCapture={touch}>
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        nodeTypes={nodeTypes}
-        fitView
-        minZoom={0.01}
-        nodesDraggable={false}
-        nodesConnectable={false}
-        onlyRenderVisibleElements={fitted}
-        onMove={(_, viewport) => {
-          if (linked && touched.current && !following.current) {
-            channel.publish({ ...shareView(viewport, size(), box), from: pane });
-          }
-        }}
-        onNodesChange={(changes) => {
-          const picked = changes.find((c): c is NodeSelectionChange => c.type === "select" && c.selected);
-          if (picked) onSelect(Number(picked.id));
-        }}
-      >
-        <Background variant={BackgroundVariant.Dots} gap={16} size={1} color="var(--axis)" />
-        <MiniMap pannable zoomable nodeClassName={(n: Node) => n.className ?? ""} style={{ width: 112, height: 172 }} />
-        <Controls showInteractive={false} />
-        <Refit when={alone} />
-        <Distance onChange={setFar} onFitted={setFitted} />
-        <Reveal request={reveal} positions={positions} />
-        <Follow linked={linked} leads={leads} channel={channel} pane={pane} box={box} size={size} following={following} />
-      </ReactFlow>
+      <LiveContext.Provider value={live}>
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
+          fitView
+          minZoom={0.01}
+          nodesDraggable={false}
+          nodesConnectable={false}
+          onlyRenderVisibleElements={fitted}
+          onMove={onMove}
+          onNodesChange={onNodesChange}
+        >
+          <Background variant={BackgroundVariant.Dots} gap={16} size={1} color="var(--axis)" />
+          <MiniMap pannable zoomable nodeClassName={miniClass} style={MINI} />
+          <Controls showInteractive={false} />
+          <Refit when={alone} />
+          <Distance onChange={setFar} onFitted={setFitted} />
+          <Reveal request={reveal} positions={positions} />
+          <Follow linked={linked} leads={leads} channel={channel} pane={pane} box={box} size={size} following={following} />
+        </ReactFlow>
+      </LiveContext.Provider>
     </div>
   );
 }
