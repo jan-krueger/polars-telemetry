@@ -1,9 +1,12 @@
+mod api;
 mod ingest;
+mod pipeline;
+
+pub use pipeline::{Accepted, Imported, Pipeline};
 
 use axum::Router;
 use axum::extract::DefaultBodyLimit;
 use axum::routing::{get, post};
-use nunatak_store::{Log, Recordings};
 use std::sync::Arc;
 
 #[derive(Debug, Clone, Copy)]
@@ -21,21 +24,26 @@ impl Default for Limits {
     }
 }
 
-pub struct Server {
-    pub token: String,
-    pub limits: Limits,
-    pub log: Arc<dyn Log>,
-    pub recordings: Arc<dyn Recordings>,
-}
-
-pub fn router(server: Server) -> Router {
-    let limit = server.limits.body;
-    let state = Arc::new(ingest::Ingest::new(server));
+pub fn ingest_router(pipeline: Arc<Pipeline>, token: String, limits: Limits) -> Router {
+    let state = Arc::new(ingest::Ingest {
+        pipeline,
+        token,
+        limits,
+    });
     Router::new()
         .route(
             "/v1/events",
-            post(ingest::events).layer(DefaultBodyLimit::max(limit)),
+            post(ingest::events).layer(DefaultBodyLimit::max(limits.body)),
         )
         .route("/v1/health", get(ingest::health))
         .with_state(state)
+}
+
+pub fn app_router(pipeline: Arc<Pipeline>) -> Router {
+    Router::new()
+        .route("/api/queries", get(api::queries))
+        .route("/api/queries/{id}", get(api::query))
+        .route("/api/queries/{id}/recording", get(api::recording))
+        .route("/api/groups", get(api::groups))
+        .with_state(pipeline)
 }

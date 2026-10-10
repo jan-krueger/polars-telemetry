@@ -10,7 +10,11 @@ repository.workspace = true
 [dependencies]
 async-trait.workspace = true
 bytes.workspace = true
+serde.workspace = true
 thiserror.workspace = true
+
+[features]
+conformance = []
 
 [lints]
 workspace = true

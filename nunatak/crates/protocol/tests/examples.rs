@@ -1,4 +1,4 @@
-use nunatak_protocol::{Kind, parse};
+use nunatak_protocol::{Kind, Summary, parse, parse_streams};
 use std::path::PathBuf;
 
 fn example(name: &str) -> String {
@@ -77,4 +77,32 @@ fn new_event_types_and_fields_are_kept() {
     );
     let batch = parse(&text).unwrap();
     assert_eq!(batch.events[0].kind, Kind::Other("query.paused".into()));
+}
+
+#[test]
+fn a_file_with_several_streams_splits_into_one_batch_each() {
+    let first = example("finished.jsonl");
+    let events: Vec<&str> = first.lines().skip(1).collect();
+    let text = format!("{first}{PROCESS}\n{}\n", events.join("\n"));
+    let batches = parse_streams(&text).unwrap();
+    assert_eq!(batches.len(), 2);
+    assert_ne!(batches[0].stream.id, batches[1].stream.id);
+    assert_eq!(batches[0].events.len(), batches[1].events.len());
+    assert_eq!(
+        parse(&text).unwrap_err().problem,
+        "a batch holds one stream"
+    );
+}
+
+#[test]
+fn a_profile_gives_its_summary() {
+    let text = example("finished.jsonl");
+    let finished = text.lines().last().unwrap();
+    let summary = Summary::of(finished).unwrap();
+    assert_eq!(summary.label.as_deref(), Some("clickbench/regex_domains"));
+    assert!(summary.wall_ms.unwrap() > 0.0);
+    assert!(summary.started_unix_ns.unwrap() > 0);
+    assert!(summary.fingerprint.is_some());
+    assert_eq!(summary.failed, None);
+    assert!(Summary::of(text.lines().nth(2).unwrap()).is_none());
 }

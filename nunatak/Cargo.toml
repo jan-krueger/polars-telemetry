@@ -13,6 +13,7 @@ repository = "https://github.com/jan-krueger/polars-telemetry"
 nunatak-protocol = { path = "crates/protocol" }
 nunatak-store = { path = "crates/store" }
 nunatak-store-fs = { path = "crates/store-fs" }
+nunatak-store-sqlite = { path = "crates/store-sqlite" }
 nunatak-server = { path = "crates/server" }
 async-trait = "0.1.92"
 axum = "0.8.9"
@@ -20,6 +21,7 @@ bytes = "1.12.1"
 clap = { version = "4.6.7", features = ["derive", "env"] }
 flate2 = "1.1.10"
 getrandom = "0.4.3"
+rusqlite = { version = "0.40.2", features = ["bundled"] }
 http-body-util = "0.1.5"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"

@@ -1,5 +1,8 @@
 use serde::Deserialize;
+
+mod summary;
 use serde_json::Value;
+pub use summary::Summary;
 
 pub const SCHEMA: &str = "polars-telemetry/events@1";
 
@@ -72,34 +75,58 @@ struct ProcessFields {
 }
 
 pub fn parse(text: &str) -> Result<Batch, Invalid> {
-    let mut lines = text
+    let mut batches = streams(text)?;
+    if batches.len() > 1 {
+        let second = batches[1].first_line;
+        return Err(invalid(second, "a batch holds one stream"));
+    }
+    Ok(batches.remove(0).batch)
+}
+
+pub fn parse_streams(text: &str) -> Result<Vec<Batch>, Invalid> {
+    Ok(streams(text)?.into_iter().map(|part| part.batch).collect())
+}
+
+struct Part {
+    first_line: usize,
+    batch: Batch,
+}
+
+fn streams(text: &str) -> Result<Vec<Part>, Invalid> {
+    let mut parts: Vec<Part> = Vec::new();
+    for (index, line) in text
         .lines()
         .enumerate()
-        .filter(|(_, line)| !line.trim().is_empty());
-    let (first, line) = lines
-        .next()
-        .ok_or_else(|| invalid(1, "the batch is empty"))?;
-    let process = event(first + 1, line)?;
-    if process.kind != Kind::Process {
-        return Err(invalid(first + 1, "a batch starts with its process event"));
-    }
-    let stream = stream(first + 1, &process.line)?;
-    let mut events = Vec::new();
-    for (index, line) in lines {
-        let event = event(index + 1, line)?;
+        .filter(|(_, l)| !l.trim().is_empty())
+    {
+        let number = index + 1;
+        let event = event(number, line)?;
         if event.kind == Kind::Process {
-            if self::stream(index + 1, &event.line)?.id != stream.id {
-                return Err(invalid(index + 1, "a batch holds one stream"));
+            let stream = stream(number, &event.line)?;
+            if parts
+                .last()
+                .is_some_and(|part| part.batch.stream.id == stream.id)
+            {
+                continue;
             }
-            continue;
+            parts.push(Part {
+                first_line: number,
+                batch: Batch {
+                    stream,
+                    process: event,
+                    events: Vec::new(),
+                },
+            });
+        } else if let Some(part) = parts.last_mut() {
+            part.batch.events.push(event);
+        } else {
+            return Err(invalid(number, "a batch starts with its process event"));
         }
-        events.push(event);
     }
-    Ok(Batch {
-        stream,
-        process,
-        events,
-    })
+    if parts.is_empty() {
+        return Err(invalid(1, "the batch is empty"));
+    }
+    Ok(parts)
 }
 
 fn event(number: usize, line: &str) -> Result<Event, Invalid> {
