@@ -1,10 +1,12 @@
 # Profile viewer
 
 The viewer reads the `.jsonl` files the [JSONL exporter](exporters/jsonl.md)
-and `profile()` write, and shows both plans of each query with every counter.
+and `profile()` write, and the recordings of the
+[events exporter](exporters/events.md), gzip-compressed or not. It shows both
+plans of each query with every counter.
 
-[Open the viewer](viewer/index.html), then drag one or more `.jsonl` files onto
-the page, or use **Open .jsonl**.
+[Open the viewer](viewer/index.html), then drag one or more files onto the page,
+or use **Open .jsonl**.
 
 **Nothing is uploaded.** Files are read in your browser. The page makes no
 requests except to fetch an example from this site when you ask for one.
@@ -68,9 +70,19 @@ The logical plan is on the left, the physical plan on the right. Drag to pan,
 scroll to zoom; the minimap shows where you are.
 
 - **Logical plan**: the plan as written, with your own column names.
-- **Physical plan**: what ran. Nodes are shaded by their share of CPU time,
-  edges are labelled with rows, and a dot shows whether each node finished.
-  Polars renames grouped columns to `_POLARS_TMP_N` here.
+- **Physical plan**: what ran. Nodes are shaded by their share of CPU time and
+  edges are labelled with rows. Polars renames many keys to internal columns
+  here; a node then gives their number, such as "by 2 keys", and the logical
+  plan has their names.
+
+Every node reads the same way:
+
+| Where | What |
+| --- | --- |
+| First line | The operator, as Polars names it, and its kind when it has one: `EquiJoin · inner`, `MultiScan · parquet` |
+| Second line | What it works on: the file, keys, columns or condition. Empty when there is nothing to add |
+| Third line | Its share of CPU time and the time itself |
+| Top right | Only what stands out: work pushed into a scan (a filter, a column selection, a row limit, skipped files), a sort that keeps some rows, a finding, a node that had not finished. Hover for the details |
 
 Click a node for its properties and every counter in the right sidebar. Each
 counter's `?` explains what it measures. Long expressions are set one method
@@ -79,6 +91,26 @@ call or condition per line.
 The slider above the physical plan fades the cheapest nodes still lit, one
 step at a time; the readout gives how many remain and their share of CPU time.
 The setting carries over to the next query as that share, not as a node count.
+
+## Replaying a recording
+
+A query from an [events recording](exporters/events.md) can be replayed. The bar
+above the plans shows how many threads the query kept busy over its run; drag
+along it, or play it. Playback takes about twelve seconds whatever the query's
+length; the speed button switches to real time. With the bar focused, ← and →
+step from sample to sample and space plays or pauses.
+
+While replaying:
+
+- Nodes that have not started are faded, and edges carrying rows move, faster
+  for more rows per second.
+- The figures above the plans and a selected node's counters are those of that
+  moment. Between two samples they are estimated and marked `≈`.
+- Behind each of the node's counters, a line shows how it grew over the whole
+  run, up to the moment shown.
+
+A query that was still running when the recording ended opens with the counters
+of its last sample and says so.
 
 ## Findings
 

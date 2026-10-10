@@ -80,7 +80,7 @@ class LiveExporter:
 
 They are called on a background thread, every `Config.progress_interval`
 seconds per running query, and never after that query's `export()`. Sampling
-only runs while an installed exporter has a `progress` method.
+only runs while an installed exporter has a `started` or `progress` method.
 
 ## When it fails
 

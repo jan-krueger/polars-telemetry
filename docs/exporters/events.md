@@ -38,7 +38,7 @@ One event per line. Every line has `"schema": "polars-telemetry/events@1"` and a
 | Event | When | Holds |
 | --- | --- | --- |
 | `process` | Once, when the file is first written by a process | Host, process id, polars-telemetry version |
-| `query.started` | At a query's first sample, one second in | Its [profile](jsonl.md#what-you-get) so far: plans, label, call site and fingerprint, with no counters yet. A query that finishes sooner has no `started` or `progress` events, only `finished` |
+| `query.started` | At a query's first sample, one second in | Its [profile](jsonl.md#what-you-get) so far: plans, label, call site, fingerprint and the wall time until then, with no counters yet. A query that finishes sooner has no `started` or `progress` events, only `finished` |
 | `query.progress` | At every sample while it runs | The counters of each node that changed since the previous sample. Counters are cumulative: a node's latest entry is its state at that moment, and one dropped sample loses nothing. A counter that is zero is left out |
 | `query.finished` | When it ends | The complete [profile](jsonl.md#what-you-get), as the JSONL exporter writes it |
 
@@ -51,12 +51,19 @@ query and hands each sample to every exporter that follows running queries.
 | Option | Default | Effect |
 | --- | --- | --- |
 | `path` | required | The file; its directory is created. A name ending in `.gz` is written gzip-compressed |
-| `max_bytes` | 256 MiB | Past this, the file moves to `<name>.1` and a new one starts |
+| `max_bytes` | 256 MiB | Past this, the file moves to `<name>.1` and a new one starts with its own `process` line. A query running at that moment has its `started` event in `<name>.1`; open both files together |
 
 Use `.gz`: progress samples of a large plan are big and compress well. A
-compressed file is written in batches, at most two seconds apart and at the
-end of every query, each a complete gzip member, so a file whose process died
-can still be read up to its last batch.
+compressed file is written in batches, when a query starts or ends and about
+every two seconds in between, each a complete gzip member, so a file whose
+process died can still be read up to its last batch.
+
+## Viewing it
+
+Open the file in the [profile viewer](../profile-viewer.md#replaying-a-recording),
+compressed or not. Every query becomes a profile you can replay from its start
+to its end; a query that was still running when the file ends shows the
+counters of its last sample.
 
 ## Your data
 
