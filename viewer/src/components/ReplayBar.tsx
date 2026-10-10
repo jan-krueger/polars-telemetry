@@ -1,17 +1,15 @@
-import { useEffect, useMemo, useRef, useState, type Dispatch, type KeyboardEvent } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type Dispatch, type KeyboardEvent } from "react";
 import type { Profile } from "../model/profile";
 import type { Action } from "../state/viewer";
 import { span } from "../lib/format";
-import { finishes, peakOf, type Runs } from "../lib/replay";
-import RunChart from "./RunChart";
+import { busy, finishes, type Stretch } from "../lib/replay";
 
 const WHOLE_RUN_MS = 12_000;
 
 const times = (v: number): string => `${v >= 10 ? Math.round(v) : Number(v.toPrecision(2))}×`;
 
 /** Scrub or play through the query's run over a chart of how many threads it kept busy. */
-export default function ReplayBar({ profile, runs, at, dispatch }:
-  { profile: Profile; runs: Runs; at: number | null; dispatch: Dispatch<Action> }) {
+export default function ReplayBar({ profile, at, dispatch }: { profile: Profile; at: number | null; dispatch: Dispatch<Action> }) {
   const replay = profile.replay!;
   const end = profile.wall_ms;
   const t = at ?? end;
@@ -51,7 +49,7 @@ export default function ReplayBar({ profile, runs, at, dispatch }:
 
   const steps = useMemo(() => [0, ...replay.times, end], [replay, end]);
   const done = useMemo(() => [...new Set(finishes(replay))], [replay]);
-  const peak = useMemo(() => peakOf(runs.total), [runs]);
+  const threads = useMemo(() => busy(replay, profile.plan.physical, end), [replay, profile, end]);
 
   const go = (ms: number) => {
     setPlaying(false);
@@ -81,7 +79,7 @@ export default function ReplayBar({ profile, runs, at, dispatch }:
       <button className="pane-btn replay-speed" onClick={() => setSpeed(speeds[(speeds.indexOf(speed) + 1) % speeds.length]!)}
               aria-label={`Playback speed ${times(speed)}; change`}>{times(speed)}</button>
       <div className="replay-track">
-        <RunChart stretches={runs.total} end={end} peak={peak} t={at} floor={4} marker={false} />
+        <BusyChart stretches={threads} end={end} t={at} />
         <div className="replay-marks" aria-hidden="true">
           {done.map((ms) => <span key={ms} className="replay-mark" style={{ left: `${(ms / end) * 100}%` }} />)}
         </div>
@@ -91,5 +89,27 @@ export default function ReplayBar({ profile, runs, at, dispatch }:
       </div>
       <span className="replay-at"><b>{span(t)}</b> / {span(end)}</span>
     </div>
+  );
+}
+
+/** Threads busy per stretch as bars; what lies after the replayed moment `t` is paler. */
+function BusyChart({ stretches, end, t }: { stretches: Stretch[]; end: number; t: number | null }) {
+  const clip = useId();
+  const peak = Math.max(1e-9, ...stretches.map((s) => s.load));
+  const x = (ms: number) => (end > 0 ? (ms / end) * 1000 : 0);
+  const bars = stretches.map((s) => {
+    const h = Math.max(4, (s.load / peak) * 100);
+    return <rect key={s.from} x={x(s.from)} width={x(s.to) - x(s.from)} y={100 - h} height={h} />;
+  });
+  return (
+    <svg className="busy-chart" viewBox="0 0 1000 100" preserveAspectRatio="none" aria-hidden="true">
+      {t !== null && (
+        <>
+          <clipPath id={clip}><rect width={x(t)} height={100} /></clipPath>
+          <g className="busy-ahead">{bars}</g>
+        </>
+      )}
+      <g className="busy-past" clipPath={t !== null ? `url(#${clip})` : undefined}>{bars}</g>
+    </svg>
   );
 }

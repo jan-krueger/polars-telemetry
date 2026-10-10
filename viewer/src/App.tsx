@@ -6,7 +6,7 @@ import NodeDetails from "./components/NodeDetails";
 import Notice from "./components/Notice";
 import Overview from "./components/Overview";
 import QueryView from "./components/QueryView";
-import { momentAt, nodeAt, runsOf } from "./lib/replay";
+import { momentAt, nodeAt } from "./lib/replay";
 import { SessionsPage } from "./components/Sessions";
 import Sidebar from "./components/Sidebar";
 import StartPage from "./components/StartPage";
@@ -44,7 +44,6 @@ export default function App() {
     () => (profile && moment ? profile.plan.physical.map((n) => nodeAt(n, moment)) : profile?.plan.physical),
     [profile, moment],
   );
-  const runs = useMemo(() => (profile?.replay ? runsOf(profile.replay, profile.plan.physical, profile.wall_ms) : null), [profile]);
   const picked = findNode(profile, state.node);
   const physical = state.node?.plan === "physical";
 
@@ -74,7 +73,7 @@ export default function App() {
           ) : !profile ? (
             <Overview session={current} shapes={shapes} sort={state.sort} dispatch={dispatch} />
           ) : (
-            <QueryView state={state} dispatch={dispatch} session={current} profile={profile} moment={moment} runs={runs}
+            <QueryView state={state} dispatch={dispatch} session={current} profile={profile} moment={moment}
                        findings={findings} panes={panes} onDownload={save} />
           )}
         </main>

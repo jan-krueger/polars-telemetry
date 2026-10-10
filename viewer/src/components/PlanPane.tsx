@@ -4,7 +4,7 @@ import {
 } from "@xyflow/react";
 import PlanNode from "./PlanNode";
 import FlowEdge from "./FlowEdge";
-import type { Moment, Runs } from "../lib/replay";
+import type { Moment } from "../lib/replay";
 import type { Finding, PlanNode as PlanNodeData } from "../model/profile";
 import type { Channel, Pane } from "../hooks/usePanes";
 import {
@@ -33,8 +33,6 @@ interface Shared {
   reveal?: Reveal;
   /** While replaying, the counters at that moment; the layout and focus steps stay those of the whole run. */
   moment?: Moment | null;
-  /** When each node ran over the whole recording, drawn along its bottom edge. */
-  runs?: Runs | null;
 }
 
 interface Props extends Shared {
@@ -48,13 +46,13 @@ interface Props extends Shared {
 }
 
 export default function PlanPane({ title, plan, logical, selectedId, onSelect, focus = null, onFocus,
-                                   alone, onAlone, linked, leads, onLink, channel, findings, reveal, moment, runs,
+                                   alone, onAlone, linked, leads, onLink, channel, findings, reveal, moment,
                                    warnings = [], onWarning }: Props) {
   const positions = useLayout(plan);
   const steps = useMemo(() => focusSteps(plan), [plan]);
   const step = logical ? 0 : stepFor(steps, focus);
   const thresholdMs = steps[step]!.thresholdMs;
-  const view = { plan, positions, logical, selectedId, onSelect, thresholdMs, alone, linked, leads, channel, findings, reveal, moment, runs };
+  const view = { plan, positions, logical, selectedId, onSelect, thresholdMs, alone, linked, leads, channel, findings, reveal, moment };
 
   return (
     <div className={logical ? "planbox logical" : "planbox"}>
@@ -94,10 +92,10 @@ export default function PlanPane({ title, plan, logical, selectedId, onSelect, f
 }
 
 function PlanView({ plan, positions, logical, selectedId, onSelect, thresholdMs, alone, linked, leads, channel,
-                    findings, reveal = null, moment = null, runs = null }: Shared & { positions: Positions; thresholdMs: number }) {
+                    findings, reveal = null, moment = null }: Shared & { positions: Positions; thresholdMs: number }) {
   const flow = useMemo(
-    () => toFlow(plan, positions, { logical, selectedId: null, thresholdMs, findings, moment, runs }),
-    [plan, positions, logical, thresholdMs, findings, moment, runs],
+    () => toFlow(plan, positions, { logical, selectedId: null, thresholdMs, findings, moment }),
+    [plan, positions, logical, thresholdMs, findings, moment],
   );
   const box = useMemo(() => extent(positions), [positions]);
   const [far, setFar] = useState(() => startsFar(box));

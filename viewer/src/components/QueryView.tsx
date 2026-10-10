@@ -12,7 +12,7 @@ import { documentsFor } from "../share/session";
 import { title, type Action, type ViewerState } from "../state/viewer";
 import PlanPane from "./PlanPane";
 import ReplayBar from "./ReplayBar";
-import type { Moment, Runs } from "../lib/replay";
+import type { Moment } from "../lib/replay";
 import ShareDialog, { type Copy, type Sharing } from "./ShareDialog";
 import ShareMenu from "./ShareMenu";
 import Tip, { TipText } from "./Tip";
@@ -24,14 +24,12 @@ interface Props {
   profile: Profile;
   /** While replaying, the counters at that moment; null shows how the query ended. */
   moment: Moment | null;
-  /** With a recording: when each node ran. */
-  runs: Runs | null;
   findings: Map<number, Finding[]>;
   panes: Panes;
   onDownload: (session: Session) => void;
 }
 
-export default function QueryView({ state, dispatch, session, profile, moment, runs, findings, panes, onDownload }: Props) {
+export default function QueryView({ state, dispatch, session, profile, moment, findings, panes, onDownload }: Props) {
   const now = moment ? { ...profile, wall_ms: moment.t, cpu_ms: moment.cpu_ms } : profile;
   const profiles = session.profiles ?? [];
   const withDates = useMemo(() => spansDays(profiles), [profiles]);
@@ -126,7 +124,7 @@ export default function QueryView({ state, dispatch, session, profile, moment, r
         )}
       </div>
 
-      {runs && <ReplayBar key={profile.query_id} profile={profile} runs={runs} at={state.replayAt} dispatch={dispatch} />}
+      {profile.replay && <ReplayBar key={profile.query_id} profile={profile} at={state.replayAt} dispatch={dispatch} />}
 
       <div className={alone ? `plans alone-${alone}` : "plans"}>
         <PlanPane key={`logical-${profile.query_id}`} title="Logical plan"
@@ -140,7 +138,7 @@ export default function QueryView({ state, dispatch, session, profile, moment, r
                   alone={alone === "physical"} onAlone={() => toggleAlone("physical")}
                   linked={!!linked} leads={linked === "physical"} onLink={() => toggleLinked("physical")} channel={views}
                   findings={findings} reveal={reveal} warnings={warnings} onWarning={showWarning}
-                  focus={state.focus} onFocus={(focus) => dispatch({ type: "focused", focus })} moment={moment} runs={runs}
+                  focus={state.focus} onFocus={(focus) => dispatch({ type: "focused", focus })} moment={moment}
                   selectedId={state.node?.plan === "physical" ? state.node.id : null}
                   onSelect={(id) => dispatch({ type: "nodePicked", node: { plan: "physical", id } })} />
       </div>

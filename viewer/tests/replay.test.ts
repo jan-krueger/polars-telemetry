@@ -2,7 +2,7 @@ import { gzipSync, strToU8 } from "fflate";
 import { describe, expect, it } from "vitest";
 import { flowSeconds, toFlow } from "../src/lib/graph";
 import { gunzipText, isGzip } from "../src/lib/gzip";
-import { finishes, history, momentAt, nodeAt, runsOf } from "../src/lib/replay";
+import { busy, finishes, history, momentAt, nodeAt } from "../src/lib/replay";
 import { readJsonl, toJsonl } from "../src/model/read";
 import { EVENTS_SCHEMA } from "../src/model/schema";
 import { openShareFragment, shareFragment } from "../src/share/link";
@@ -107,14 +107,11 @@ describe("a replayed moment", () => {
     expect(finishes(replay)).toEqual([2000]);
   });
 
-  it("lays out when each node ran and how many threads it kept busy", () => {
-    const runs = runsOf(replay, profile.plan.physical, profile.wall_ms);
-    const scan = runs.lanes.get(1)!.stretches;
-    expect(scan.map((s) => [s.from, s.to])).toEqual([[0, 1000], [1000, 2000]]);
-    expect(scan.map((s) => s.load)).toEqual([0.4, 0.4]);
-    expect(runs.lanes.get(3)!.stretches).toEqual([{ from: 2000, to: 3200, load: 1000 / 1200 }]);
-    expect(runs.total.map((s) => s.from)).toEqual([0, 1000, 2000]);
-    expect(runs.total[2]!.load).toBeCloseTo(2000 / 1200);
+  it("adds up how many threads the query kept busy between each two samples", () => {
+    const threads = busy(replay, profile.plan.physical, profile.wall_ms);
+    expect(threads.map((s) => [s.from, s.to])).toEqual([[0, 1000], [1000, 2000], [2000, 3200]]);
+    expect(threads[0]!.load).toBeCloseTo(0.4);
+    expect(threads[2]!.load).toBeCloseTo(2000 / 1200);
   });
 
   it("traces each counter from zero through every sample to its final value", () => {

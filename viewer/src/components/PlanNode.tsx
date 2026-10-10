@@ -2,14 +2,13 @@ import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
 import { ROLES, relationName, roleOf } from "../lib/polars";
 import { num, span } from "../lib/format";
 import { cpuMs, type FlowData } from "../lib/graph";
-import RunChart from "./RunChart";
 import Tip, { TipText } from "./Tip";
 
 const bin = (p: number): number => (p >= 50 ? 4 : p >= 10 ? 3 : p >= 1 ? 2 : 1);
 
 // Logical nodes have no counters: outlined, never filled by CPU share.
 export default function PlanNode({ data, selected }: NodeProps<Node<FlowData>>) {
-  const { node, share, logical, label, far, finding, live, run } = data;
+  const { node, share, logical, label, far, finding, live } = data;
   const role = roleOf(node);
   const info = ROLES[role];
   const relation = role === "scan" ? relationName(node.properties ?? {}) : "";
@@ -36,9 +35,6 @@ export default function PlanNode({ data, selected }: NodeProps<Node<FlowData>>) 
         </div>
       </Tip>
       {label ? <div className="t2">{label}</div> : null}
-      {run ? (
-        <div className="prun"><RunChart stretches={run.lane.stretches} end={run.end} peak={run.peak} t={run.t} floor={12.5} /></div>
-      ) : null}
       {node.metrics ? (
         <div className="t3">
           {share >= 0.1 ? `${num(share, 1)}% · ` : ""}{span(cpuMs(node))}
