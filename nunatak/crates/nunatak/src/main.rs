@@ -61,7 +61,7 @@ async fn main() -> std::process::ExitCode {
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_env("NUNATAK_LOG")
-                .unwrap_or_else(|_| "info".into()),
+                .unwrap_or_else(|_| "info,rusqlite_migration=warn".into()),
         )
         .with_writer(std::io::stderr)
         .init();
@@ -92,33 +92,87 @@ fn pipeline(data: &Path) -> std::io::Result<Arc<Pipeline>> {
 
 async fn serve(args: Args) -> std::io::Result<()> {
     let pipeline = pipeline(&args.data)?;
-    let token = match args.token {
-        Some(token) if !token.is_empty() => token,
-        _ => stored_token(&args.data, args.ingest_bind.unwrap_or(args.bind))?,
+    let ingest_at = args.ingest_bind.unwrap_or(args.bind);
+    let flagged = args.token.as_ref().is_some_and(|token| !token.is_empty());
+    let (token, created) = match args.token {
+        Some(token) if flagged => (token, false),
+        _ => stored_token(&args.data)?,
     };
+    let main = listen(args.bind, "--bind").await?;
+    let events = match args.ingest_bind {
+        Some(address) => Some(listen(address, "--ingest-bind").await?),
+        None => None,
+    };
+    let data = std::fs::canonicalize(&args.data)?;
+    let mut out = std::io::stdout().lock();
+    writeln!(out, "Nunatak {}\n", env!("CARGO_PKG_VERSION"))?;
+    writeln!(out, "  Dashboard  {}", url(args.bind))?;
+    if args.ingest_bind.is_some() {
+        writeln!(out, "  Events     {}", url(ingest_at))?;
+    }
+    writeln!(out, "  Data       {}", data.display())?;
+    if flagged {
+        writeln!(out, "  Token      set with --token or NUNATAK_TOKEN")?;
+    } else {
+        writeln!(out, "  Token      in {}", data.join("token").display())?;
+    }
+    match args.keep_days {
+        Some(days) => writeln!(out, "  Keeps      runs from the last {days} days")?,
+        None => writeln!(out, "  Keeps      every run")?,
+    }
+    if created {
+        writeln!(out, "\nSend events from Python with:\n")?;
+        writeln!(out, "    import polars_telemetry")?;
+        writeln!(
+            out,
+            "    from polars_telemetry.export import HttpEventExporter"
+        )?;
+        writeln!(
+            out,
+            "    polars_telemetry.install(exporter=HttpEventExporter({:?}, token={token:?}))",
+            url(ingest_at)
+        )?;
+    }
+    writeln!(out)?;
+    drop(out);
     tokio::spawn(close_silent(Arc::clone(&pipeline)));
     if let Some(days) = args.keep_days {
         tokio::spawn(forget_old(Arc::clone(&pipeline), days));
     }
     let ingest = ingest_router(Arc::clone(&pipeline), token, Limits::default());
     let app = app_router(pipeline);
-    let main = tokio::net::TcpListener::bind(args.bind).await?;
-    tracing::info!(address = %args.bind, data = %args.data.display(), "nunatak is listening");
-    match args.ingest_bind {
+    match events {
         None => {
             axum::serve(main, app.merge(ingest))
                 .with_graceful_shutdown(stopped())
                 .await
         }
-        Some(address) => {
-            let events = tokio::net::TcpListener::bind(address).await?;
-            tracing::info!(%address, "receiving events");
+        Some(events) => {
             let (a, b) = tokio::join!(
                 axum::serve(main, app).with_graceful_shutdown(stopped()),
                 axum::serve(events, ingest).with_graceful_shutdown(stopped()),
             );
             a.and(b)
         }
+    }
+}
+
+async fn listen(address: SocketAddr, flag: &str) -> std::io::Result<tokio::net::TcpListener> {
+    tokio::net::TcpListener::bind(address).await.map_err(|error| {
+        let hint = if error.kind() == std::io::ErrorKind::AddrInUse {
+            format!(" Another program, perhaps another Nunatak, is using it; choose another address with {flag}.")
+        } else {
+            String::new()
+        };
+        std::io::Error::new(error.kind(), format!("could not listen on {address}: {error}.{hint}"))
+    })
+}
+
+fn url(address: SocketAddr) -> String {
+    if address.ip().is_unspecified() {
+        format!("http://localhost:{}", address.port())
+    } else {
+        format!("http://{address}")
     }
 }
 
@@ -185,12 +239,12 @@ async fn stopped() {
     tracing::info!("stopping");
 }
 
-fn stored_token(data: &Path, bind: SocketAddr) -> std::io::Result<String> {
+fn stored_token(data: &Path) -> std::io::Result<(String, bool)> {
     let path = data.join("token");
     if let Ok(token) = std::fs::read_to_string(&path) {
         let token = token.trim().to_owned();
         if !token.is_empty() {
-            return Ok(token);
+            return Ok((token, false));
         }
     }
     let mut bytes = [0u8; 24];
@@ -200,27 +254,7 @@ fn stored_token(data: &Path, bind: SocketAddr) -> std::io::Result<String> {
         hex
     });
     write_private(&path, &token)?;
-    let url = if bind.ip().is_unspecified() {
-        format!("http://localhost:{}", bind.port())
-    } else {
-        format!("http://{bind}")
-    };
-    let mut out = std::io::stdout().lock();
-    writeln!(
-        out,
-        "Created an ingest token in {}. Send events with:\n",
-        path.display()
-    )?;
-    writeln!(out, "    import polars_telemetry")?;
-    writeln!(
-        out,
-        "    from polars_telemetry.export import HttpEventExporter"
-    )?;
-    writeln!(
-        out,
-        "    polars_telemetry.install(exporter=HttpEventExporter({url:?}, token={token:?}))\n"
-    )?;
-    Ok(token)
+    Ok((token, true))
 }
 
 #[cfg(unix)]
