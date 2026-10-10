@@ -327,3 +327,26 @@ async fn an_imported_file_is_stored_like_sent_events_and_unfinished_queries_are_
     assert_eq!(again.accepted, 0);
     assert!(pipeline.import("not json").await.is_err());
 }
+
+#[tokio::test]
+async fn every_page_path_gets_the_dashboard_and_unknown_api_paths_a_json_404() {
+    let data = tempfile::tempdir().unwrap();
+    let app = app(data.path());
+    for path in [
+        "/",
+        "/queries",
+        "/queries/01a12532-7bcd-7082-8a3f-bd94907497ea",
+    ] {
+        let (status, body) = get(&app, path).await;
+        assert_eq!(status, StatusCode::OK, "{path}");
+        assert!(
+            String::from_utf8(body).unwrap().contains("Nunatak"),
+            "{path}"
+        );
+    }
+    let (status, body) = get_json(&app, "/api/nothing").await;
+    assert_eq!(
+        (status, body["error"].as_str()),
+        (StatusCode::NOT_FOUND, Some("no such API"))
+    );
+}

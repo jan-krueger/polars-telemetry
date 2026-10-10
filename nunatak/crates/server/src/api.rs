@@ -129,6 +129,10 @@ pub(crate) async fn groups(
     }
 }
 
+pub(crate) async fn unknown() -> Response {
+    problem(StatusCode::NOT_FOUND, "no such API", None)
+}
+
 fn failed(error: &nunatak_store::Error) -> Response {
     tracing::error!(%error, "reading the index failed");
     problem(

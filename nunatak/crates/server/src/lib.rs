@@ -6,6 +6,7 @@ pub use pipeline::{Accepted, Imported, Pipeline};
 
 use axum::Router;
 use axum::extract::DefaultBodyLimit;
+use axum::response::Html;
 use axum::routing::{get, post};
 use std::sync::Arc;
 use tower::ServiceBuilder;
@@ -41,11 +42,15 @@ pub fn ingest_router(pipeline: Arc<Pipeline>, token: String, limits: Limits) -> 
         .with_state(state)
 }
 
+const PAGE: &str = include_str!(concat!(env!("OUT_DIR"), "/page.html"));
+
 pub fn app_router(pipeline: Arc<Pipeline>) -> Router {
     Router::new()
         .route("/api/queries", get(api::queries))
         .route("/api/queries/{id}", get(api::query))
         .route("/api/queries/{id}/recording", get(api::recording))
         .route("/api/groups", get(api::groups))
+        .route("/api/{*rest}", get(api::unknown))
+        .fallback(get(|| async { Html(PAGE) }))
         .with_state(pipeline)
 }

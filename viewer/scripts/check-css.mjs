@@ -2,7 +2,7 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
-const SHARED_ON_PURPOSE = new Set(["btn", "link", "small", "ra", "ra--muted", "x", "picker", "search", "rail", "code", "pane-btn"]);
+const SHARED_ON_PURPOSE = new Set(["btn", "link", "small", "ra", "ra--muted", "x", "picker", "search", "rail", "code", "pane-btn", "brand", "shell", "qline"]);
 
 const walk = (dir) =>
   readdirSync(dir).flatMap((entry) => {
