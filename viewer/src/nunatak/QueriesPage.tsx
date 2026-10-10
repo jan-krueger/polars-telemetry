@@ -1,15 +1,15 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { span } from "../lib/format";
 import { clock } from "../lib/time";
 import { facets, groups, queries, type Filter, type GroupSummary, type QuerySummary } from "./api";
 import { FacetList, useLoad, useSearch } from "./shared";
 import { follow, go } from "./App";
 
-type Sort = "total" | "name" | "last";
+type Sort = "name" | "runs" | "total" | "last";
 const RANGES: [string, number | null][] = [["last 24 hours", 1], ["last 7 days", 7], ["last 30 days", 30], ["all time", null]];
-const SHAPE_COLORS = ["var(--accent)", "var(--shape-2)", "var(--shape-3)", "var(--shape-4)"];
-
-
+const COLUMNS: [Sort, string, boolean][] = [["name", "Label", false], ["runs", "Runs", true], ["total", "Total", true], ["last", "Last run", true]];
+const RULES_SHOWN = 2;
+const PAGE = 10;
 
 export default function QueriesPage() {
   const [params, update] = useSearch();
@@ -25,8 +25,13 @@ export default function QueriesPage() {
   const found = useLoad(() => groups(filter), key);
   const counts = useLoad(() => facets(filter), key);
   const sort = (params.get("sort") as Sort | null) ?? "total";
+  const text = params.get("q") ?? "";
   const label = params.get("label");
-  const sorted = useMemo(() => sortGroups(found ?? [], sort), [found, sort]);
+  const sorted = useMemo(() => {
+    const needle = text.trim().toLowerCase();
+    return sortGroups((found ?? []).filter((g) => !needle || (g.key ?? "").toLowerCase().includes(needle)), sort);
+  }, [found, sort, text]);
+  const now = Date.now();
 
   return (
     <div className="shell shell--queries">
@@ -35,41 +40,44 @@ export default function QueriesPage() {
       </aside>
       <main>
         <div className="nbar">
-          <span className="seg">
-            {(["total", "name", "last"] as Sort[]).map((option) => (
-              <button key={option} aria-pressed={sort === option} onClick={() => update({ sort: option === "total" ? null : option })}>
-                {{ total: "Total time", name: "Name", last: "Last run" }[option]}
-              </button>
-            ))}
-          </span>
+          <input id="label-search" className="nsearch" type="search" placeholder="Search labels" value={text}
+                 aria-label="Search labels" onChange={(e) => update({ q: e.target.value || null }, true)} />
           <span className="grow" />
-          <select value={days ?? ""} onChange={(e) => update({ days: e.target.value === "30" ? null : e.target.value || "0" })}>
+          <select id="range" value={days ?? ""} aria-label="Time range" onChange={(e) => update({ days: e.target.value === "30" ? null : e.target.value || "0" })}>
             {RANGES.map(([name, value]) => <option key={name} value={value ?? ""}>{name}</option>)}
           </select>
         </div>
-        {found === null ? <div className="nsoon">Loading…</div> : !sorted.length ? <div className="nsoon">No queries in this range.</div> : (
+        {found === null ? <div className="nsoon">Loading…</div>
+          : !found.length ? <div className="nsoon">No queries in this range.</div>
+          : (
           <div className="nsplit">
             <table className="ntable">
-              <thead><tr><th>Label</th><th className="num">Runs</th><th className="num">Usually</th><th className="num">Slow</th><th className="num">Total</th><th>Trend</th><th className="num">Shapes</th><th /></tr></thead>
+              <thead>
+                <tr>
+                  {COLUMNS.map(([column, name, numeric]) => (
+                    <th key={column} className={numeric ? "num" : ""} aria-sort={sort === column ? (column === "name" ? "ascending" : "descending") : undefined}>
+                      <button className="nsort" onClick={() => update({ sort: column === "total" ? null : column })}>{name}</button>
+                    </th>
+                  ))}
+                  <th>Trend</th>
+                  <th>Warnings</th>
+                </tr>
+              </thead>
               <tbody>
                 {sorted.map((group) => (
                   <tr key={group.key ?? ""} aria-selected={group.key === label} onClick={() => update({ label: group.key === label ? null : group.key })}>
                     <td className="nlabel">{group.key ?? <span className="dim">no label</span>}</td>
                     <td className="num">{group.runs}</td>
-                    <td className="num">{group.usual_wall_ms === null ? "–" : span(group.usual_wall_ms)}</td>
-                    <td className="num">{group.slow_wall_ms === null ? "–" : span(group.slow_wall_ms)}</td>
-                    <td className="num">{group.usual_wall_ms === null ? "–" : span(group.total_wall_ms)}</td>
+                    <td className="num">{group.recent_wall_ms.length ? span(group.total_wall_ms) : "–"}</td>
+                    <td className="num dim">{ago(group.last_started_unix_ns, now)}</td>
                     <td><Spark values={group.recent_wall_ms} /></td>
-                    <td className={group.shapes > 1 ? "num" : "num dim"}>{group.shapes}</td>
-                    <td>
-                      {group.failed ? <span className="npill npill--failed">{group.failed} failed</span> : null}
-                      {group.warnings ? <span className="npill npill--warn">⚠ {group.warnings}</span> : null}
-                    </td>
+                    <td><Rules group={group} /></td>
                   </tr>
                 ))}
+                {!sorted.length && <tr className="nnone"><td colSpan={6}>No label matches “{text}”.</td></tr>}
               </tbody>
             </table>
-            {label !== null && <LabelPanel label={label} key={label} />}
+            {label !== null && <LabelPanel label={label} key={label} now={now} />}
           </div>
         )}
       </main>
@@ -80,96 +88,104 @@ export default function QueriesPage() {
 function sortGroups(list: GroupSummary[], sort: Sort): GroupSummary[] {
   const copy = [...list];
   if (sort === "name") copy.sort((a, b) => (a.key ?? "").localeCompare(b.key ?? ""));
+  else if (sort === "runs") copy.sort((a, b) => b.runs - a.runs);
   else if (sort === "last") copy.sort((a, b) => b.last_started_unix_ns - a.last_started_unix_ns);
   else copy.sort((a, b) => b.total_wall_ms - a.total_wall_ms);
   return copy;
 }
 
+function ago(ns: number, now: number): string {
+  const s = Math.max(0, (now - ns / 1e6) / 1000);
+  if (s < 60) return "just now";
+  if (s < 3600) return `${Math.floor(s / 60)} min ago`;
+  if (s < 86_400) return `${Math.floor(s / 3600)} h ago`;
+  return `${Math.floor(s / 86_400)} d ago`;
+}
+
+function Rules({ group }: { group: GroupSummary }) {
+  return (
+    <span className="nrules">
+      {group.failed ? <span className="npill npill--failed">{group.failed} failed</span> : null}
+      {group.rules.slice(0, RULES_SHOWN).map((rule) => <code key={rule} className="nrule">{rule}</code>)}
+      {group.rules.length > RULES_SHOWN ? <span className="dim" title={group.rules.slice(RULES_SHOWN).join(", ")}>+{group.rules.length - RULES_SHOWN}</span> : null}
+    </span>
+  );
+}
 
 function Spark({ values }: { values: number[] }) {
   if (values.length < 2) return <span className="dim">–</span>;
-  const w = 84, h = 20, max = Math.max(...values), min = Math.min(...values);
-  const points = values.map((v, i) => `${(i / (values.length - 1)) * w},${h - 2 - ((v - min) / (max - min || 1)) * (h - 4)}`).join(" ");
+  const w = 84, h = 20, max = Math.max(...values, 1e-9);
+  const points = values.map((v, i) => `${(i / (values.length - 1)) * w},${h - 1 - (v / max) * (h - 2)}`).join(" ");
   return <svg className="nspark" width={w} height={h} aria-hidden="true"><polyline points={points} /></svg>;
 }
 
-function LabelPanel({ label }: { label: string }) {
+function LabelPanel({ label, now }: { label: string; now: number }) {
   const runs = useLoad(() => queries({ label, limit: 200 }), label);
+  const [shown, setShown] = useState(PAGE);
   if (runs === null) return <aside className="npanel"><div className="dim">Loading {label}…</div></aside>;
   const oldestFirst = [...runs].reverse();
-  const shapes = [...new Set(oldestFirst.map((run) => run.fingerprint ?? "unknown"))];
-  const color = (run: QuerySummary) => SHAPE_COLORS[shapes.indexOf(run.fingerprint ?? "unknown") % SHAPE_COLORS.length];
   const days = new Set(runs.map((run) => new Date(run.started_unix_ns / 1e6).toDateString())).size > 1;
   const when = (ns: number) => clock(ns, days);
-  const firstSeen = (shape: string) => oldestFirst.find((run) => (run.fingerprint ?? "unknown") === shape)!.started_unix_ns;
+  const current = runs[0]?.fingerprint ?? null;
+  const changedAt = runs.findIndex((run) => run.fingerprint !== current);
+  const latest = runs[0];
   return (
     <aside className="npanel">
-      <div className="npanel-head"><b>{label}</b><span className="dim">{runs.length} runs</span></div>
-      {shapes.length > 1 && (
-        <div className="nlegend">
-          {shapes.map((shape, i) => (
-            <span key={shape}><i style={{ background: SHAPE_COLORS[i % SHAPE_COLORS.length] }} />shape <code>{shape.slice(0, 8)}</code>{i ? ` since ${when(firstSeen(shape))}` : ""}</span>
-          ))}
+      <div className="npanel-head">
+        <div>
+          <b>{label}</b>
+          <div className="dim">{runs.length} runs · last {latest ? ago(latest.started_unix_ns, now) : "–"}</div>
         </div>
-      )}
-      <Trend runs={oldestFirst} color={color} when={when} />
-      <Change runs={oldestFirst} shapes={shapes} />
+        {latest && <a className="nbutton" href={`/queries/${latest.query_id}`} onClick={follow}>Open latest run</a>}
+      </div>
+      <Trend runs={oldestFirst} changed={changedAt > 0 ? runs.length - changedAt : null} when={when} />
       <table className="ntable">
-        <thead><tr><th>Run</th><th className="num">Took</th><th>Host</th>{shapes.length > 1 ? <th>Shape</th> : null}</tr></thead>
+        <thead><tr><th>Run</th><th className="num">Took</th><th>Host</th></tr></thead>
         <tbody>
-          {runs.slice(0, 8).map((run) => (
+          {runs.slice(0, shown).map((run, i) => (
             <tr key={run.query_id} onClick={() => go(`/queries/${run.query_id}`)}>
-              <td><a href={`/queries/${run.query_id}`} onClick={follow}>{when(run.started_unix_ns)}</a></td>
+              <td>
+                <a href={`/queries/${run.query_id}`} onClick={follow}>{when(run.started_unix_ns)}</a>
+                {changedAt > 0 && i === changedAt - 1 ? <span className="nchanged">plan changed</span> : null}
+              </td>
               <td className="num">{run.status === "failed" ? <span className="npill npill--failed">failed</span> : run.wall_ms === null ? "–" : span(run.wall_ms)}</td>
               <td>{run.host}</td>
-              {shapes.length > 1 ? <td><i className="ndot" style={{ background: color(run) }} /></td> : null}
             </tr>
           ))}
         </tbody>
       </table>
-      {runs.length > 8 && <div className="dim">{runs.length - 8} earlier runs</div>}
+      {runs.length > shown && <button className="link" onClick={() => setShown(shown + PAGE * 2)}>Show {Math.min(PAGE * 2, runs.length - shown)} more of {runs.length - shown}</button>}
     </aside>
   );
 }
 
-function Trend({ runs, color, when }: { runs: QuerySummary[]; color: (run: QuerySummary) => string | undefined; when: (ns: number) => string }) {
-  const finished = runs.filter((run) => run.wall_ms !== null && run.status !== "failed").map((run) => run.wall_ms!);
+/** Each run's wall time; runs far above the rest sit on the top edge, so one outlier does not flatten the others. */
+function Trend({ runs, changed, when }: { runs: QuerySummary[]; changed: number | null; when: (ns: number) => string }) {
   if (!runs.length) return null;
-  const w = 340, h = 140, max = Math.max(...finished, 1) * 1.12;
+  const walls = runs.filter((run) => run.wall_ms !== null && run.status !== "failed").map((run) => run.wall_ms!).sort((a, b) => a - b);
+  const typical = walls[Math.floor((walls.length - 1) * 0.9)] ?? 1;
+  const max = Math.min(walls.at(-1) ?? 1, typical * 2) * 1.12 || 1;
+  const w = 340, h = 140, top = 12;
   const x = (i: number) => 10 + (runs.length === 1 ? (w - 20) / 2 : (i / (runs.length - 1)) * (w - 20));
-  const y = (v: number) => h - 20 - (v / max) * (h - 34);
-  const sorted = [...finished].sort((a, b) => a - b);
-  const usually = sorted[Math.floor((sorted.length - 1) / 2)];
+  const y = (v: number) => h - 20 - (Math.min(v, max) / max) * (h - 20 - top);
+  const split = changed === null ? null : (x(changed - 1) + x(changed)) / 2;
   return (
     <svg className="ntrend" width="100%" viewBox={`0 0 ${w} ${h}`} role="img" aria-label="Wall time of each run">
-      {usually !== undefined && (
+      <text x={10} y={top - 2}>{span(max)}</text>
+      {split !== null && (
         <>
-          <line x1={10} x2={w - 10} y1={y(usually)} y2={y(usually)} className="nguide" />
-          <text x={w - 10} y={y(usually) - 4} textAnchor="end">usually {span(usually)}</text>
+          <line x1={split} x2={split} y1={top} y2={h - 20} className="nguide" />
+          <text x={split + 4} y={top + 10}>plan changed</text>
         </>
       )}
       {runs.map((run, i) => run.status === "failed" || run.wall_ms === null
         ? <path key={run.query_id} d={`M${x(i) - 4},${h - 26} l8,8 m0,-8 l-8,8`} className="nfailed"><title>failed</title></path>
-        : <circle key={run.query_id} cx={x(i)} cy={y(run.wall_ms)} r={3.6} fill={color(run)} onClick={() => go(`/queries/${run.query_id}`)}>
+        : <circle key={run.query_id} cx={x(i)} cy={y(run.wall_ms)} r={3.6} className={run.wall_ms > max ? "nover" : changed !== null && i < changed ? "nbefore" : ""}
+                  onClick={() => go(`/queries/${run.query_id}`)}>
             <title>{`${when(run.started_unix_ns)} · ${span(run.wall_ms)}`}</title>
           </circle>)}
       <text x={10} y={h - 5}>{when(runs[0]!.started_unix_ns)}</text>
       <text x={w - 10} y={h - 5} textAnchor="end">{when(runs[runs.length - 1]!.started_unix_ns)}</text>
     </svg>
   );
-}
-
-function Change({ runs, shapes }: { runs: QuerySummary[]; shapes: string[] }) {
-  if (shapes.length < 2) return null;
-  const newest = shapes[shapes.length - 1];
-  const median = (list: QuerySummary[]) => {
-    const walls = list.filter((run) => run.status === "finished" && run.wall_ms !== null).map((run) => run.wall_ms!).sort((a, b) => a - b);
-    return walls.length ? walls[Math.floor((walls.length - 1) / 2)]! : null;
-  };
-  const after = median(runs.filter((run) => (run.fingerprint ?? "unknown") === newest));
-  const before = median(runs.filter((run) => (run.fingerprint ?? "unknown") !== newest));
-  if (after === null || before === null) return null;
-  const change = (after - before) / before;
-  if (Math.abs(change) < 0.1) return <p className="nchange">The newest plan shape runs about as fast as before.</p>;
-  return <p className="nchange">Since the newest plan shape, runs take <b className={change > 0 ? "nslower" : "nfaster"}>{change > 0 ? "+" : ""}{Math.round(change * 100)}%</b> {change > 0 ? "longer" : "less"}.</p>;
 }

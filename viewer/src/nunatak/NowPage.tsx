@@ -1,11 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { num, span } from "../lib/format";
 import { clock } from "../lib/time";
-import { facets, groups, queries, type Filter, type GroupSummary, type Pulse, type QuerySummary } from "./api";
+import { facets, queries, type Filter, type Pulse, type QuerySummary } from "./api";
 import { follow, go } from "./App";
 import { FacetList, useLoad, useSearch } from "./shared";
 
 const RECENT = 12;
+const FAILED_WITHIN_MS = 3_600_000;
+const SEEN_KEY = "nunatak.failures-seen";
+const FIELDS = ["service", "environment", "host"] as const;
 
 interface Live {
   connected: boolean;
@@ -60,49 +63,57 @@ export default function NowPage() {
     service: params.get("service") ?? undefined,
     environment: params.get("environment") ?? undefined,
     host: params.get("host") ?? undefined,
-    status: params.get("status") ?? undefined,
   };
   const today: Filter = { ...filter, since: Math.round(startOfToday()) };
   const live = useLive();
   const now = useNow(1000);
   const key = JSON.stringify(filter) + live.finished.length;
   const counts = useLoad(() => facets(today), key);
-  const typical = useLoad(() => groups({}, "fingerprint"), String(live.finished.length));
-  const recentLoaded = useLoad(() => queries({ ...filter, limit: RECENT * 2 }), key);
-  const usual = useMemo(() => new Map((typical ?? []).map((g) => [g.key, g])), [typical]);
+  const recentLoaded = useLoad(() => queries({ ...filter, limit: RECENT * 5 }), key);
+  const failedLoaded = useLoad(() => queries({ ...filter, status: "failed", since: Math.round((Date.now() - FAILED_WITHIN_MS) * 1e6), limit: 50 }), key);
+  const [seen, setSeen] = useState(readSeen);
 
   const matches = (q: QuerySummary) => (["service", "environment", "host"] as const).every((f) => !filter[f] || q[f] === filter[f]);
-  const running = live.running.filter(matches).filter(() => !filter.status || filter.status === "running");
-  const recent = mergeRecent(live.finished.filter(matches), recentLoaded ?? []).filter((q) => q.status !== "running").slice(0, RECENT);
-  const today_ = counts?.status ?? [];
-  const finishedToday = today_.find((c) => c.value === "finished")?.runs ?? 0;
-  const failedToday = today_.find((c) => c.value === "failed")?.runs ?? 0;
-  const busyNow = running.reduce((sum, q) => sum + (live.pulses.get(q.query_id)?.pulse.threads.at(-1) ?? 0), 0);
-  const empty = live.connected && !running.length && recentLoaded !== null && !recentLoaded.length && !filter.service && !filter.environment && !filter.host && !filter.status;
+  const running = live.running.filter(matches);
+  const recent = collapse(mergeRecent(live.finished.filter(matches), recentLoaded ?? []).filter((q) => q.status !== "running")).slice(0, RECENT);
+  const cutoff = Math.max(seen, (now - FAILED_WITHIN_MS) * 1e6);
+  const failed = byLabel(mergeRecent(live.finished.filter(matches), failedLoaded ?? []).filter((q) => q.status === "failed" && q.started_unix_ns > cutoff));
+  const dismiss = () => setSeen(writeSeen(now * 1e6));
+  const empty = live.connected && !running.length && recentLoaded !== null && !recentLoaded.length && !filter.service && !filter.environment && !filter.host;
 
   return (
     <div className="shell shell--queries">
-      <aside className="rail"><FacetList counts={counts} params={params} update={update} /></aside>
+      <aside className="rail"><FacetList counts={counts} params={params} update={update} fields={FIELDS} /></aside>
       <main>
         {empty ? <Waiting /> : (
           <>
-            <div className="nstat">
-              <span><b>{running.length}</b> running</span>
-              <span><b>{finishedToday}</b> finished today</span>
-              <span><b className={failedToday ? "nslower" : ""}>{failedToday}</b> failed today</span>
-              <span>threads busy now <b>{num(busyNow, 1)}</b></span>
-              {!live.connected && <span className="nslower">reconnecting…</span>}
-            </div>
-            <h3 className="nh">Running</h3>
+            {failed.length ? (
+              <section className="nfailures" aria-label="Failed in the last hour">
+                <div className="nfailures-head">
+                  <h3 className="nh">Failed in the last hour</h3>
+                  <button className="link" onClick={dismiss}>Dismiss</button>
+                </div>
+                <table className="ntable nrecent">
+                  <tbody>{failed.map((runs) => <Recent key={runs[0]!.query_id} runs={runs} />)}</tbody>
+                </table>
+              </section>
+            ) : null}
             {running.length ? (
-              <div className="ncards">
-                {running.map((q) => <Card key={q.query_id} query={q} pulse={live.pulses.get(q.query_id)} usual={usual.get(q.fingerprint)} now={now} />)}
-              </div>
-            ) : <p className="dim">Nothing running right now.</p>}
+              <>
+                <h3 className="nh">Running</h3>
+                <div className="ncards">
+                  {running.map((q) => <Card key={q.query_id} query={q} pulse={live.pulses.get(q.query_id)} now={now} />)}
+                </div>
+              </>
+            ) : <p className="nidle">{live.connected ? "Nothing running right now." : "Reconnecting…"}</p>}
             <h3 className="nh">Recently finished</h3>
-            <div className="nrecent">
-              {recent.map((q) => <Recent key={q.query_id} query={q} usual={usual.get(q.fingerprint)} />)}
-            </div>
+            {recent.length ? (
+              <table className="ntable nrecent">
+                <tbody>
+                  {recent.map((runs) => <Recent key={runs[0]!.query_id} runs={runs} />)}
+                </tbody>
+              </table>
+            ) : <p className="dim">Nothing finished yet.</p>}
           </>
         )}
       </main>
@@ -115,7 +126,30 @@ function mergeRecent(live: QuerySummary[], loaded: QuerySummary[]): QuerySummary
   return [...live, ...loaded].filter((q) => !seen.has(q.query_id) && seen.add(q.query_id));
 }
 
-function Card({ query, pulse, usual, now }: { query: QuerySummary; pulse?: { pulse: Pulse; at: number }; usual?: GroupSummary; now: number }) {
+function byLabel(rows: QuerySummary[]): QuerySummary[][] {
+  const groups = new Map<string, QuerySummary[]>();
+  for (const query of rows) groups.set(query.label ?? query.query_id, [...(groups.get(query.label ?? query.query_id) ?? []), query]);
+  return [...groups.values()];
+}
+
+function readSeen(): number {
+  try {
+    return Number(localStorage.getItem(SEEN_KEY)) || 0;
+  } catch {
+    return 0;
+  }
+}
+
+function writeSeen(ns: number): number {
+  try {
+    localStorage.setItem(SEEN_KEY, String(ns));
+  } catch {
+    return ns;
+  }
+  return ns;
+}
+
+function Card({ query, pulse, now }: { query: QuerySummary; pulse?: { pulse: Pulse; at: number }; now: number }) {
   const where = [query.service, query.host, query.environment].filter(Boolean).join(" · ");
   const elapsed = pulse ? pulse.pulse.elapsed_ms + Math.max(0, now - pulse.at) : query.wall_ms ?? 0;
   return (
@@ -123,7 +157,7 @@ function Card({ query, pulse, usual, now }: { query: QuerySummary; pulse?: { pul
       <div className="ncard-top"><span className="nlabel">{query.label ?? query.query_id}</span><span className="npill npill--running">live</span></div>
       <span className="dim">{where}</span>
       <Bars values={pulse?.pulse.threads ?? []} />
-      <Versus elapsed={elapsed} usual={usual} />
+      <span><b>{span(elapsed)}</b> <span className="dim">so far</span></span>
       <span className="dim">
         {pulse?.pulse.busiest ? <>Busiest now: <span className="ink">{pulse.pulse.busiest.kind}</span> · {num(pulse.pulse.busiest.threads, 1)} threads</> : "Waiting for the first sample"}
         {pulse && pulse.pulse.nodes ? <> · nodes done {pulse.pulse.done}/{pulse.pulse.nodes}</> : null}
@@ -142,38 +176,40 @@ function Bars({ values }: { values: number[] }) {
   );
 }
 
-function Versus({ elapsed, usual }: { elapsed: number; usual?: GroupSummary }) {
-  if (!usual?.usual_wall_ms) return <div className="nvs"><span className="nvs-track" /><span><b className="ink">{span(elapsed)}</b> <span className="dim">· first run of this plan</span></span></div>;
-  const slow = usual.slow_wall_ms ?? usual.usual_wall_ms;
-  const scale = slow * 1.15;
-  const at = (ms: number) => `${Math.min(100, (ms / scale) * 100)}%`;
-  return (
-    <div className="nvs">
-      <span className="nvs-track">
-        <span className="nvs-fill" style={{ width: at(elapsed) }} />
-        <span className="nvs-tick" style={{ left: at(usual.usual_wall_ms) }} />
-        {slow > usual.usual_wall_ms * 1.05 ? <span className="nvs-tick nvs-tick--slow" style={{ left: at(slow) }} /> : null}
-      </span>
-      <span><b className={elapsed > slow ? "nslower" : "ink"}>{span(elapsed)}</b> <span className="dim">· usually {span(usual.usual_wall_ms)}{slow > usual.usual_wall_ms * 1.05 ? `, slow ${span(slow)}` : ""}</span></span>
-    </div>
-  );
+function collapse(rows: QuerySummary[]): QuerySummary[][] {
+  const out: QuerySummary[][] = [];
+  const plain = (q: QuerySummary) => q.status === "finished" && !q.warnings;
+  for (const query of rows) {
+    const last = out.at(-1)?.[0];
+    const same = last && plain(last) && plain(query) && (["fingerprint", "label", "service", "host"] as const).every((f) => last[f] === query[f]);
+    if (same) out.at(-1)!.push(query);
+    else out.push([query]);
+  }
+  return out;
 }
 
-function Recent({ query, usual }: { query: QuerySummary; usual?: GroupSummary }) {
-  const change = query.status === "finished" && query.wall_ms !== null && usual?.usual_wall_ms ? (query.wall_ms - usual.usual_wall_ms) / usual.usual_wall_ms : null;
+function Recent({ runs }: { runs: QuerySummary[] }) {
+  const query = runs[0]!;
+  const walls = runs.map((q) => q.wall_ms).filter((w): w is number => w !== null);
+  const low = Math.min(...walls), high = Math.max(...walls);
   return (
-    <a className={`nentry${query.status === "failed" ? " nentry--failed" : ""}`} href={`/queries/${query.query_id}`} onClick={follow}>
-      <span className="nentry-line">
-        <span className="nlabel">{query.label ?? query.query_id}</span>
+    <tr className={query.status === "failed" ? "nrecent--failed" : ""} onClick={() => go(`/queries/${query.query_id}`)}>
+      <td className="dim">{clock(query.started_unix_ns, false)}</td>
+      <td className="nrecent-what">
+        <a className="nlabel" href={`/queries/${query.query_id}`} onClick={follow}>{query.label ?? query.query_id}</a>
+        <span className="dim">{[query.service, query.host].filter(Boolean).join(" · ")}</span>
+      </td>
+      <td className="num dim">{runs.length > 1 ? `×${runs.length}` : ""}</td>
+      <td className="num">
         {query.status === "failed" ? <span className="npill npill--failed">failed</span>
           : query.status === "unfinished" ? <span className="npill npill--unfinished">unfinished</span>
-          : <span>{query.wall_ms === null ? "–" : span(query.wall_ms)}</span>}
-        {change === null ? null : Math.abs(change) < 0.1 ? <span className="dim">usual</span>
-          : <b className={change > 0 ? "nslower" : "nfaster"}>{change > 0 ? "+" : ""}{Math.round(change * 100)}%</b>}
-        {query.warnings ? <span className="npill npill--warn">⚠ {query.warnings}</span> : null}
-      </span>
-      <small>{clock(query.started_unix_ns, false)} · {[query.service, query.host].filter(Boolean).join(" · ")}</small>
-    </a>
+          : !walls.length ? "–" : low === high ? span(low) : `${span(low)}–${span(high)}`}
+      </td>
+      <td>
+        {query.status === "failed" && query.failed ? <span className="nerror" title={query.failed}>{query.failed.split("\n")[0]}</span>
+          : query.rules.map((rule) => <code key={rule} className="nrule">{rule}</code>)}
+      </td>
+    </tr>
   );
 }
 

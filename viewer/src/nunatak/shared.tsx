@@ -16,7 +16,7 @@ export function useLoad<T>(load: () => Promise<T>, key: string): T | null {
   return value;
 }
 
-export function useSearch(): [URLSearchParams, (changes: Record<string, string | null>) => void] {
+export function useSearch(): [URLSearchParams, (changes: Record<string, string | null>, replace?: boolean) => void] {
   const [text, setText] = useState(location.search);
   useEffect(() => {
     const changed = () => setText(location.search);
@@ -24,19 +24,19 @@ export function useSearch(): [URLSearchParams, (changes: Record<string, string |
     return () => removeEventListener("popstate", changed);
   }, []);
   const params = useMemo(() => new URLSearchParams(text), [text]);
-  const update = (changes: Record<string, string | null>) => {
+  const update = (changes: Record<string, string | null>, replace = false) => {
     const next = new URLSearchParams(text);
     for (const [key, value] of Object.entries(changes)) if (value === null) next.delete(key); else next.set(key, value);
     const query = next.toString();
-    go(`${location.pathname}${query ? `?${query}` : ""}`);
+    go(`${location.pathname}${query ? `?${query}` : ""}`, replace);
   };
   return [params, update];
 }
 
-export function FacetList({ counts, params, update }: { counts: Facets | null; params: URLSearchParams; update: (changes: Record<string, string | null>) => void }) {
+export function FacetList({ counts, params, update, fields = FIELDS }: { counts: Facets | null; params: URLSearchParams; update: (changes: Record<string, string | null>) => void; fields?: readonly (typeof FIELDS)[number][] }) {
   return (
     <div className="nfacets">
-      {FIELDS.map((field) => {
+      {fields.map((field) => {
         const chosen = params.get(field);
         const values: Count[] = counts?.[field] ?? [];
         return (

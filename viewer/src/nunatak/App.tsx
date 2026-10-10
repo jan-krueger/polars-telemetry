@@ -3,8 +3,9 @@ import NowPage from "./NowPage";
 import QueriesPage from "./QueriesPage";
 import RunPage from "./RunPage";
 
-export function go(path: string) {
-  history.pushState(null, "", path);
+export function go(path: string, replace = false) {
+  if (replace) history.replaceState(null, "", path);
+  else history.pushState(null, "", path);
   dispatchEvent(new PopStateEvent("popstate"));
 }
 

@@ -19,6 +19,7 @@ export interface QuerySummary {
   result_rows: number | null;
   failed: string | null;
   warnings: number;
+  rules: string[];
   recording: string | null;
 }
 
@@ -31,7 +32,7 @@ export interface GroupSummary {
   usual_wall_ms: number | null;
   slow_wall_ms: number | null;
   shapes: number;
-  warnings: number;
+  rules: string[];
   recent_wall_ms: number[];
 }
 
@@ -85,14 +86,4 @@ export async function recording(id: string): Promise<Profile | null> {
   if (response.status === 404) return null;
   if (!response.ok) throw new Error(`recording ${id}: ${response.status}`);
   return readJsonl(await response.text()).profiles[0] ?? null;
-}
-
-export function usual(runs: QuerySummary[], except: string): { usually: number; slow: number } | null {
-  const walls = runs
-    .filter((run) => run.query_id !== except && run.status === "finished" && run.wall_ms !== null)
-    .map((run) => run.wall_ms!)
-    .sort((a, b) => a - b);
-  if (!walls.length) return null;
-  const at = (q: number) => walls[Math.min(walls.length - 1, Math.floor(q * (walls.length - 1)))]!;
-  return { usually: at(0.5), slow: at(0.9) };
 }
