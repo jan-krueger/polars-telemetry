@@ -9,7 +9,7 @@ const WHOLE_RUN_MS = 12_000;
 const times = (v: number): string => `${v >= 10 ? Math.round(v) : Number(v.toPrecision(2))}×`;
 
 /** Scrub or play through the query's run over a chart of how many threads it kept busy. */
-export default function ReplayBar({ profile, at, dispatch }: { profile: Profile; at: number | null; dispatch: Dispatch<QueryAction> }) {
+export default function ReplayBar({ profile, at, dispatch, live = false }: { profile: Profile; at: number | null; dispatch: Dispatch<QueryAction>; live?: boolean }) {
   const replay = profile.replay!;
   const end = replayEnd(profile);
   const t = at ?? end;
@@ -87,7 +87,8 @@ export default function ReplayBar({ profile, at, dispatch }: { profile: Profile;
                onChange={(e) => go(Number(e.target.value))} onKeyDown={keys}
                aria-label="Moment of the query" aria-valuetext={`${span(t)} in`} />
       </div>
-      <span className="replay-at"><b>{span(t)}</b> / {span(end)}</span>
+      {live && at !== null && <button className="pane-btn replay-live" onClick={() => go(end)}>Back to live</button>}
+      <span className="replay-at">{live && at === null ? <><b className="replay-now">● live</b> · {span(end)}</> : <><b>{span(t)}</b> / {span(end)}</>}</span>
     </div>
   );
 }

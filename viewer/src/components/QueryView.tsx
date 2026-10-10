@@ -36,9 +36,10 @@ interface Props {
   share: QueryShare;
   heading?: ReactNode;
   extra?: ReactNode;
+  live?: boolean;
 }
 
-export default function QueryView({ profile, moment, findings, panes, node, focus, replayAt, dispatch, withDates, share: sharer, heading, extra }: Props) {
+export default function QueryView({ profile, moment, findings, panes, node, focus, replayAt, dispatch, withDates, share: sharer, heading, extra, live = false }: Props) {
   const now = moment ? { ...profile, wall_ms: moment.t, cpu_ms: moment.cpu_ms } : profile;
   const warnings = useMemo(() => warned(profile), [profile]);
   const [reveal, setReveal] = useState<{ id: number } | null>(null);
@@ -126,12 +127,12 @@ export default function QueryView({ profile, moment, findings, panes, node, focu
         {profile.failed && (
           <div className="qfail" role="alert"><b>Failed</b> {profile.failed}</div>
         )}
-        {profile.unfinished && (
+        {profile.unfinished && !live && (
           <div className="qnote">Still running when the recording ended; its counters are from the last sample.</div>
         )}
       </div>
 
-      {profile.replay && replayEnd(profile) > 0 && <ReplayBar key={profile.query_id} profile={profile} at={replayAt} dispatch={dispatch} />}
+      {profile.replay && replayEnd(profile) > 0 && <ReplayBar key={profile.query_id} profile={profile} at={replayAt} dispatch={dispatch} live={live} />}
 
       <div className={alone ? `plans alone-${alone}` : "plans"}>
         <PlanPane key={`logical-${profile.query_id}`} title="Logical plan"

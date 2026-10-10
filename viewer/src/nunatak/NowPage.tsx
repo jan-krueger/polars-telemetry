@@ -67,7 +67,7 @@ export default function NowPage() {
   const now = useNow(1000);
   const key = JSON.stringify(filter) + live.finished.length;
   const counts = useLoad(() => facets(today), key);
-  const typical = useLoad(() => groups({}), String(live.finished.length));
+  const typical = useLoad(() => groups({}, "fingerprint"), String(live.finished.length));
   const recentLoaded = useLoad(() => queries({ ...filter, limit: RECENT * 2 }), key);
   const usual = useMemo(() => new Map((typical ?? []).map((g) => [g.key, g])), [typical]);
 
@@ -96,12 +96,12 @@ export default function NowPage() {
             <h3 className="nh">Running</h3>
             {running.length ? (
               <div className="ncards">
-                {running.map((q) => <Card key={q.query_id} query={q} pulse={live.pulses.get(q.query_id)} usual={usual.get(q.label)} now={now} />)}
+                {running.map((q) => <Card key={q.query_id} query={q} pulse={live.pulses.get(q.query_id)} usual={usual.get(q.fingerprint)} now={now} />)}
               </div>
             ) : <p className="dim">Nothing running right now.</p>}
             <h3 className="nh">Recently finished</h3>
             <div className="nrecent">
-              {recent.map((q) => <Recent key={q.query_id} query={q} usual={usual.get(q.label)} />)}
+              {recent.map((q) => <Recent key={q.query_id} query={q} usual={usual.get(q.fingerprint)} />)}
             </div>
           </>
         )}
@@ -143,7 +143,7 @@ function Bars({ values }: { values: number[] }) {
 }
 
 function Versus({ elapsed, usual }: { elapsed: number; usual?: GroupSummary }) {
-  if (!usual?.usual_wall_ms) return <div className="nvs"><span className="nvs-track" /><span><b className="ink">{span(elapsed)}</b> <span className="dim">· first run of this label</span></span></div>;
+  if (!usual?.usual_wall_ms) return <div className="nvs"><span className="nvs-track" /><span><b className="ink">{span(elapsed)}</b> <span className="dim">· first run of this plan</span></span></div>;
   const slow = usual.slow_wall_ms ?? usual.usual_wall_ms;
   const scale = slow * 1.15;
   const at = (ms: number) => `${Math.min(100, (ms / scale) * 100)}%`;

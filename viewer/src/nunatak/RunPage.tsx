@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useReducer, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import type { Profile } from "../model/profile";
 import PickedNode from "../components/PickedNode";
 import QueryView from "../components/QueryView";
@@ -7,6 +7,9 @@ import usePanes from "../hooks/usePanes";
 import { span } from "../lib/format";
 import { byNode } from "../lib/insights";
 import { initialState, reducer } from "../state/viewer";
+import { EventLog, isEvent } from "../model/events";
+import { readProfile } from "../model/read";
+import { replayEnd } from "../lib/replay";
 import { NotFound, query, queries, recording, usual, type QuerySummary } from "./api";
 import { follow } from "./App";
 
@@ -16,16 +19,16 @@ type Loaded =
   | { state: "error"; message: string }
   | { state: "ready"; summary: QuerySummary; profile: Profile | null; typical: { usually: number; slow: number } | null };
 
-function useRun(id: string): Loaded {
+function useRun(id: string, version: number): Loaded {
   const [loaded, setLoaded] = useState<Loaded>({ state: "loading" });
   useEffect(() => {
     let current = true;
-    setLoaded({ state: "loading" });
+    if (version === 0) setLoaded({ state: "loading" });
     (async () => {
       const summary = await query(id);
       const [profile, siblings] = await Promise.all([
         summary.recording ? recording(id) : Promise.resolve(null),
-        summary.label ? queries({ label: summary.label, limit: 200 }) : Promise.resolve([]),
+        summary.label ? queries({ label: summary.label, fingerprint: summary.fingerprint ?? undefined, limit: 200 }) : Promise.resolve([]),
       ]);
       return { state: "ready" as const, summary, profile, typical: usual(siblings, id) };
     })()
@@ -34,23 +37,66 @@ function useRun(id: string): Loaded {
     return () => {
       current = false;
     };
-  }, [id]);
+  }, [id, version]);
   return loaded;
 }
 
+function useLiveProfile(id: string, following: boolean, onFinished: () => void): Profile | null {
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const finished = useRef(onFinished);
+  finished.current = onFinished;
+  useEffect(() => {
+    if (!following) return;
+    const log = new EventLog();
+    const source = new EventSource(`/api/live/${encodeURIComponent(id)}`);
+    source.addEventListener("events", (message) => {
+      for (const line of (message as MessageEvent<string>).data.split("\n")) {
+        try {
+          const event: unknown = JSON.parse(line);
+          if (isEvent(event)) log.apply(event);
+        } catch {
+          continue;
+        }
+      }
+      const document = log.document(id);
+      const read = document && readProfile(document);
+      if (read && "profile" in read) setProfile(read.profile);
+    });
+    source.addEventListener("finished", () => {
+      source.close();
+      finished.current();
+    });
+    return () => source.close();
+  }, [id, following]);
+  return profile;
+}
+
 export default function RunPage({ id }: { id: string }) {
-  const loaded = useRun(id);
+  const [version, setVersion] = useState(0);
+  const reload = useCallback(() => setVersion((v) => v + 1), []);
+  const loaded = useRun(id, version);
   if (loaded.state === "loading") return <div className="nsoon">Opening the query…</div>;
   if (loaded.state === "missing") return <div className="nsoon">No query with this id.</div>;
   if (loaded.state === "error") return <div className="nsoon">Could not load the query: {loaded.message}</div>;
-  return <Run summary={loaded.summary} profile={loaded.profile} typical={loaded.typical} />;
+  return <Run summary={loaded.summary} recorded={loaded.profile} typical={loaded.typical} onFinished={reload} />;
 }
 
-function Run({ summary, profile, typical }: { summary: QuerySummary; profile: Profile | null; typical: { usually: number; slow: number } | null }) {
+interface RunProps {
+  summary: QuerySummary;
+  recorded: Profile | null;
+  typical: { usually: number; slow: number } | null;
+  onFinished: () => void;
+}
+
+function Run({ summary, recorded, typical, onFinished }: RunProps) {
   const [state, dispatch] = useReducer(reducer, initialState);
   const panes = usePanes();
+  const live = summary.status === "running";
+  const following = useLiveProfile(summary.query_id, live, onFinished);
+  const profile = recorded ?? following;
   const findings = useMemo(() => byNode(profile), [profile]);
-  const { moment, physical } = useMoment(profile, state.replayAt);
+  const head = live && profile?.replay ? replayEnd(profile) : null;
+  const { moment, physical } = useMoment(profile, state.replayAt ?? head);
   const where = [summary.service, summary.host, summary.environment].filter(Boolean).join(" · ");
   return (
     <div className="shell shell--run">
@@ -58,7 +104,8 @@ function Run({ summary, profile, typical }: { summary: QuerySummary; profile: Pr
         {profile ? (
           <QueryView profile={profile} moment={moment} findings={findings} panes={panes}
                      node={state.node} focus={state.focus} replayAt={state.replayAt} dispatch={dispatch}
-                     withDates heading={<Heading summary={summary} />} extra={<Versus summary={summary} typical={typical} />}
+                     withDates live={live} heading={<Heading summary={summary} />}
+                     extra={<Versus summary={summary} typical={typical} elapsed={live ? profile.wall_ms : null} />}
                      share={{
                        link: () => ({ url: location.href, chars: 0 }),
                        linkNote: "Opens this run in Nunatak",
@@ -71,7 +118,7 @@ function Run({ summary, profile, typical }: { summary: QuerySummary; profile: Pr
         ) : (
           <>
             <div className="qline"><Heading summary={summary} /></div>
-            <div className="nsoon">{summary.status === "running" ? "This query is still running; following it live comes next." : "No recording kept for this run."}</div>
+            <div className="nsoon">{live ? "Waiting for the query's first sample…" : "No recording kept for this run."}</div>
           </>
         )}
       </main>
@@ -93,8 +140,16 @@ function Heading({ summary }: { summary: QuerySummary }) {
   );
 }
 
-function Versus({ summary, typical }: { summary: QuerySummary; typical: { usually: number; slow: number } | null }) {
-  if (!typical) return <span className="nversus">· first run of this label</span>;
+function Versus({ summary, typical, elapsed }: { summary: QuerySummary; typical: { usually: number; slow: number } | null; elapsed: number | null }) {
+  if (!typical) return <span className="nversus">· first run of this plan</span>;
+  if (elapsed !== null) {
+    const over = (elapsed - typical.usually) / typical.usually;
+    return (
+      <span className="nversus">
+        ·{over >= 0.1 ? <b className="nslower"> +{Math.round(over * 100)}% so far</b> : null} usually {span(typical.usually)}
+      </span>
+    );
+  }
   const usually = typical.slow > typical.usually * 1.05
     ? `usually ${span(typical.usually)}, slow ${span(typical.slow)}`
     : `usually ${span(typical.usually)}`;

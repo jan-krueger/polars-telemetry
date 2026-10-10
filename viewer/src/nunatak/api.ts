@@ -76,7 +76,8 @@ function search(filter: Filter, extra: Record<string, string> = {}): string {
 }
 
 export const queries = (filter: Filter): Promise<QuerySummary[]> => json(`/api/queries?${search(filter)}`);
-export const groups = (filter: Filter): Promise<GroupSummary[]> => json(`/api/groups?${search(filter, { by: "label" })}`);
+export const groups = (filter: Filter, by: "label" | "fingerprint" = "label"): Promise<GroupSummary[]> =>
+  json(`/api/groups?${search(filter, { by })}`);
 export const facets = (filter: Filter): Promise<Facets> => json(`/api/facets?${search(filter)}`);
 
 export async function recording(id: string): Promise<Profile | null> {

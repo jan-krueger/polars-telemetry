@@ -142,6 +142,8 @@ h2{font:600 10.5px/1 ui-monospace,monospace;letter-spacing:.1em;text-transform:u
 .replay-speed{min-width:34px;font-variant-numeric:tabular-nums;font-size:12px}
 .replay-at{flex:none;width:19ch;text-align:right;font-size:12px;color:var(--ink-2);font-variant-numeric:tabular-nums;white-space:nowrap}
 .replay-at b{color:var(--ink)}
+.replay-at .replay-now{color:var(--accent)}
+.replay-live{font-size:12px;padding:3px 8px}
 .pnode--waiting{opacity:.4;filter:grayscale(1)}
 .pnode .phead{display:flex;align-items:center;gap:6px}
 .pnode .t1{font:600 11px ui-monospace,monospace;display:flex;align-items:center;gap:5px;flex:1;min-width:0;white-space:nowrap}
