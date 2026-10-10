@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   ReactFlow, Background, BackgroundVariant, MiniMap, Controls, useReactFlow, useStore, type Node, type NodeChange, type NodeSelectionChange, type Viewport,
 } from "@xyflow/react";
@@ -8,7 +8,7 @@ import type { Moment } from "../lib/replay";
 import type { Finding, PlanNode as PlanNodeData } from "../model/profile";
 import type { Channel, Pane } from "../hooks/usePanes";
 import {
-  FAR_ZOOM, NODE_H, NODE_W, applyView, distant, extent, focusSteps, liveFlow, shareView, startsFar, stepFor, toFlow, withSelection,
+  FAR_ZOOM, NODE_H, NODE_W, applyView, cpuMs, distant, extent, focusSteps, liveFlow, shareView, startsFar, stepFor, toFlow, withSelection,
   type Box, type FocusStep, type Positions,
 } from "../lib/graph";
 import useLayout from "../hooks/useLayout";
@@ -19,6 +19,7 @@ import Tip from "./Tip";
 const nodeTypes = { plan: PlanNode };
 const edgeTypes = { flow: FlowEdge };
 const MINI = { width: 112, height: 172 };
+const READABLE = 0.7;
 const miniClass = (n: Node): string => n.className ?? "";
 
 type Reveal = { id: number } | null;
@@ -40,6 +41,7 @@ interface Shared {
 
 interface Props extends Shared {
   title: string;
+  switcher?: ReactNode;
   focus?: number | null;
   onFocus?: (focus: number | null) => void;
   onAlone: () => void;
@@ -48,7 +50,7 @@ interface Props extends Shared {
   onWarning?: (id: number) => void;
 }
 
-export default function PlanPane({ title, plan, logical, selectedId, onSelect, focus = null, onFocus,
+export default function PlanPane({ title, switcher, plan, logical, selectedId, onSelect, focus = null, onFocus,
                                    alone, onAlone, linked, leads, onLink, channel, findings, reveal, moment,
                                    warnings = [], onWarning }: Props) {
   const positions = useLayout(plan);
@@ -60,7 +62,7 @@ export default function PlanPane({ title, plan, logical, selectedId, onSelect, f
   return (
     <div className={logical ? "planbox logical" : "planbox"}>
       <div className="ph">
-        <span className="nm">{title}</span>
+        {switcher ?? <span className="nm">{title}</span>}
         {warnings.length && onWarning ? <Warnings ids={warnings} selectedId={selectedId} onPick={onWarning} /> : null}
         {onFocus && steps.length > 1 ? <Focus steps={steps} step={step} onFocus={onFocus} /> : null}
         {!alone && (
@@ -105,6 +107,7 @@ function PlanView({ plan, positions, logical, selectedId, onSelect, thresholdMs,
     live.set(moment && !logical ? liveFlow(plan, moment, live.current()) : null);
   }, [live, plan, moment, logical]);
   const box = useMemo(() => extent(positions), [positions]);
+  const home = useMemo(() => start(plan, positions), [plan, positions]);
   const [far, setFar] = useState(() => startsFar(box));
   const [fitted, setFitted] = useState(false);
   const seen = useMemo(() => (far ? distant(flow) : flow), [flow, far]);
@@ -134,7 +137,6 @@ function PlanView({ plan, positions, logical, selectedId, onSelect, thresholdMs,
           edges={edges}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
-          fitView
           minZoom={0.01}
           nodesDraggable={false}
           nodesConnectable={false}
@@ -145,7 +147,8 @@ function PlanView({ plan, positions, logical, selectedId, onSelect, thresholdMs,
           <Background variant={BackgroundVariant.Dots} gap={16} size={1} color="var(--axis)" />
           <MiniMap pannable zoomable nodeClassName={miniClass} style={MINI} />
           <Controls showInteractive={false} />
-          <Refit when={alone} />
+          <Home when={alone} box={box} target={home} />
+          <InView id={selectedId} positions={positions} />
           <Distance onChange={setFar} onFitted={setFitted} />
           <Reveal request={reveal} positions={positions} />
           <Follow linked={linked} leads={leads} channel={channel} pane={pane} box={box} size={size} following={following} />
@@ -204,27 +207,50 @@ function Focus({ steps, step, onFocus }: { steps: FocusStep[]; step: number; onF
   );
 }
 
-function Refit({ when }: { when: boolean }) {
-  const { fitView } = useReactFlow();
+/** Where a plan too large to read whole opens: its most expensive node, else its top. */
+function start(plan: PlanNodeData[], positions: Positions): { x: number; y: number } | null {
+  const hottest = plan.reduce<PlanNodeData | null>((best, n) => (cpuMs(n) > (best ? cpuMs(best) : 0) ? n : best), null);
+  const at = hottest ? positions[String(hottest.id)] : Object.values(positions).reduce<{ x: number; y: number } | undefined>((top, p) => (!top || p.y < top.y ? p : top), undefined);
+  return at ? { x: at.x + NODE_W / 2, y: at.y + NODE_H / 2 } : null;
+}
+
+function Home({ when, box, target }: { when: boolean; box: Box; target: { x: number; y: number } | null }) {
+  const { fitView, setCenter } = useReactFlow();
   const width = useStore((s) => s.width);
   const height = useStore((s) => s.height);
-  const first = useRef(true);
+  const placed = useRef(false);
   const pending = useRef(false);
   const size = useRef({ width, height });
   useEffect(() => {
-    if (first.current) {
-      first.current = false;
-      return;
-    }
-    pending.current = true;
+    if (placed.current) pending.current = true;
   }, [when]);
   useEffect(() => {
     const resized = size.current.width !== width || size.current.height !== height;
     size.current = { width, height };
-    if (!resized || !pending.current) return;
+    if (!width || !height || (placed.current && !(resized && pending.current))) return;
+    const duration = placed.current ? 200 : 0;
+    placed.current = true;
     pending.current = false;
-    fitView({ duration: 200 });
-  }, [width, height, fitView]);
+    const fit = Math.min(width / box.width, height / box.height) * 0.9;
+    if (fit >= READABLE || !target) fitView({ duration });
+    else setCenter(target.x, target.y, { zoom: READABLE, duration });
+  }, [width, height, box, target, fitView, setCenter]);
+  return null;
+}
+
+function InView({ id, positions }: { id: number | null; positions: Positions }) {
+  const { getViewport, setCenter } = useReactFlow();
+  const width = useStore((s) => s.width);
+  const height = useStore((s) => s.height);
+  useEffect(() => {
+    const at = id === null ? undefined : positions[String(id)];
+    if (!at || !width) return;
+    const { x, y, zoom } = getViewport();
+    const left = at.x * zoom + x, top = at.y * zoom + y;
+    if (left >= 0 && top >= 0 && left + NODE_W * zoom <= width && top + NODE_H * zoom <= height) return;
+    const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    setCenter(at.x + NODE_W / 2, at.y + NODE_H / 2, { zoom: Math.max(zoom, READABLE), duration: still ? 0 : 400 });
+  }, [id]);
   return null;
 }
 
@@ -282,7 +308,7 @@ function Reveal({ request, positions }: { request: Reveal; positions: Positions 
     const at = request && positions[String(request.id)];
     if (!at) return;
     const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
-    setCenter(at.x + NODE_W / 2, at.y + NODE_H / 2, { zoom: Math.max(getZoom(), 0.7), duration: still ? 0 : 400 });
+    setCenter(at.x + NODE_W / 2, at.y + NODE_H / 2, { zoom: Math.max(getZoom(), READABLE), duration: still ? 0 : 400 });
   }, [request]);
   return null;
 }

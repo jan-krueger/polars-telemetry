@@ -45,7 +45,15 @@ export default function QueryView({ profile, moment, findings, panes, node, focu
   const [reveal, setReveal] = useState<{ id: number } | null>(null);
   const [sharing, setSharing] = useState<Sharing | null>(null);
   useEffect(() => setSharing(null), [profile.query_id]);
-  const { alone, toggleAlone, linked, toggleLinked, views } = panes;
+  const { toggleAlone, show, linked, toggleLinked, views } = panes;
+  const alone = profile.plan.physical.length ? panes.alone : "logical";
+  const switcher = (pane: "logical" | "physical") => alone && profile.plan.physical.length ? (
+    <span className="pane-tabs" role="tablist">
+      {(["physical", "logical"] as const).map((p) => (
+        <button key={p} role="tab" aria-selected={p === pane} onClick={() => show(p)}>{p === "physical" ? "Physical plan" : "Logical plan"}</button>
+      ))}
+    </span>
+  ) : undefined;
 
   const unmasked = !profile.redacted?.length && warnsUnmasked();
 
@@ -135,13 +143,13 @@ export default function QueryView({ profile, moment, findings, panes, node, focu
       {profile.replay && replayEnd(profile) > 0 && <ReplayBar key={profile.query_id} profile={profile} at={replayAt} dispatch={dispatch} live={live} />}
 
       <div className={alone ? `plans alone-${alone}` : "plans"}>
-        <PlanPane key={`logical-${profile.query_id}`} title="Logical plan"
+        <PlanPane key={`logical-${profile.query_id}`} title="Logical plan" switcher={switcher("logical")}
                   plan={profile.plan.logical} logical
                   alone={alone === "logical"} onAlone={() => toggleAlone("logical")}
                   linked={!!linked} leads={linked === "logical"} onLink={() => toggleLinked("logical")} channel={views}
                   selectedId={node?.plan === "logical" ? node.id : null}
                   onSelect={(id) => dispatch({ type: "nodePicked", node: { plan: "logical", id } })} />
-        <PlanPane key={`physical-${profile.query_id}`} title="Physical plan"
+        <PlanPane key={`physical-${profile.query_id}`} title="Physical plan" switcher={switcher("physical")}
                   plan={profile.plan.physical} logical={false}
                   alone={alone === "physical"} onAlone={() => toggleAlone("physical")}
                   linked={!!linked} leads={linked === "physical"} onLink={() => toggleLinked("physical")} channel={views}
@@ -181,12 +189,7 @@ function Busy({ profile }: { profile: Profile }) {
   return (
     <Tip content={<TipText term="Threads busy">{note}</TipText>}>
       <span className="busy" tabIndex={0}>
-        ·{b.share != null && (
-          <span className="busy-bar" aria-hidden="true">
-            <span className={`busy-fill busy-fill--${b.verdict}`} style={{ width: `${Math.max(2, b.share * 100)}%` }} />
-          </span>
-        )}
-        <span><b>{num(b.threads, 1)}</b>{b.of ? `/${b.of}` : ""} threads</span>
+        ·        <span><b>{num(b.threads, 1)}</b>{b.of ? `/${b.of}` : ""} threads</span>
       </span>
     </Tip>
   );

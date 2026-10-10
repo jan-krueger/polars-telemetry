@@ -2,7 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState, type Dispatch, type Keyboa
 import type { Profile } from "../model/profile";
 import type { QueryAction } from "../state/viewer";
 import { span } from "../lib/format";
-import { busy, finishes, replayEnd, type Stretch } from "../lib/replay";
+import { busy, replayEnd, type Stretch } from "../lib/replay";
 
 const WHOLE_RUN_MS = 12_000;
 
@@ -48,7 +48,6 @@ export default function ReplayBar({ profile, at, dispatch, live = false }: { pro
   }, [playing, speed, end, frameMs, dispatch]);
 
   const steps = useMemo(() => [0, ...replay.times, end], [replay, end]);
-  const done = useMemo(() => [...new Set(finishes(replay))], [replay]);
   const threads = useMemo(() => busy(replay, profile.plan.physical, end), [replay, profile, end]);
 
   const go = (ms: number) => {
@@ -80,9 +79,6 @@ export default function ReplayBar({ profile, at, dispatch, live = false }: { pro
               aria-label={`Playback speed ${times(speed)}; change`}>{times(speed)}</button>
       <div className="replay-track">
         <BusyChart stretches={threads} end={end} t={at} />
-        <div className="replay-marks" aria-hidden="true">
-          {done.map((ms) => <span key={ms} className="replay-mark" style={{ left: `${(ms / end) * 100}%` }} />)}
-        </div>
         <input id="replay-position" type="range" min={0} max={end} step="any" value={t}
                onChange={(e) => go(Number(e.target.value))} onKeyDown={keys}
                aria-label="Moment of the query" aria-valuetext={`${span(t)} in`} />

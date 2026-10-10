@@ -17,11 +17,11 @@ describe("shapeName", () => {
 });
 
 describe("busy", () => {
-  it("reads CPU over wall as threads busy, judged against the threads polars had", () => {
+  it("reads CPU over wall as threads busy, out of the threads polars had", () => {
     const b = busy(asProfile({ wall_ms: 100, cpu_ms: 570, diagnostics: { cpu_count: 48 } }))!;
     expect(b.threads).toBeCloseTo(5.7);
-    expect(b.verdict).toBe("crit");
-    expect(busy(asProfile({ wall_ms: 100, cpu_ms: 760, diagnostics: { cpu_count: 8 } }))!.verdict).toBe("good");
+    expect(b.of).toBe(48);
+    expect(b.share).toBeCloseTo(5.7 / 48);
   });
 
   it("still counts threads when the profile does not say how many there were", () => {

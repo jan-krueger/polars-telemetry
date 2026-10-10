@@ -84,7 +84,8 @@ export default function App() {
 
         <aside className="rail right">
           {!state.browsing && (
-            <PickedNode profile={profile} node={state.node} moment={moment} physical={physical} findings={findings} />
+            <PickedNode profile={profile} node={state.node} moment={moment} physical={physical} findings={findings}
+                        onPick={(id) => dispatch({ type: "nodePicked", node: { plan: "physical", id } })} />
           )}
         </aside>
       </div>
