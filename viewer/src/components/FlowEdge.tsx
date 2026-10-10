@@ -20,14 +20,19 @@ export default function FlowEdge({ id, sourceX, sourceY, targetX, targetY, sourc
       motion.current = null;
       return;
     }
-    motion.current ??= line.current?.animate([{ strokeDashoffset: 0 }, { strokeDashoffset: -STEP }], {
-      duration: 1000,
-      iterations: Infinity,
-    }) ?? null;
+    if (motion.current?.playState !== "running") {
+      motion.current = line.current?.animate([{ strokeDashoffset: 0 }, { strokeDashoffset: -STEP }], {
+        duration: 1000,
+        iterations: Infinity,
+      }) ?? null;
+    }
     motion.current?.updatePlaybackRate(rate);
   }, [rate]);
 
-  useEffect(() => () => motion.current?.cancel(), []);
+  useEffect(() => () => {
+    motion.current?.cancel();
+    motion.current = null;
+  }, []);
 
   return (
     <>

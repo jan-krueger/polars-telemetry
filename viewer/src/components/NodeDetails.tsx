@@ -99,6 +99,8 @@ export default function NodeDetails({ node, plan = [], findings, recorded }: Pro
   const props = Object.entries(node.properties || {})
     .filter(([k, v]) => v != null && k !== "type" && !(Array.isArray(v) && !v.length));
   const info = ROLES[roleOf(node)];
+  const replaying = recorded !== undefined && recorded.t !== null;
+  const started = !!m && Object.entries(m).some(([k, v]) => k !== "done" && typeof v === "number" && v > 0);
 
   return (
     <>
@@ -143,8 +145,8 @@ export default function NodeDetails({ node, plan = [], findings, recorded }: Pro
           <div className="hd">
             <span className="ic">☰</span><span className="nm">Node metrics</span>
             <Tip content={<TipText term={GLOSSARY.done![0]}>{GLOSSARY.done![1]}</TipText>}>
-              <span className={m.done ? "badge badge--done" : "badge badge--open"} tabIndex={0}>
-                {m.done ? "✓ Completed" : "⚠ Unfinished"}
+              <span className={m.done ? "badge badge--done" : replaying ? "badge badge--live" : "badge badge--open"} tabIndex={0}>
+                {m.done ? "✓ Completed" : replaying ? (started ? "Running" : "Waiting") : "⚠ Unfinished"}
               </span>
             </Tip>
           </div>

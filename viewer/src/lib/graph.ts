@@ -1,7 +1,7 @@
 // React Flow takes node sizes from the node objects, not the DOM: unsized nodes vanish from the minimap.
 
 import dagre from "@dagrejs/dagre";
-import type { Edge, Node } from "@xyflow/react";
+import { Position, type Edge, type Node, type NodeHandle } from "@xyflow/react";
 import { rows as formatRows } from "./format";
 import { nodeAt, type Moment, type NodeState } from "./replay";
 import type { Finding, PlanNode } from "../model/profile";
@@ -175,6 +175,14 @@ export function stepFor(steps: FocusStep[], coverage: number | null): number {
 export const flowSeconds = (rowsPerSecond: number): number =>
   Math.min(1.6, Math.max(0.25, 1.6 - 0.27 * Math.max(0, Math.log10(rowsPerSecond) - 3)));
 
+const HANDLE = 6;
+
+/** Nodes have a fixed size, so their handles are known up front and never need measuring again when a node's data changes. */
+const HANDLES: NodeHandle[] = [
+  { type: "target", position: Position.Bottom, x: NODE_W / 2 - HANDLE / 2, y: NODE_H - HANDLE / 2, width: HANDLE, height: HANDLE },
+  { type: "source", position: Position.Top, x: NODE_W / 2 - HANDLE / 2, y: -HANDLE / 2, width: HANDLE, height: HANDLE },
+];
+
 export function toFlow(
   plan: PlanNode[],
   positions: Positions,
@@ -196,6 +204,8 @@ export function toFlow(
     position: positions[String(n.id)] ?? { x: 0, y: 0 },
     width: NODE_W,
     height: NODE_H,
+    measured: { width: NODE_W, height: NODE_H },
+    handles: HANDLES,
     selected: selectedId === n.id,
     className: classes(faded(n) && "faded", badge(findings?.get(n.id)) && `flag-${badge(findings?.get(n.id))}`),
     data: { node: n, share: (cpuMs(n) / total) * 100, logical, label: n.label, finding: badge(findings?.get(n.id)), live: live(n) },
