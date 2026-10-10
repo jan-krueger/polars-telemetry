@@ -1,0 +1,22 @@
+[package]
+name = "nunatak-store-sqlite"
+description = "Nunatak's index of queries in SQLite"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+async-trait.workspace = true
+nunatak-store.workspace = true
+rusqlite.workspace = true
+rusqlite_migration.workspace = true
+tokio.workspace = true
+
+[dev-dependencies]
+nunatak-store = { workspace = true, features = ["conformance"] }
+tempfile.workspace = true
+
+[lints]
+workspace = true

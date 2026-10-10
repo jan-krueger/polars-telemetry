@@ -12,13 +12,14 @@ export interface Channel {
 export interface Panes {
   alone: Pane | null;
   toggleAlone: (pane: Pane) => void;
+  show: (pane: Pane) => void;
   linked: Pane | null;
   toggleLinked: (pane: Pane) => void;
   views: Channel;
 }
 
 export default function usePanes(): Panes {
-  const [alone, setAlone] = useState<Pane | null>(null);
+  const [alone, setAlone] = useState<Pane | null>("physical");
   const [linked, setLinked] = useState<Pane | null>(null);
   const views = useMemo((): Channel => {
     const listeners = new Set<(view: View) => void>();
@@ -33,6 +34,7 @@ export default function usePanes(): Panes {
   return {
     alone,
     toggleAlone: (pane) => setAlone((shown) => (shown === pane ? null : pane)),
+    show: setAlone,
     linked,
     toggleLinked: (pane) => setLinked((leader) => (leader ? null : pane)),
     views,

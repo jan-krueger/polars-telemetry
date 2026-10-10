@@ -43,7 +43,7 @@
       }
     },
     "progress": {
-      "description": "A sample: each node whose counters changed, by physical node id. Counters are cumulative and zero counters are left out.",
+      "description": "A sample: each node whose counters changed, by physical node id. Counters are cumulative and zero counters are left out. While nothing changes, an empty sample still comes every few seconds, so a running query is never silent for long.",
       "required": ["query_id", "elapsed_ms", "nodes"],
       "properties": {
         "query_id": { "$ref": "#/$defs/uuid" },

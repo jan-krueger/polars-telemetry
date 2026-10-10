@@ -90,11 +90,6 @@ h2{font:600 10.5px/1 ui-monospace,monospace;letter-spacing:.1em;text-transform:u
 .qstats b{color:var(--ink);font-weight:600}
 .qstats .qwall{font-size:15px}
 .busy{display:inline-flex;align-items:center;gap:6px}
-.busy-bar{display:inline-block;width:44px;height:7px;border-radius:4px;background:var(--surface-2);
-  border:1px solid var(--border);overflow:hidden}
-.busy-bar span{display:block;height:100%}
-.busy-fill--good{background:var(--good)} .busy-fill--warn{background:var(--warn)}
-.busy-fill--crit{background:var(--crit)} .busy-fill--info{background:var(--muted)}
 .picker{background:var(--surface-2);border:1px solid var(--border);border-radius:6px;
   padding:4px 8px;font-size:12px;max-width:100%}
 
@@ -114,6 +109,12 @@ h2{font:600 10.5px/1 ui-monospace,monospace;letter-spacing:.1em;text-transform:u
 .planbox .ph{padding:7px 11px;border-bottom:1px solid var(--border);display:flex;
   align-items:center;gap:8px}
 .planbox .ph .nm{font:600 11.5px system-ui}
+.pane-tabs{display:inline-flex;gap:2px}
+.pane-tabs button{font:600 11.5px system-ui;color:var(--muted);background:none;border:0;border-radius:4px;padding:2px 6px;cursor:pointer}
+.pane-tabs button:hover{color:var(--ink);background:var(--surface-2)}
+.pane-tabs button[aria-selected="true"]{color:var(--ink);background:var(--surface-2)}
+.pane-tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.planbox .ph .pane-tabs + .pane-btn{margin-left:auto}
 .planbox .body{flex:1;min-height:0}
 .planbox .laying-out{display:grid;place-items:center;font-size:12px;color:var(--muted)}
 
@@ -137,11 +138,11 @@ h2{font:600 10.5px/1 ui-monospace,monospace;letter-spacing:.1em;text-transform:u
 .replay-track input::-moz-range-track{background:transparent}
 .replay-track input::-moz-range-thumb{width:3px;height:30px;border:0;border-radius:2px;background:var(--ink)}
 .replay-track input:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
-.replay-marks{position:absolute;inset:0;pointer-events:none}
-.replay-mark{position:absolute;top:0;width:2px;height:6px;margin-left:-1px;background:var(--ink);border-radius:0 0 1px 1px}
 .replay-speed{min-width:34px;font-variant-numeric:tabular-nums;font-size:12px}
 .replay-at{flex:none;width:19ch;text-align:right;font-size:12px;color:var(--ink-2);font-variant-numeric:tabular-nums;white-space:nowrap}
 .replay-at b{color:var(--ink)}
+.replay-at .replay-now{color:var(--accent)}
+.replay-live{font-size:12px;padding:3px 8px}
 .pnode--waiting{opacity:.4;filter:grayscale(1)}
 .pnode .phead{display:flex;align-items:center;gap:6px}
 .pnode .t1{font:600 11px ui-monospace,monospace;display:flex;align-items:center;gap:5px;flex:1;min-width:0;white-space:nowrap}
@@ -210,6 +211,21 @@ h2{font:600 10.5px/1 ui-monospace,monospace;letter-spacing:.1em;text-transform:u
   margin-left:5px;cursor:help;vertical-align:middle;flex:none}
 .help:hover{border-color:var(--accent);color:var(--accent)}
 .empty{color:var(--muted);font-size:12.5px;padding:18px 4px;text-align:center}
+.overview{display:flex;flex-direction:column;gap:6px;font-size:12.5px}
+.overview h3{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;margin:6px 0 0}
+.overview ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+.overview button{display:grid;grid-template-columns:1fr auto;gap:3px 8px;width:100%;text-align:left;background:none;border:0;border-radius:6px;padding:6px 8px;color:var(--ink);cursor:pointer;font:inherit}
+.overview button:hover{background:var(--surface-2)}
+.overview button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.overview-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)}
+.overview-name b{color:var(--ink);font-weight:600}
+.overview-ms{font-variant-numeric:tabular-nums;color:var(--ink)}
+.overview-share{grid-column:1 / -1;height:3px;border-radius:2px;background:var(--surface-2)}
+.overview-share i{display:block;height:100%;border-radius:2px;background:var(--accent)}
+.overview-finding .overview-name{white-space:normal;color:var(--ink)}
+.overview button.overview-finding{border-left:2px solid var(--muted);border-radius:0 6px 6px 0}
+.overview button.overview-finding--warn{border-left-color:var(--warn)}
+.overview-hint{color:var(--muted);margin:8px 0 0;font-size:12px}
 
 .ovw{width:100%;border-collapse:collapse;font-size:12.5px}
 .ovw th{text-align:right;font:500 10px ui-monospace,monospace;letter-spacing:.06em;

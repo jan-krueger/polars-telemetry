@@ -50,9 +50,9 @@ Content-Type: application/x-ndjson
 Content-Encoding: gzip
 ```
 
-A batch goes out when a query starts or ends, and about every two seconds in
-between. Every event keeps its `seq` when sent again, so a server can drop an
-event it already has.
+A batch goes out when a query starts or ends, and about every half second in
+between, so a server sees each sample soon after it is taken. Every event keeps
+its `seq` when sent again, so a server can drop an event it already has.
 
 ## When the server is slow or away
 

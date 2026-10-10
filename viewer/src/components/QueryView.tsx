@@ -1,15 +1,14 @@
-import { useEffect, useMemo, useState, type Dispatch } from "react";
-import type { Finding, Profile, Session } from "../model/profile";
+import { useEffect, useMemo, useState, type Dispatch, type ReactNode } from "react";
+import type { Finding, Profile } from "../model/profile";
 import type { Panes } from "../hooks/usePanes";
 import { busy, inputs, num, span } from "../lib/format";
 import { warned } from "../lib/insights";
 import { basename } from "../lib/polars";
-import { clock, iso, spansDays } from "../lib/time";
+import { clock, iso } from "../lib/time";
 import { queryMarkdown } from "../lib/markdown";
 import { warnsUnmasked } from "../lib/prefs";
-import { MAX_LINK_CHARS, shareFragment } from "../share/link";
-import { documentsFor } from "../share/session";
-import { title, type Action, type ViewerState } from "../state/viewer";
+import { MAX_LINK_CHARS } from "../share/link";
+import { title, type NodeRef, type QueryAction } from "../state/viewer";
 import PlanPane from "./PlanPane";
 import ReplayBar from "./ReplayBar";
 import { replayEnd, type Moment } from "../lib/replay";
@@ -17,27 +16,44 @@ import ShareDialog, { type Copy, type Sharing } from "./ShareDialog";
 import ShareMenu from "./ShareMenu";
 import Tip, { TipText } from "./Tip";
 
+export interface QueryShare {
+  link: () => { url: string; chars: number };
+  linkNote: string;
+  download: { label: string; note: string; run: () => void };
+}
+
 interface Props {
-  state: ViewerState;
-  dispatch: Dispatch<Action>;
-  session: Session;
   profile: Profile;
   /** While replaying, the counters at that moment; null shows how the query ended. */
   moment: Moment | null;
   findings: Map<number, Finding[]>;
   panes: Panes;
-  onDownload: (session: Session) => void;
+  node: NodeRef | null;
+  focus: number | null;
+  replayAt: number | null;
+  dispatch: Dispatch<QueryAction>;
+  withDates: boolean;
+  share: QueryShare;
+  heading?: ReactNode;
+  extra?: ReactNode;
+  live?: boolean;
 }
 
-export default function QueryView({ state, dispatch, session, profile, moment, findings, panes, onDownload }: Props) {
+export default function QueryView({ profile, moment, findings, panes, node, focus, replayAt, dispatch, withDates, share: sharer, heading, extra, live = false }: Props) {
   const now = moment ? { ...profile, wall_ms: moment.t, cpu_ms: moment.cpu_ms } : profile;
-  const profiles = session.profiles ?? [];
-  const withDates = useMemo(() => spansDays(profiles), [profiles]);
   const warnings = useMemo(() => warned(profile), [profile]);
   const [reveal, setReveal] = useState<{ id: number } | null>(null);
   const [sharing, setSharing] = useState<Sharing | null>(null);
   useEffect(() => setSharing(null), [profile.query_id]);
-  const { alone, toggleAlone, linked, toggleLinked, views } = panes;
+  const { toggleAlone, show, linked, toggleLinked, views } = panes;
+  const alone = profile.plan.physical.length ? panes.alone : "logical";
+  const switcher = (pane: "logical" | "physical") => alone && profile.plan.physical.length ? (
+    <span className="pane-tabs" role="tablist">
+      {(["physical", "logical"] as const).map((p) => (
+        <button key={p} role="tab" aria-selected={p === pane} onClick={() => show(p)}>{p === "physical" ? "Physical plan" : "Logical plan"}</button>
+      ))}
+    </span>
+  ) : undefined;
 
   const unmasked = !profile.redacted?.length && warnsUnmasked();
 
@@ -57,9 +73,8 @@ export default function QueryView({ state, dispatch, session, profile, moment, f
   };
 
   const share = () => {
-    const fragment = shareFragment(documentsFor(session, [profile]));
-    const url = location.href.split("#")[0] + fragment;
-    if (fragment.length > MAX_LINK_CHARS) setSharing({ tooLong: { chars: fragment.length, text: url } });
+    const { url, chars } = sharer.link();
+    if (chars > MAX_LINK_CHARS) setSharing({ tooLong: { chars, text: url } });
     else copyLink(url);
   };
 
@@ -78,7 +93,7 @@ export default function QueryView({ state, dispatch, session, profile, moment, f
     <>
       <div className="qhead">
         <div className="qline">
-          <span className="qname">{title(profile)}</span>
+          {heading ?? <span className="qname">{title(profile)}</span>}
           <Tip content={<Facts profile={profile} withDates={withDates} />}>
             <span className="qinfo" tabIndex={0} aria-label="About this query">
               <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true" fill="none" stroke="currentColor"
@@ -102,44 +117,45 @@ export default function QueryView({ state, dispatch, session, profile, moment, f
                 <span className="masked" tabIndex={0}>· masked</span>
               </Tip>
             ) : null}
+            {extra}
           </div>
           <ShareMenu done={sharing?.copied === "link" ? "Link copied" : sharing?.copied === "markdown" ? "Markdown copied" : null} options={[
-            { key: "link", label: "Copy link", onPick: share, note: "Opens this query in the viewer" },
+            { key: "link", label: "Copy link", onPick: share, note: sharer.linkNote },
             { key: "markdown", label: "Copy as Markdown", onPick: markdown, note: "Figures, findings and plan, for an issue" },
-            { key: "download", label: "Download session", onPick: () => onDownload(session),
-              note: "Every query in it, as the .jsonl file" },
+            { key: "download", label: sharer.download.label, onPick: sharer.download.run, note: sharer.download.note },
           ]} />
         </div>
         {sharing && !sharing.copied && (
           <ShareDialog sharing={sharing} what="query"
                        onCopy={copy} onCopyLong={copyLink}
-                       onDownload={() => { onDownload(session); setSharing(null); }}
+                       download={sharer.download.label}
+                       onDownload={() => { sharer.download.run(); setSharing(null); }}
                        onClose={() => setSharing(null)} />
         )}
         {profile.failed && (
           <div className="qfail" role="alert"><b>Failed</b> {profile.failed}</div>
         )}
-        {profile.unfinished && (
+        {profile.unfinished && !live && (
           <div className="qnote">Still running when the recording ended; its counters are from the last sample.</div>
         )}
       </div>
 
-      {profile.replay && replayEnd(profile) > 0 && <ReplayBar key={profile.query_id} profile={profile} at={state.replayAt} dispatch={dispatch} />}
+      {profile.replay && replayEnd(profile) > 0 && <ReplayBar key={profile.query_id} profile={profile} at={replayAt} dispatch={dispatch} live={live} />}
 
       <div className={alone ? `plans alone-${alone}` : "plans"}>
-        <PlanPane key={`logical-${profile.query_id}`} title="Logical plan"
+        <PlanPane key={`logical-${profile.query_id}`} title="Logical plan" switcher={switcher("logical")}
                   plan={profile.plan.logical} logical
                   alone={alone === "logical"} onAlone={() => toggleAlone("logical")}
                   linked={!!linked} leads={linked === "logical"} onLink={() => toggleLinked("logical")} channel={views}
-                  selectedId={state.node?.plan === "logical" ? state.node.id : null}
+                  selectedId={node?.plan === "logical" ? node.id : null}
                   onSelect={(id) => dispatch({ type: "nodePicked", node: { plan: "logical", id } })} />
-        <PlanPane key={`physical-${profile.query_id}`} title="Physical plan"
+        <PlanPane key={`physical-${profile.query_id}`} title="Physical plan" switcher={switcher("physical")}
                   plan={profile.plan.physical} logical={false}
                   alone={alone === "physical"} onAlone={() => toggleAlone("physical")}
                   linked={!!linked} leads={linked === "physical"} onLink={() => toggleLinked("physical")} channel={views}
                   findings={findings} reveal={reveal} warnings={warnings} onWarning={showWarning}
-                  focus={state.focus} onFocus={(focus) => dispatch({ type: "focused", focus })} moment={moment}
-                  selectedId={state.node?.plan === "physical" ? state.node.id : null}
+                  focus={focus} onFocus={(focus) => dispatch({ type: "focused", focus })} moment={moment}
+                  selectedId={node?.plan === "physical" ? node.id : null}
                   onSelect={(id) => dispatch({ type: "nodePicked", node: { plan: "physical", id } })} />
       </div>
     </>
@@ -173,12 +189,7 @@ function Busy({ profile }: { profile: Profile }) {
   return (
     <Tip content={<TipText term="Threads busy">{note}</TipText>}>
       <span className="busy" tabIndex={0}>
-        ·{b.share != null && (
-          <span className="busy-bar" aria-hidden="true">
-            <span className={`busy-fill busy-fill--${b.verdict}`} style={{ width: `${Math.max(2, b.share * 100)}%` }} />
-          </span>
-        )}
-        <span><b>{num(b.threads, 1)}</b>{b.of ? `/${b.of}` : ""} threads</span>
+        ·        <span><b>{num(b.threads, 1)}</b>{b.of ? `/${b.of}` : ""} threads</span>
       </span>
     </Tip>
   );

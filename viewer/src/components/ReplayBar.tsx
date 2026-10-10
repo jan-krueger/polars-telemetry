@@ -1,15 +1,15 @@
 import { useEffect, useId, useMemo, useRef, useState, type Dispatch, type KeyboardEvent } from "react";
 import type { Profile } from "../model/profile";
-import type { Action } from "../state/viewer";
+import type { QueryAction } from "../state/viewer";
 import { span } from "../lib/format";
-import { busy, finishes, replayEnd, type Stretch } from "../lib/replay";
+import { busy, replayEnd, type Stretch } from "../lib/replay";
 
 const WHOLE_RUN_MS = 12_000;
 
 const times = (v: number): string => `${v >= 10 ? Math.round(v) : Number(v.toPrecision(2))}×`;
 
 /** Scrub or play through the query's run over a chart of how many threads it kept busy. */
-export default function ReplayBar({ profile, at, dispatch }: { profile: Profile; at: number | null; dispatch: Dispatch<Action> }) {
+export default function ReplayBar({ profile, at, dispatch, live = false }: { profile: Profile; at: number | null; dispatch: Dispatch<QueryAction>; live?: boolean }) {
   const replay = profile.replay!;
   const end = replayEnd(profile);
   const t = at ?? end;
@@ -48,7 +48,6 @@ export default function ReplayBar({ profile, at, dispatch }: { profile: Profile;
   }, [playing, speed, end, frameMs, dispatch]);
 
   const steps = useMemo(() => [0, ...replay.times, end], [replay, end]);
-  const done = useMemo(() => [...new Set(finishes(replay))], [replay]);
   const threads = useMemo(() => busy(replay, profile.plan.physical, end), [replay, profile, end]);
 
   const go = (ms: number) => {
@@ -80,14 +79,12 @@ export default function ReplayBar({ profile, at, dispatch }: { profile: Profile;
               aria-label={`Playback speed ${times(speed)}; change`}>{times(speed)}</button>
       <div className="replay-track">
         <BusyChart stretches={threads} end={end} t={at} />
-        <div className="replay-marks" aria-hidden="true">
-          {done.map((ms) => <span key={ms} className="replay-mark" style={{ left: `${(ms / end) * 100}%` }} />)}
-        </div>
         <input id="replay-position" type="range" min={0} max={end} step="any" value={t}
                onChange={(e) => go(Number(e.target.value))} onKeyDown={keys}
                aria-label="Moment of the query" aria-valuetext={`${span(t)} in`} />
       </div>
-      <span className="replay-at"><b>{span(t)}</b> / {span(end)}</span>
+      {live && at !== null && <button className="pane-btn replay-live" onClick={() => go(end)}>Back to live</button>}
+      <span className="replay-at">{live && at === null ? <><b className="replay-now">● live</b> · {span(end)}</> : <><b>{span(t)}</b> / {span(end)}</>}</span>
     </div>
   );
 }

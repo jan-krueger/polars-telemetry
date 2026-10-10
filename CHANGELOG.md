@@ -9,8 +9,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 - `FileEventExporter` writes what happens to each query while it runs to a
   `.jsonl` or `.jsonl.gz` file: the query and its plan once it has run for a
-  second, a sample of every changed node's counters each second after that, and
-  its full profile when it finishes. One background thread samples the running
+  second, a sample of every changed node's counters each second after that (an
+  empty one every 5 seconds while nothing changes, so a quiet query is told
+  apart from a dead process), and its full profile when it finishes. One background thread samples the running
   queries; nothing is sampled while no such exporter is installed.
   Its `service` and `environment` arguments name where the events come from,
   and every event is numbered, so a receiver can drop one sent twice.

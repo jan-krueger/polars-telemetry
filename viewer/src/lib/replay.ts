@@ -123,16 +123,6 @@ export function nodeAt(node: PlanNode, moment: Moment): PlanNode {
 /** The same node for the same counters, so a node that did not change between two moments is the same object. */
 const placed = new WeakMap<Metrics, WeakMap<PlanNode, PlanNode>>();
 
-/** When each node first reported itself finished, in ms. */
-export function finishes(replay: Replay): number[] {
-  const times: number[] = [];
-  for (const series of replay.nodes.values()) {
-    const i = series.metrics.findIndex((m) => m.done);
-    if (i >= 0) times.push(replay.times[series.at[i]!]!);
-  }
-  return times;
-}
-
 /** A stretch between two samples, and the threads' worth of CPU used in it. */
 export interface Stretch {
   from: number;

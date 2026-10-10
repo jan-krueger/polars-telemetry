@@ -2,7 +2,7 @@ import { gzipSync, strToU8 } from "fflate";
 import { describe, expect, it } from "vitest";
 import { flowSeconds, liveFlow } from "../src/lib/graph";
 import { gunzipText, isGzip } from "../src/lib/gzip";
-import { busy, finishes, history, momentAt, nodeAt } from "../src/lib/replay";
+import { busy, history, momentAt, nodeAt } from "../src/lib/replay";
 import { EventLog } from "../src/model/events";
 import { readJsonl, readProfile, toJsonl } from "../src/model/read";
 import { EVENTS_SCHEMA } from "../src/model/schema";
@@ -155,10 +155,6 @@ describe("a replayed moment", () => {
 
   it("gives an unsampled node zero counters", () => {
     expect(nodeAt(profile.plan.physical[2]!, momentAt(replay, 1000)).metrics).toMatchObject({ total_time_ns: 0, done: false });
-  });
-
-  it("marks when each node finished", () => {
-    expect(finishes(replay)).toEqual([2000, 3200, 3200]);
   });
 
   it("adds up how many threads the query kept busy between each two samples", () => {

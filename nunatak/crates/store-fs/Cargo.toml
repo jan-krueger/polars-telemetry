@@ -1,0 +1,20 @@
+[package]
+name = "nunatak-store-fs"
+description = "Nunatak's recordings and log as files in a data folder"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+async-trait.workspace = true
+bytes.workspace = true
+nunatak-store.workspace = true
+tokio.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

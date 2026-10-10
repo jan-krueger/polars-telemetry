@@ -16,11 +16,12 @@ interface Props {
   what: string;
   onCopy: (copy: Copy, text: string) => void;
   onCopyLong: (text: string) => void;
+  download: string;
   onDownload: () => void;
   onClose: () => void;
 }
 
-export default function ShareDialog({ sharing, what, onCopy, onCopyLong, onDownload, onClose }: Props) {
+export default function ShareDialog({ sharing, what, onCopy, onCopyLong, download, onDownload, onClose }: Props) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const dialog = ref.current!;
@@ -72,7 +73,7 @@ export default function ShareDialog({ sharing, what, onCopy, onCopyLong, onDownl
           <div className="dialog-actions">
             <button className="btn" onClick={onClose}>Close</button>
             <button className="btn" onClick={() => onCopyLong(sharing.tooLong!.text)}>Copy anyway</button>
-            <button className="btn btn--primary" onClick={onDownload} autoFocus>Download session</button>
+            <button className="btn btn--primary" onClick={onDownload} autoFocus>{download}</button>
           </div>
         </>
       )}
