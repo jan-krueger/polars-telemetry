@@ -8,6 +8,9 @@ use axum::Router;
 use axum::extract::DefaultBodyLimit;
 use axum::routing::{get, post};
 use std::sync::Arc;
+use tower::ServiceBuilder;
+use tower_http::decompression::RequestDecompressionLayer;
+use tower_http::limit::RequestBodyLimitLayer;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Limits {
@@ -25,16 +28,15 @@ impl Default for Limits {
 }
 
 pub fn ingest_router(pipeline: Arc<Pipeline>, token: String, limits: Limits) -> Router {
-    let state = Arc::new(ingest::Ingest {
-        pipeline,
-        token,
-        limits,
-    });
+    let state = Arc::new(ingest::Ingest { pipeline, token });
+    let events = post(ingest::events).layer(
+        ServiceBuilder::new()
+            .layer(RequestBodyLimitLayer::new(limits.body))
+            .layer(RequestDecompressionLayer::new().gzip(true))
+            .layer(DefaultBodyLimit::max(limits.decoded)),
+    );
     Router::new()
-        .route(
-            "/v1/events",
-            post(ingest::events).layer(DefaultBodyLimit::max(limits.body)),
-        )
+        .route("/v1/events", events)
         .route("/v1/health", get(ingest::health))
         .with_state(state)
 }

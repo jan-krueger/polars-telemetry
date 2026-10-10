@@ -151,7 +151,7 @@ async fn a_broken_batch_is_refused_with_its_line() {
     assert_eq!(body["line"], 1);
     let (status, body) = post(&app(data.path()), TOKEN, b"not gzip".to_vec()).await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
-    assert_eq!(body["error"], "the body is not valid gzip");
+    assert_eq!(body["error"], "the body could not be read as gzip");
 }
 
 #[tokio::test]

@@ -11,6 +11,7 @@ repository.workspace = true
 async-trait.workspace = true
 nunatak-store.workspace = true
 rusqlite.workspace = true
+rusqlite_migration.workspace = true
 tokio.workspace = true
 
 [dev-dependencies]

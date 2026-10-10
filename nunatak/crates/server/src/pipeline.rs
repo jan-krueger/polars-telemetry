@@ -6,7 +6,6 @@ use nunatak_store::{Index, Log, QuerySummary, RecordingKey, Recordings, Result, 
 use std::collections::{HashMap, HashSet};
 use std::io::Write;
 use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::Mutex;
 
 pub struct Pipeline {
@@ -239,26 +238,14 @@ impl Pipeline {
 }
 
 fn now_unix_ns() -> i64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |d| i64::try_from(d.as_nanos()).unwrap_or(i64::MAX))
+    i64::try_from(jiff::Timestamp::now().as_nanosecond()).unwrap_or(i64::MAX)
 }
 
 fn date(unix_ns: i64) -> String {
-    let (year, month, day) = civil(unix_ns.div_euclid(86_400 * 1_000_000_000));
-    format!("{year:04}/{month:02}/{day:02}")
-}
-
-fn civil(days: i64) -> (i64, i64, i64) {
-    let z = days + 719_468;
-    let era = z.div_euclid(146_097);
-    let doe = z.rem_euclid(146_097);
-    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
-    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-    let mp = (5 * doy + 2) / 153;
-    let day = doy - (153 * mp + 2) / 5 + 1;
-    let month = if mp < 10 { mp + 3 } else { mp - 9 };
-    (yoe + era * 400 + i64::from(month <= 2), month, day)
+    jiff::Timestamp::from_nanosecond(i128::from(unix_ns))
+        .unwrap_or(jiff::Timestamp::UNIX_EPOCH)
+        .strftime("%Y/%m/%d")
+        .to_string()
 }
 
 #[cfg(test)]
@@ -266,10 +253,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn days_become_dates() {
-        assert_eq!(civil(0), (1970, 1, 1));
-        assert_eq!(civil(20_372), (2025, 10, 11));
-        assert_eq!(civil(19_782), (2024, 2, 29));
+    fn a_recording_is_filed_under_the_utc_day_its_query_started() {
+        assert_eq!(date(0), "1970/01/01");
+        assert_eq!(date(1_709_164_800_000_000_000), "2024/02/29");
         assert_eq!(date(1_791_625_428_121_691_683), "2026/10/10");
     }
 }

@@ -21,16 +21,21 @@ bytes = "1.12.1"
 clap = { version = "4.6.7", features = ["derive", "env"] }
 flate2 = "1.1.10"
 getrandom = "0.4.3"
+jiff = "0.2.37"
 rusqlite = { version = "0.40.2", features = ["bundled"] }
+rusqlite_migration = "2.6.0"
 http-body-util = "0.1.5"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
+subtle = "2.6.1"
 tempfile = "3.27.0"
 thiserror = "2.0.21"
 tokio = { version = "1.53.1", features = ["fs", "io-util", "macros", "net", "rt-multi-thread", "signal", "sync"] }
 tower = { version = "0.5.3", features = ["util"] }
+tower-http = { version = "0.7.1", features = ["decompression-gzip", "limit"] }
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter", "fmt"] }
+uuid = "1.27.0"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

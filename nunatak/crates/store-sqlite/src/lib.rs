@@ -5,6 +5,7 @@ use nunatak_store::{
 };
 use rusqlite::types::Value;
 use rusqlite::{Connection, OptionalExtension, Row, params, params_from_iter};
+use rusqlite_migration::{M, Migrations, SchemaVersion};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 
@@ -88,36 +89,27 @@ fn migrate(connection: &mut Connection, path: Option<&Path>, steps: &[&str]) -> 
     connection
         .pragma_update(None, "busy_timeout", 5_000)
         .map_err(backend)?;
-    let current: usize = connection
-        .pragma_query_value(None, "user_version", |row| row.get::<_, i64>(0))
-        .map(|version| usize::try_from(version).unwrap_or(usize::MAX))
-        .map_err(backend)?;
+    let migrations = Migrations::new(steps.iter().map(|step| M::up(step)).collect());
     let known = steps.len();
-    if current > known {
-        let name = path.map_or_else(|| "the index".into(), |p| p.display().to_string());
-        return Err(Error::Backend(format!(
-            "{name} is schema {current}; this nunatak knows schemas up to {known}. Use a newer nunatak."
-        )));
+    match migrations.current_version(connection).map_err(backend)? {
+        SchemaVersion::Outside(current) => {
+            let name = path.map_or_else(|| "the index".into(), |p| p.display().to_string());
+            return Err(Error::Backend(format!(
+                "{name} is schema {current}; this nunatak knows schemas up to {known}. Use a newer nunatak."
+            )));
+        }
+        SchemaVersion::Inside(current) if usize::from(current) < known => {
+            if let Some(path) = path {
+                let backup = path.with_extension(format!("db.v{current}.bak"));
+                let _ = std::fs::remove_file(&backup);
+                connection
+                    .execute("VACUUM INTO ?1", [backup.to_string_lossy()])
+                    .map_err(backend)?;
+            }
+        }
+        _ => {}
     }
-    if current == known {
-        return Ok(());
-    }
-    if let Some(path) = path.filter(|_| current > 0) {
-        let backup = path.with_extension(format!("db.v{current}.bak"));
-        let _ = std::fs::remove_file(&backup);
-        connection
-            .execute("VACUUM INTO ?1", [backup.to_string_lossy()])
-            .map_err(backend)?;
-    }
-    let transaction = connection.transaction().map_err(backend)?;
-    for (number, step) in steps.iter().enumerate().skip(current) {
-        transaction.execute_batch(step).map_err(backend)?;
-        let version = i64::try_from(number + 1).unwrap_or(i64::MAX);
-        transaction
-            .pragma_update(None, "user_version", version)
-            .map_err(backend)?;
-    }
-    transaction.commit().map_err(backend)
+    migrations.to_latest(connection).map_err(backend)
 }
 
 fn count(value: i64) -> u64 {
@@ -306,6 +298,12 @@ mod tests {
             .unwrap()
             .pragma_query_value(None, "user_version", |row| row.get(0))
             .unwrap()
+    }
+
+    #[test]
+    fn the_migrations_are_valid() {
+        let migrations = Migrations::new(MIGRATIONS.iter().map(|step| M::up(step)).collect());
+        migrations.validate().unwrap();
     }
 
     #[test]

@@ -187,11 +187,7 @@ fn stream(number: usize, line: &str) -> Result<Stream, Invalid> {
 }
 
 fn is_uuid(text: &str) -> bool {
-    text.len() == 36
-        && text.char_indices().all(|(i, c)| match i {
-            8 | 13 | 18 | 23 => c == '-',
-            _ => c.is_ascii_hexdigit(),
-        })
+    uuid::Uuid::try_parse(text).is_ok()
 }
 
 fn invalid(line: usize, problem: &str) -> Invalid {
