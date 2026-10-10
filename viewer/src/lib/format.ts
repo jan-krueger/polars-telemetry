@@ -1,8 +1,13 @@
 import type { CustomMetric, PlanNode, Profile } from "../model/profile";
 import { relationName, roleOf } from "./polars";
 
-export const num = (v: number | null | undefined, d = 0): string =>
-  (v ?? 0).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
+const formats = new Map<number, Intl.NumberFormat>();
+
+export function num(v: number | null | undefined, d = 0): string {
+  let format = formats.get(d);
+  if (!format) formats.set(d, (format = new Intl.NumberFormat("en-US", { minimumFractionDigits: d, maximumFractionDigits: d })));
+  return format.format(v ?? 0);
+}
 export const ms = (v: number): string =>
   v >= 10 ? num(v, 1) + " ms" : v >= 0.1 ? num(v, 2) + " ms" : num(v * 1000, 0) + " µs";
 export const bytes = (b: number): string =>
