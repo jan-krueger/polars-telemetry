@@ -172,6 +172,7 @@ export default function NodeDetails({ node, plan = [], findings, recorded }: Pro
           })}
           {visibleCounters(recorded?.final.metrics ?? m).map(({ label, key, unit, peak }) => {
             const raw = Number(m[key] ?? 0);
+            const between = recorded && recorded.t !== null && !recorded.replay.times.includes(recorded.t);
             const v = unit === "ns" ? ms(raw / 1e6)
               : unit === "bytes" ? bytes(raw)
               : num(raw);
@@ -182,7 +183,9 @@ export default function NodeDetails({ node, plan = [], findings, recorded }: Pro
                               end={recorded.end} t={recorded.t} peak={!!peak} />
                 ) : null}
                 <span className="k">{label}<Help term={key} /></span>
-                <span className="v">{v}{unit === "rows"
+                <span className="v">
+                  {between ? <span className="approx" title="Estimated between two samples">≈</span> : null}
+                  {v}{unit === "rows"
                   ? <span className="u">rows</span> : null}</span>
               </div>
             );

@@ -402,4 +402,5 @@ button.zone:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 .mline-line{fill:none;stroke:var(--accent);stroke-opacity:.7;stroke-width:1.5}
 .mline--ahead{opacity:.18}
 .mline-at{stroke:var(--crit);stroke-width:1.5}
+.approx{font-weight:400;color:var(--muted);margin-right:3px}
 .fact-note{flex-basis:100%;text-align:right;font-size:10.5px;color:var(--muted);margin-top:-2px}
