@@ -82,6 +82,15 @@ export function momentAt(replay: Replay, t: number): Moment {
   return moment;
 }
 
+/** How one of a node's counters stood at each sample, from 0 at the start to its final value at `end`. */
+export function history(replay: Replay, final: PlanNode, end: number, key: string): [number, number][] {
+  const series = replay.nodes.get(final.id);
+  const points: [number, number][] = [[0, 0]];
+  replay.times.forEach((ms, i) => points.push([ms, count(asOf(series, i), key)]));
+  if (end > points[points.length - 1]![0]) points.push([end, count(final.metrics ?? undefined, key)]);
+  return points;
+}
+
 /** A plan node with the counters it had at `moment`. */
 export const nodeAt = (node: PlanNode, moment: Moment): PlanNode =>
   ({ ...node, metrics: moment.metrics.get(node.id) ?? NOT_STARTED, custom: [] });
@@ -95,3 +104,67 @@ export function finishes(replay: Replay): number[] {
   }
   return times;
 }
+
+/** A stretch between two samples in which a node was running, and the threads' worth of CPU it used. */
+export interface Stretch {
+  from: number;
+  to: number;
+  load: number;
+}
+
+export interface Lane {
+  id: number;
+  stretches: Stretch[];
+  cpu_ns: number;
+}
+
+/** Each node's running stretches over the whole run, the last one ending at `end`. */
+export function lanes(replay: Replay, plan: PlanNode[], end: number): Lane[] {
+  const bounds = [0, ...replay.times];
+  if (end > bounds[bounds.length - 1]!) bounds.push(end);
+  const out: Lane[] = [];
+  for (const node of plan) {
+    const series = replay.nodes.get(node.id);
+    const final = node.metrics ?? undefined;
+    const at = (k: number): Metrics | undefined =>
+      k === 0 ? undefined : k <= replay.times.length ? asOf(series, k - 1) : final;
+    const stretches: Stretch[] = [];
+    for (let k = 1; k < bounds.length; k++) {
+      const a = at(k - 1);
+      const b = at(k);
+      const ms = bounds[k]! - bounds[k - 1]!;
+      if (a?.done || !b || ms <= 0 || stateOf(b) === "waiting") continue;
+      const load = (count(b, "total_time_ns") - count(a, "total_time_ns")) / 1e6 / ms;
+      stretches.push({ from: bounds[k - 1]!, to: bounds[k]!, load: Math.max(0, load) });
+    }
+    if (stretches.length) out.push({ id: node.id, stretches, cpu_ns: count(final, "total_time_ns") });
+  }
+  return out;
+}
+
+/** Every node's lane, with what the strips are drawn against. */
+export interface Runs {
+  lanes: Map<number, Lane>;
+  end: number;
+  peak: number;
+  /** The whole query: all nodes' load added up, per stretch. */
+  total: Stretch[];
+}
+
+export function runsOf(replay: Replay, plan: PlanNode[], end: number): Runs {
+  const all = lanes(replay, plan, end);
+  const total = new Map<number, Stretch>();
+  for (const s of all.flatMap((l) => l.stretches)) {
+    const sum = total.get(s.from) ?? { from: s.from, to: s.to, load: 0 };
+    sum.load += s.load;
+    total.set(s.from, sum);
+  }
+  return {
+    lanes: new Map(all.map((l) => [l.id, l])),
+    end,
+    peak: peakOf(all.flatMap((l) => l.stretches)),
+    total: [...total.values()].sort((a, b) => a.from - b.from),
+  };
+}
+
+export const peakOf = (stretches: Stretch[]): number => Math.max(1e-9, ...stretches.map((s) => s.load));

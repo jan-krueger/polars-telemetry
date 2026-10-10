@@ -2,7 +2,7 @@ import { gzipSync, strToU8 } from "fflate";
 import { describe, expect, it } from "vitest";
 import { flowSeconds, toFlow } from "../src/lib/graph";
 import { gunzipText, isGzip } from "../src/lib/gzip";
-import { finishes, momentAt, nodeAt } from "../src/lib/replay";
+import { finishes, history, momentAt, nodeAt, runsOf } from "../src/lib/replay";
 import { readJsonl, toJsonl } from "../src/model/read";
 import { EVENTS_SCHEMA } from "../src/model/schema";
 import { openShareFragment, shareFragment } from "../src/share/link";
@@ -105,6 +105,22 @@ describe("a replayed moment", () => {
 
   it("marks when each node finished", () => {
     expect(finishes(replay)).toEqual([2000]);
+  });
+
+  it("lays out when each node ran and how many threads it kept busy", () => {
+    const runs = runsOf(replay, profile.plan.physical, profile.wall_ms);
+    const scan = runs.lanes.get(1)!.stretches;
+    expect(scan.map((s) => [s.from, s.to])).toEqual([[0, 1000], [1000, 2000]]);
+    expect(scan.map((s) => s.load)).toEqual([0.4, 0.4]);
+    expect(runs.lanes.get(3)!.stretches).toEqual([{ from: 2000, to: 3200, load: 1000 / 1200 }]);
+    expect(runs.total.map((s) => s.from)).toEqual([0, 1000, 2000]);
+    expect(runs.total[2]!.load).toBeCloseTo(2000 / 1200);
+  });
+
+  it("traces each counter from zero through every sample to its final value", () => {
+    const [scan, , sink] = profile.plan.physical;
+    expect(history(replay, scan!, profile.wall_ms, "total_time_ns")).toEqual([[0, 0], [1000, 4e8], [2000, 8e8], [3200, 1e9]]);
+    expect(history(replay, sink!, profile.wall_ms, "rows_sent")).toEqual([[0, 0], [1000, 0], [2000, 0], [3200, 10]]);
   });
 
   it("is drawn as an overlay: states on nodes, moving dots on edges with rows flowing", () => {

@@ -3,7 +3,10 @@ import { PROP_LABELS, GLOSSARY } from "../lib/glossary";
 import { visibleCounters } from "../lib/counters";
 import { ROLES, conjunction, exprLines, roleOf } from "../lib/polars";
 import { impact, measured, ruleDocs } from "../lib/insights";
+import { useId } from "react";
+import type { Replay } from "../model/profile";
 import { bytes, customLabel, customValue, ms, nodeFacts, num } from "../lib/format";
+import { history } from "../lib/replay";
 import Help from "./Help";
 import Tip, { TipText } from "./Tip";
 import Code from "./Code";
@@ -64,9 +67,33 @@ interface Props {
   node: PlanNode | null;
   plan?: PlanNode[];
   findings?: Finding[];
+  /** With a recording: the node as it ended, and the moment being replayed. */
+  recorded?: { replay: Replay; final: PlanNode; end: number; t: number | null };
 }
 
-export default function NodeDetails({ node, plan = [], findings }: Props) {
+function MetricLine({ points, end, t, peak }: { points: [number, number][]; end: number; t: number | null; peak: boolean }) {
+  const clip = useId();
+  const top = Math.max(1e-9, ...points.map(([, v]) => v));
+  const xy = points.map(([ms, v]): [number, number] => [(ms / end) * 100, 29 - (v / top) * 26]);
+  const steps = peak ? xy.flatMap((p, i) => (i ? [[p[0], xy[i - 1]![1]] as [number, number], p] : [p])) : xy;
+  const line = steps.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(2)},${y.toFixed(2)}`).join("");
+  const area = `${line}L100,30L0,30Z`;
+  const x = t === null ? 100 : (t / end) * 100;
+  return (
+    <svg className="mline" viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true">
+      <clipPath id={clip}><rect width={x} height={30} /></clipPath>
+      <path className="mline-area mline--ahead" d={area} />
+      <path className="mline-line mline--ahead" d={line} vectorEffect="non-scaling-stroke" />
+      <g clipPath={`url(#${clip})`}>
+        <path className="mline-area" d={area} />
+        <path className="mline-line" d={line} vectorEffect="non-scaling-stroke" />
+      </g>
+      {t !== null && <line className="mline-at" x1={x} x2={x} y1={0} y2={30} vectorEffect="non-scaling-stroke" />}
+    </svg>
+  );
+}
+
+export default function NodeDetails({ node, plan = [], findings, recorded }: Props) {
   if (!node) return <div className="empty">Select a node in a plan.</div>;
   const m = node.metrics;
   const props = Object.entries(node.properties || {})
@@ -143,13 +170,17 @@ export default function NodeDetails({ node, plan = [], findings }: Props) {
               </div>
             );
           })}
-          {visibleCounters(m).map(({ label, key, unit }) => {
-            const raw = m[key] as number;
+          {visibleCounters(recorded?.final.metrics ?? m).map(({ label, key, unit, peak }) => {
+            const raw = Number(m[key] ?? 0);
             const v = unit === "ns" ? ms(raw / 1e6)
               : unit === "bytes" ? bytes(raw)
               : num(raw);
             return (
-              <div className="mrow" key={key}>
+              <div className={recorded ? "mrow mrow--line" : "mrow"} key={key}>
+                {recorded ? (
+                  <MetricLine points={history(recorded.replay, recorded.final, recorded.end, key)}
+                              end={recorded.end} t={recorded.t} peak={!!peak} />
+                ) : null}
                 <span className="k">{label}<Help term={key} /></span>
                 <span className="v">{v}{unit === "rows"
                   ? <span className="u">rows</span> : null}</span>

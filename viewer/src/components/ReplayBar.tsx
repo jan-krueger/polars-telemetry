@@ -1,18 +1,26 @@
-import { useEffect, useMemo, useRef, useState, type Dispatch } from "react";
+import { useEffect, useMemo, useRef, useState, type Dispatch, type KeyboardEvent } from "react";
 import type { Profile } from "../model/profile";
 import type { Action } from "../state/viewer";
 import { span } from "../lib/format";
-import { finishes } from "../lib/replay";
+import { finishes, peakOf, type Runs } from "../lib/replay";
+import RunChart from "./RunChart";
 
-const SPEEDS = [1, 4, 16];
+const WHOLE_RUN_MS = 12_000;
 
-/** Scrub or play through the query's run; the plan and node details follow. */
-export default function ReplayBar({ profile, at, dispatch }: { profile: Profile; at: number | null; dispatch: Dispatch<Action> }) {
+const times = (v: number): string => `${v >= 10 ? Math.round(v) : Number(v.toPrecision(2))}×`;
+
+/** Scrub or play through the query's run over a chart of how many threads it kept busy. */
+export default function ReplayBar({ profile, runs, at, dispatch }:
+  { profile: Profile; runs: Runs; at: number | null; dispatch: Dispatch<Action> }) {
   const replay = profile.replay!;
   const end = profile.wall_ms;
   const t = at ?? end;
+  const speeds = useMemo(() => {
+    const fitted = end / WHOLE_RUN_MS;
+    return Math.abs(Math.log2(fitted)) < 0.5 ? [1] : [fitted, 1];
+  }, [end]);
   const [playing, setPlaying] = useState(false);
-  const [speed, setSpeed] = useState(1);
+  const [speed, setSpeed] = useState(speeds[0]!);
   const position = useRef(t);
   position.current = t;
   const frameMs = profile.plan.physical.length > 200 ? 120 : 50;
@@ -41,19 +49,9 @@ export default function ReplayBar({ profile, at, dispatch }: { profile: Profile;
     return () => cancelAnimationFrame(frame);
   }, [playing, speed, end, frameMs, dispatch]);
 
-  const percent = (ms: number) => (end > 0 ? (ms / end) * 100 : 0);
-  const ticks = useMemo(() => {
-    const done = new Map<number, number>();
-    for (const ms of finishes(replay)) done.set(ms, (done.get(ms) ?? 0) + 1);
-    return (
-      <div className="replay-marks" aria-hidden="true">
-        {replay.times.map((ms) => <span key={`s${ms}`} className="replay-sample" style={{ left: `${percent(ms)}%` }} />)}
-        {[...done].map(([ms, n]) => (
-          <span key={ms} className="replay-mark" style={{ left: `${percent(ms)}%`, height: `${Math.min(18, 12 + n * 2)}px` }} />
-        ))}
-      </div>
-    );
-  }, [replay, end]);
+  const steps = useMemo(() => [0, ...replay.times, end], [replay, end]);
+  const done = useMemo(() => [...new Set(finishes(replay))], [replay]);
+  const peak = useMemo(() => peakOf(runs.total), [runs]);
 
   const go = (ms: number) => {
     setPlaying(false);
@@ -64,6 +62,14 @@ export default function ReplayBar({ profile, at, dispatch }: { profile: Profile;
     if (at === null) dispatch({ type: "replayed", at: 0 });
     setPlaying(true);
   };
+  const keys = (e: KeyboardEvent) => {
+    const next = e.key === "ArrowRight" ? steps.find((ms) => ms > t + 0.5)
+      : e.key === "ArrowLeft" ? steps.findLast((ms) => ms < t - 0.5) : undefined;
+    if (e.key === " ") play();
+    else if (next !== undefined) go(next);
+    else return;
+    e.preventDefault();
+  };
 
   return (
     <div className="replay" role="group" aria-label="Replay">
@@ -72,20 +78,18 @@ export default function ReplayBar({ profile, at, dispatch }: { profile: Profile;
           ? <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M5 3.5v9M11 3.5v9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
           : <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M5 3.2v9.6L12.5 8z" fill="currentColor" /></svg>}
       </button>
-      <button className="pane-btn replay-speed" onClick={() => setSpeed(SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length]!)}
-              aria-label={`Playback speed ${speed} times; change`}>{speed}×</button>
+      <button className="pane-btn replay-speed" onClick={() => setSpeed(speeds[(speeds.indexOf(speed) + 1) % speeds.length]!)}
+              aria-label={`Playback speed ${times(speed)}; change`}>{times(speed)}</button>
       <div className="replay-track">
-        {ticks}
+        <RunChart stretches={runs.total} end={end} peak={peak} t={at} floor={4} marker={false} />
+        <div className="replay-marks" aria-hidden="true">
+          {done.map((ms) => <span key={ms} className="replay-mark" style={{ left: `${(ms / end) * 100}%` }} />)}
+        </div>
         <input id="replay-position" type="range" min={0} max={end} step="any" value={t}
-               onChange={(e) => go(Number(e.target.value))}
-               aria-label="Moment of the query" aria-valuetext={at === null ? "the end" : `${span(t)} in`} />
+               onChange={(e) => go(Number(e.target.value))} onKeyDown={keys}
+               aria-label="Moment of the query" aria-valuetext={`${span(t)} in`} />
       </div>
-      <span className="replay-at">
-        {at === null ? <>End · <b>{span(end)}</b></> : <><b>{span(t)}</b> of {span(end)}</>}
-      </span>
-      <span className="replay-note">
-        Ticks: {replay.times.length} samples, interpolated between · tall ticks: nodes finishing
-      </span>
+      <span className="replay-at"><b>{span(t)}</b> / {span(end)}</span>
     </div>
   );
 }

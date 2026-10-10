@@ -3,7 +3,7 @@
 import dagre from "@dagrejs/dagre";
 import type { Edge, Node } from "@xyflow/react";
 import { rows as formatRows } from "./format";
-import { nodeAt, type Moment, type NodeState } from "./replay";
+import { nodeAt, type Lane, type Moment, type NodeState, type Runs } from "./replay";
 import type { Finding, PlanNode } from "../model/profile";
 import { badge } from "./insights";
 
@@ -131,6 +131,8 @@ export interface FlowData extends Record<string, unknown> {
   finding?: "warn" | "info" | null;
   /** While replaying: whether the node has started or finished at that moment. */
   live?: NodeState;
+  /** With a recording: when the node ran, and the moment being replayed. */
+  run?: { lane: Lane; end: number; peak: number; t: number | null };
 }
 
 export const cpuMs = (n: PlanNode): number => Number(n.metrics?.total_time_ns ?? 0) / 1e6;
@@ -178,8 +180,9 @@ export const flowSeconds = (rowsPerSecond: number): number =>
 export function toFlow(
   plan: PlanNode[],
   positions: Positions,
-  { logical, selectedId, thresholdMs = 0, findings, moment }:
-    { logical: boolean; selectedId: number | null; thresholdMs?: number; findings?: Map<number, Finding[]>; moment?: Moment | null },
+  { logical, selectedId, thresholdMs = 0, findings, moment, runs }:
+    { logical: boolean; selectedId: number | null; thresholdMs?: number; findings?: Map<number, Finding[]>;
+      moment?: Moment | null; runs?: Runs | null },
 ): { nodes: Node<FlowData>[]; edges: Edge[] } {
   const shown = moment && !logical ? plan.map((n) => nodeAt(n, moment)) : plan;
   const total = shown.reduce((sum, n) => sum + cpuMs(n), 0) || 1;
@@ -189,6 +192,10 @@ export function toFlow(
     !logical && thresholdMs > 0 && n.id !== selectedId && cpuMs(n) < thresholdMs;
   const live = (n: PlanNode): NodeState | undefined =>
     moment && !logical ? (moment.state.get(n.id) ?? "waiting") : undefined;
+  const run = (n: PlanNode): FlowData["run"] => {
+    const lane = !logical ? runs?.lanes.get(n.id) : undefined;
+    return lane && runs ? { lane, end: runs.end, peak: runs.peak, t: moment?.t ?? null } : undefined;
+  };
 
   const nodes = shown.map((n): Node<FlowData> => ({
     id: String(n.id),
@@ -198,7 +205,7 @@ export function toFlow(
     height: NODE_H,
     selected: selectedId === n.id,
     className: classes(faded(n) && "faded", badge(findings?.get(n.id)) && `flag-${badge(findings?.get(n.id))}`),
-    data: { node: n, share: (cpuMs(n) / total) * 100, logical, label: n.label, finding: badge(findings?.get(n.id)), live: live(n) },
+    data: { node: n, share: (cpuMs(n) / total) * 100, logical, label: n.label, finding: badge(findings?.get(n.id)), live: live(n), run: run(n) },
   }));
 
   const sent = (n: PlanNode | undefined): number | undefined => {
