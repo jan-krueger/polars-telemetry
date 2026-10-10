@@ -175,7 +175,11 @@ fn stored_token(data: &Path, bind: SocketAddr) -> std::io::Result<String> {
         hex
     });
     write_private(&path, &token)?;
-    let url = format!("http://{bind}");
+    let url = if bind.ip().is_unspecified() {
+        format!("http://localhost:{}", bind.port())
+    } else {
+        format!("http://{bind}")
+    };
     let mut out = std::io::stdout().lock();
     writeln!(
         out,
