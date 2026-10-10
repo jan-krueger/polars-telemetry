@@ -209,6 +209,7 @@ pub trait Index: Send + Sync {
     async fn facets(&self, filter: &Filter) -> Result<Facets>;
     async fn seen(&self, stream_id: &str) -> Result<Seen>;
     async fn set_seen(&self, stream_id: &str, seen: &Seen) -> Result<()>;
+    async fn delete(&self, query_ids: &[String]) -> Result<()>;
 }
 
 #[cfg(test)]

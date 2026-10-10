@@ -204,6 +204,29 @@ pub async fn a_stream_keeps_what_it_has_seen(index: &dyn Index) {
     assert_eq!(index.seen(stream).await.unwrap(), seen);
 }
 
+pub async fn deleted_queries_are_gone(index: &dyn Index) {
+    for (id, started) in [(1, 1_000), (2, 2_000), (3, 3_000)] {
+        index.put_query(&query(id, "a", started)).await.unwrap();
+    }
+    let gone = [
+        query(1, "a", 0).query_id,
+        query(2, "a", 0).query_id,
+        "missing".to_owned(),
+    ];
+    index.delete(&gone).await.unwrap();
+    let left = index
+        .list(
+            &Filter::default(),
+            Page {
+                limit: 10,
+                offset: 0,
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(left, [query(3, "a", 3_000)]);
+}
+
 #[macro_export]
 macro_rules! conformance {
     ($index:expr) => {
@@ -233,6 +256,11 @@ macro_rules! conformance {
             #[tokio::test]
             async fn facets_count_runs_per_value() {
                 $crate::conformance::facets_count_runs_per_value(&$index).await;
+            }
+
+            #[tokio::test]
+            async fn deleted_queries_are_gone() {
+                $crate::conformance::deleted_queries_are_gone(&$index).await;
             }
 
             #[tokio::test]

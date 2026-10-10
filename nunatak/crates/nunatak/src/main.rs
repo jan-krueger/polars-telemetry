@@ -13,6 +13,7 @@ use std::time::Duration;
 
 const QUIET: Duration = Duration::from_mins(1);
 const SWEEP: Duration = Duration::from_secs(10);
+const FORGET_EVERY: Duration = Duration::from_hours(1);
 
 #[derive(Parser)]
 #[command(version, about)]
@@ -33,6 +34,10 @@ struct Args {
         global = true
     )]
     data: PathBuf,
+
+    /// Delete runs that started more than this many days ago. Without it, every run is kept.
+    #[arg(long, env = "NUNATAK_KEEP_DAYS")]
+    keep_days: Option<u32>,
 
     /// Token exporters must send. Without one, Nunatak creates one in the data folder.
     #[arg(long, env = "NUNATAK_TOKEN", hide_env_values = true)]
@@ -92,6 +97,9 @@ async fn serve(args: Args) -> std::io::Result<()> {
         _ => stored_token(&args.data, args.ingest_bind.unwrap_or(args.bind))?,
     };
     tokio::spawn(close_silent(Arc::clone(&pipeline)));
+    if let Some(days) = args.keep_days {
+        tokio::spawn(forget_old(Arc::clone(&pipeline), days));
+    }
     let ingest = ingest_router(Arc::clone(&pipeline), token, Limits::default());
     let app = app_router(pipeline);
     let main = tokio::net::TcpListener::bind(args.bind).await?;
@@ -125,6 +133,23 @@ async fn close_silent(pipeline: Arc<Pipeline>) {
                 }
             }
             Err(error) => tracing::warn!("closing silent queries failed: {error}"),
+        }
+    }
+}
+
+async fn forget_old(pipeline: Arc<Pipeline>, days: u32) {
+    let mut every = tokio::time::interval(FORGET_EVERY);
+    loop {
+        every.tick().await;
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default();
+        let kept = Duration::from_hours(24 * u64::from(days));
+        let unix_ns = i64::try_from(now.saturating_sub(kept).as_nanos()).unwrap_or(i64::MAX);
+        match pipeline.forget_before(unix_ns).await {
+            Ok(0) => {}
+            Ok(forgotten) => tracing::info!(forgotten, days, "deleted runs older than the limit"),
+            Err(error) => tracing::warn!("deleting old runs failed: {error}"),
         }
     }
 }

@@ -339,6 +339,22 @@ impl Index for SqliteIndex {
         })
         .await
     }
+
+    async fn delete(&self, query_ids: &[String]) -> Result<()> {
+        let ids = query_ids.to_vec();
+        self.run(move |c| {
+            let transaction = c.unchecked_transaction()?;
+            {
+                let mut statement =
+                    transaction.prepare("DELETE FROM queries WHERE query_id = ?1")?;
+                for id in &ids {
+                    statement.execute([id])?;
+                }
+            }
+            transaction.commit()
+        })
+        .await
+    }
 }
 
 #[cfg(test)]

@@ -13,6 +13,8 @@ use std::sync::{Arc, PoisonError};
 use std::time::{Duration, Instant};
 use tokio::sync::Mutex;
 
+const FORGET_BATCH: u32 = 500;
+
 pub struct Pipeline {
     project: String,
     log: Arc<dyn Log>,
@@ -206,6 +208,39 @@ impl Pipeline {
             }
         }
         Ok(silent)
+    }
+
+    pub async fn forget_before(&self, unix_ns: i64) -> Result<usize> {
+        let filter = Filter {
+            project: Some(self.project.clone()),
+            until_unix_ns: Some(unix_ns),
+            ..Filter::default()
+        };
+        let mut forgotten = 0;
+        loop {
+            let page = Page {
+                limit: FORGET_BATCH,
+                offset: 0,
+            };
+            let old: Vec<QuerySummary> = self
+                .index
+                .list(&filter, page)
+                .await?
+                .into_iter()
+                .filter(|row| row.status != Status::Running)
+                .collect();
+            if old.is_empty() {
+                return Ok(forgotten);
+            }
+            for row in &old {
+                if let Some(key) = &row.recording {
+                    self.recordings.delete(key).await?;
+                }
+            }
+            let ids: Vec<String> = old.into_iter().map(|row| row.query_id).collect();
+            self.index.delete(&ids).await?;
+            forgotten += ids.len();
+        }
     }
 
     fn heard(&self) -> std::sync::MutexGuard<'_, HashMap<String, Instant>> {

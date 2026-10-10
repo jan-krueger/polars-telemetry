@@ -462,3 +462,47 @@ async fn a_closed_query_that_reports_again_keeps_everything_in_one_recording() {
     assert_eq!(stored.len(), 1);
     assert_eq!(lines(&stored[0]), all);
 }
+
+#[tokio::test]
+async fn old_runs_are_forgotten_with_their_recordings_but_running_ones_are_kept() {
+    let data = tempfile::tempdir().unwrap();
+    let pipeline = pipeline(data.path());
+    let app = ingest_router(Arc::clone(&pipeline), TOKEN.into(), Limits::default());
+    let finished = example("finished.jsonl");
+    let started: Value = serde_json::from_str(finished.lines().nth(1).unwrap()).unwrap();
+    let process: Value = serde_json::from_str(finished.lines().next().unwrap()).unwrap();
+    let running = example("unfinished.jsonl")
+        .replace(
+            started["query_id"].as_str().unwrap(),
+            "01a12532-0000-7000-8000-000000000001",
+        )
+        .replace(
+            process["id"].as_str().unwrap(),
+            "5f0c2a1e-0000-4000-8000-000000000002",
+        );
+    post(&app, TOKEN, gzip(&finished)).await;
+    post(&app, TOKEN, gzip(&running)).await;
+    assert_eq!(recordings(data.path()).len(), 1);
+
+    assert_eq!(pipeline.forget_before(0).await.unwrap(), 0);
+    assert_eq!(pipeline.forget_before(i64::MAX).await.unwrap(), 1);
+
+    let left = pipeline
+        .index()
+        .list(
+            &nunatak_store::Filter::default(),
+            nunatak_store::Page {
+                limit: 10,
+                offset: 0,
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        left.iter()
+            .map(|row| row.status.as_str())
+            .collect::<Vec<_>>(),
+        ["running"]
+    );
+    assert_eq!(recordings(data.path()).len(), 0);
+}
