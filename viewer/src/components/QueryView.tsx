@@ -12,7 +12,7 @@ import { documentsFor } from "../share/session";
 import { title, type Action, type ViewerState } from "../state/viewer";
 import PlanPane from "./PlanPane";
 import ReplayBar from "./ReplayBar";
-import type { Moment } from "../lib/replay";
+import { replayEnd, type Moment } from "../lib/replay";
 import ShareDialog, { type Copy, type Sharing } from "./ShareDialog";
 import ShareMenu from "./ShareMenu";
 import Tip, { TipText } from "./Tip";
@@ -124,7 +124,7 @@ export default function QueryView({ state, dispatch, session, profile, moment, f
         )}
       </div>
 
-      {profile.replay && <ReplayBar key={profile.query_id} profile={profile} at={state.replayAt} dispatch={dispatch} />}
+      {profile.replay && replayEnd(profile) > 0 && <ReplayBar key={profile.query_id} profile={profile} at={state.replayAt} dispatch={dispatch} />}
 
       <div className={alone ? `plans alone-${alone}` : "plans"}>
         <PlanPane key={`logical-${profile.query_id}`} title="Logical plan"

@@ -152,21 +152,7 @@ export function derivedRole(node: Pick<RawNode, "kind" | "properties">): Role {
   return BY_KIND[node.kind] ?? "unknown";
 }
 
-/** `col("region")` → `region`; anything else comes back as written. */
-export function exprColumn(expr: unknown): string {
-  const text = String(expr ?? "");
-  const match = /^col\("((?:[^"\\]|\\.)*)"\)$/.exec(text);
-  return match?.[1] ?? text;
-}
-
 const asList = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
-
-/** `keys` in the IR, `key_per_input` in the physical plan. */
-export function groupKeys(properties: Record<string, unknown>): string[] {
-  const flat = asList(properties.keys);
-  const nested = asList(properties.key_per_input).flatMap(asList);
-  return (flat.length ? flat : nested).map(exprColumn);
-}
 
 /** Either separator. */
 export const basename = (path: string): string => path.split(/[\\/]/).pop() ?? path;
@@ -218,7 +204,7 @@ export function nodeVariant(node: RawNode): string {
   return "";
 }
 
-/** What the node works on: its source, keys or columns, never a value. Empty when there is nothing to add. */
+/** What the node works on: its source, keys, columns or condition. Empty when there is nothing to add. */
 export function nodeSubject(node: RawNode): string {
   const p = node.properties ?? {};
   const role = roleOf(node);
@@ -266,20 +252,21 @@ export function nodeSubject(node: RawNode): string {
     }
     case "projection": case "map": {
       const exprs = asList(p.selectors).length ? asList(p.selectors) : asList(p.exprs);
-      const names = exprs.map(outputName).filter((n): n is string => !!n && !TEMP.test(n));
-      if (!names.length) return "";
-      return (p.extend_original === true || node.kind === "HStack" ? "adds " : "") + few(names);
+      const names = exprs.map(outputName);
+      if (!names.some((n) => n && !TEMP.test(n))) return "";
+      const adds = p.extend_original === true || node.kind === "HStack" ? "adds " : "";
+      return adds + (names.every((n) => n && !TEMP.test(n)) ? few(names as string[]) : counted(names.length, "column"));
     }
     case "function":
+      if (node.kind === "Slice" && Number.isFinite(Number(p.offset)) && Number.isFinite(Number(p.length))) {
+        return rows([p.offset, p.length]);
+      }
       return typeof p.function === "string" ? p.function : "";
     case "sink": {
       const target = typeof p.target === "string" ? p.target : typeof p.dest === "string" && p.dest !== "Memory" ? p.dest : "";
       return target ? `→ ${basename(target)}` : "";
     }
     default:
-      if (node.kind === "Slice" && Number.isFinite(Number(p.offset)) && Number.isFinite(Number(p.length))) {
-        return `rows ${Number(p.offset)}–${Number(p.offset) + Number(p.length)}`;
-      }
       return "";
   }
 }
@@ -297,7 +284,8 @@ const present = (value: unknown): boolean => value != null && value !== "None" &
 /** `[0, 100]` → `rows 0–100`; any other shape as written. */
 function rows(slice: unknown): string {
   const [offset, length] = asList(slice).map(Number);
-  return Number.isFinite(offset) && Number.isFinite(length) ? `rows ${offset}–${offset! + length!}` : String(slice);
+  if (!Number.isFinite(offset) || !Number.isFinite(length)) return String(slice);
+  return offset! < 0 ? `last ${-offset!} rows` : `rows ${offset}–${offset! + length!}`;
 }
 
 /** Work a node did not have to do: what was pushed into a scan, or a sort that keeps only some rows. */
@@ -308,15 +296,17 @@ export function nodeMarks(node: RawNode): Mark[] {
   if (role === "scan") {
     if (present(p.predicate)) {
       const conditions = Array.isArray(p.predicate) ? p.predicate : [p.predicate];
-      marks.push({ kind: "filter", name: "predicate pushdown", detail: conditions.map(plain).join(" & ") });
+      const computed = conditions.flatMap(columnsIn).some((c) => TEMP.test(c));
+      marks.push({ kind: "filter", name: "predicate pushdown", detail: computed ? "computed condition" : conditions.map(plain).join(" & ") });
     }
     const read = asList(p.projected_file_columns).length ? asList(p.projected_file_columns) : asList(p.projection);
     if (read.length) {
       const all = asList(p.file_columns).length;
+      const named = read.map(String).filter((c) => !TEMP.test(c));
       marks.push({
         kind: "columns",
         name: "projection pushdown",
-        detail: `${all ? `${read.length}/${all}` : read.length}: ${read.map(String).join(", ")}`,
+        detail: `${all ? `${read.length}/${all}` : read.length}${named.length ? `: ${named.join(", ")}` : ""}`,
       });
     }
     if (present(p.pre_slice)) marks.push({ kind: "limit", name: "slice pushdown", detail: rows(p.pre_slice) });

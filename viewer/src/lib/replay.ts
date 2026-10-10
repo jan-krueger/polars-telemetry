@@ -1,4 +1,4 @@
-import type { Metrics, PlanNode, Replay, Series } from "../model/profile";
+import type { Metrics, PlanNode, Profile, Replay, Series } from "../model/profile";
 import { PEAKS } from "./counters";
 
 export type NodeState = "waiting" | "running" | "done";
@@ -88,12 +88,27 @@ export function momentAt(replay: Replay, t: number): Moment {
 
 /** How one of a node's counters stood at each sample, from 0 at the start to its final value at `end`. */
 export function history(replay: Replay, final: PlanNode, end: number, key: string): [number, number][] {
+  const cache = histories.get(replay) ?? new Map<string, [number, number][]>();
+  histories.set(replay, cache);
+  const id = `${final.id}:${key}:${end}`;
+  let points = cache.get(id);
+  if (!points) cache.set(id, (points = trace(replay, final, end, key)));
+  return points;
+}
+
+const histories = new WeakMap<Replay, Map<string, [number, number][]>>();
+
+function trace(replay: Replay, final: PlanNode, end: number, key: string): [number, number][] {
   const series = replay.nodes.get(final.id);
   const points: [number, number][] = [[0, 0]];
   replay.times.forEach((ms, i) => points.push([ms, count(asOf(series, i), key)]));
   if (end > points[points.length - 1]![0]) points.push([end, count(final.metrics ?? undefined, key)]);
   return points;
 }
+
+/** Where a replay ends: the query's wall time, or its last sample if that came later. */
+export const replayEnd = (profile: Profile): number =>
+  Math.max(profile.wall_ms, profile.replay?.times[profile.replay.times.length - 1] ?? 0);
 
 /** A plan node with the counters it had at `moment`. */
 export const nodeAt = (node: PlanNode, moment: Moment): PlanNode =>

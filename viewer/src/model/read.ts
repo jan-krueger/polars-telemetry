@@ -6,7 +6,6 @@ import { isEvent, profilesFromEvents } from "./events";
 import { SCHEMA_PREFIX, isObject } from "./schema";
 import { ranOf } from "../lib/time";
 
-export { SCHEMA_PREFIX };
 export const SUPPORTED_VERSIONS: ReadonlySet<number> = new Set([1]);
 
 export type Read = { profile: Profile } | { problem: string };
@@ -75,8 +74,8 @@ function readV1(raw: Record<string, unknown>, schema: string, position?: number)
   if (typeof logical === "string") return { problem: logical };
 
   const site = isObject(raw.call_site) ? raw.call_site : null;
-  const replay = readReplay(raw.replay);
   const unfinished = raw.unfinished === true;
+  const replay = readReplay(raw.replay, unfinished ? null : physical, num(raw.wall_ms));
   const nodes = unfinished ? lastCounters(physical, replay) : physical;
   return {
     profile: {
@@ -105,25 +104,41 @@ function readV1(raw: Record<string, unknown>, schema: string, position?: number)
   };
 }
 
-/** Each sample lists only the nodes whose counters changed; keep it that sparse. */
-function readReplay(value: unknown): Replay | null {
-  if (!isObject(value) || !Array.isArray(value.samples) || !value.samples.length) return null;
-  const times: number[] = [];
-  const nodes = new Map<number, Series>();
+/**
+ * Each sample lists only the nodes whose counters changed; keep it that sparse. A finished query's own
+ * counters close the replay as one more sample at its end, so it runs all the way to how the query ended.
+ */
+function readReplay(value: unknown, final: PlanNode[] | null, end: number): Replay | null {
+  if (!isObject(value) || !Array.isArray(value.samples)) return null;
+  const byTime = new Map<number, Record<string, unknown>>();
   for (const sample of value.samples) {
     if (!isObject(sample) || !Number.isFinite(sample.t)) continue;
-    const index = times.push(sample.t as number) - 1;
-    if (!isObject(sample.nodes)) continue;
-    for (const [key, counters] of Object.entries(sample.nodes)) {
-      const id = Number(key);
-      if (!isObject(counters) || !Number.isFinite(id)) continue;
-      let series = nodes.get(id);
-      if (!series) nodes.set(id, (series = { at: [], metrics: [] }));
-      series.at.push(index);
-      series.metrics.push(scalars(counters) as Metrics);
-    }
+    const nodes = isObject(sample.nodes) ? sample.nodes : {};
+    byTime.set(sample.t as number, { ...byTime.get(sample.t as number), ...nodes });
   }
-  return times.length ? { times, nodes } : null;
+  if (!byTime.size) return null;
+  const times = [...byTime.keys()].sort((a, b) => a - b);
+  const nodes = new Map<number, Series>();
+  const record = (id: number, index: number, metrics: Metrics) => {
+    let series = nodes.get(id);
+    if (!series) nodes.set(id, (series = { at: [], metrics: [] }));
+    if (series.at[series.at.length - 1] === index) series.metrics[series.metrics.length - 1] = metrics;
+    else {
+      series.at.push(index);
+      series.metrics.push(metrics);
+    }
+  };
+  times.forEach((t, index) => {
+    for (const [key, counters] of Object.entries(byTime.get(t)!)) {
+      const id = Number(key);
+      if (isObject(counters) && Number.isFinite(id)) record(id, index, scalars(counters) as Metrics);
+    }
+  });
+  if (final) {
+    const index = end > times[times.length - 1]! ? times.push(end) - 1 : times.length - 1;
+    for (const node of final) if (node.metrics) record(node.id, index, node.metrics);
+  }
+  return { times, nodes };
 }
 
 /** A query the recording ended before keeps the counters of its last sample. */

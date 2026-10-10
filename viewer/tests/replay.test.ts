@@ -21,9 +21,14 @@ const event = (type: string, extra: Record<string, unknown>) => ({ schema: EVENT
 const profileDoc = (extra: Record<string, unknown> = {}) =>
   ({ schema: "polars-telemetry/profile@1", query_id: "q1", label: "nightly", plan, ...extra });
 
+const ended = [
+  { rows_sent: 900, total_time_ns: 8e8, done: true },
+  { rows_received: 900, rows_sent: 50, total_time_ns: 1e9, done: true },
+  { rows_received: 50, total_time_ns: 1e8, done: true },
+];
 const finishedProfile = profileDoc({
   wall_ms: 3200,
-  plan: { ...plan, physical: plan.physical.map((n) => ({ ...n, metrics: { total_time_ns: 1e9, rows_sent: 10, done: true } })) },
+  plan: { ...plan, physical: plan.physical.map((n, i) => ({ ...n, metrics: ended[i] })) },
 });
 const finished = event("query.finished", { profile: finishedProfile });
 const started = event("query.started", { profile: profileDoc({ redacted: ["strings"] }) });
@@ -39,13 +44,13 @@ describe("events files", () => {
     expect(rejected).toEqual([]);
     expect(profiles).toHaveLength(1);
     expect(profile.wall_ms).toBe(3200);
-    expect(replay.times).toEqual([1000, 2000]);
+    expect(replay.times).toEqual([1000, 2000, 3200]);
   });
 
   it("keep each node's samples only where its counters changed", () => {
-    expect(replay.nodes.get(1)!.at).toEqual([0, 1]);
-    expect(replay.nodes.get(2)!.at).toEqual([0]);
-    expect(replay.nodes.has(3)).toBe(false);
+    expect(replay.nodes.get(1)!.at).toEqual([0, 1, 2]);
+    expect(replay.nodes.get(2)!.at).toEqual([0, 2]);
+    expect(replay.nodes.get(3)!.at).toEqual([2]);
   });
 
   it("keep a query the recording ended before, with its last counters and its masking", () => {
@@ -77,6 +82,13 @@ describe("events files", () => {
     expect(Object.keys(cut!.plan.physical[0]!.metrics!)).toEqual(expect.arrayContaining(["rows_sent", "total_time_ns", "morsels_sent"]));
   });
 
+  it("run on to how the query ended, after the last sample, and sort samples that arrived out of order", () => {
+    expect(momentAt(replay, 2600).metrics.get(2)).toMatchObject({ rows_received: 650 });
+    expect(momentAt(replay, 2600).state.get(3)).toBe("running");
+    const shuffled = readJsonl(toJsonl([started, progress2, progress1, finished])).profiles[0]!.replay!;
+    expect(shuffled.times).toEqual([1000, 2000, 3200]);
+  });
+
   it("leave a query without samples as it was", () => {
     const [plain] = readJsonl(toJsonl([finished])).profiles;
     expect(plain!.replay).toBeNull();
@@ -88,6 +100,22 @@ describe("events files", () => {
     const both = new Uint8Array([...gzipSync(strToU8(halves[0]!)), ...gzipSync(strToU8(halves[1]!))]);
     expect(isGzip(both)).toBe(true);
     expect(gunzipText(both)).toBe(halves.join(""));
+  });
+
+  it("are read up to the cut when the writing process died mid-batch", () => {
+    const halves = [toJsonl([started]), toJsonl([finished])];
+    const second = gzipSync(strToU8(halves[1]!));
+    const cut = new Uint8Array([...gzipSync(strToU8(halves[0]!)), ...second.slice(0, 20)]);
+    expect(gunzipText(cut)).toBe(halves[0]);
+    expect(gunzipText(new Uint8Array([...gzipSync(strToU8(halves[0]!)), 0, 0, 0, 0]))).toBe(halves[0]);
+  });
+
+  it("share a query the recording cut off with its last counters", () => {
+    const { raw } = readJsonl(toJsonl([started, progress1]));
+    const opened = openShareFragment(shareFragment(raw));
+    const [shared] = "documents" in opened ? readJsonl(toJsonl(opened.documents)).profiles : [];
+    expect(shared!.replay).toBeNull();
+    expect(shared!.plan.physical[0]!.metrics).toMatchObject({ rows_sent: 500 });
   });
 
   it("leave their samples out of share links", () => {
@@ -130,20 +158,20 @@ describe("a replayed moment", () => {
   });
 
   it("marks when each node finished", () => {
-    expect(finishes(replay)).toEqual([2000]);
+    expect(finishes(replay)).toEqual([2000, 3200, 3200]);
   });
 
   it("adds up how many threads the query kept busy between each two samples", () => {
     const threads = busy(replay, profile.plan.physical, profile.wall_ms);
     expect(threads.map((s) => [s.from, s.to])).toEqual([[0, 1000], [1000, 2000], [2000, 3200]]);
     expect(threads[0]!.load).toBeCloseTo(0.4);
-    expect(threads[2]!.load).toBeCloseTo(2000 / 1200);
+    expect(threads[2]!.load).toBeCloseTo(1100 / 1200);
   });
 
   it("traces each counter from zero through every sample to its final value", () => {
     const [scan, , sink] = profile.plan.physical;
-    expect(history(replay, scan!, profile.wall_ms, "total_time_ns")).toEqual([[0, 0], [1000, 4e8], [2000, 8e8], [3200, 1e9]]);
-    expect(history(replay, sink!, profile.wall_ms, "rows_sent")).toEqual([[0, 0], [1000, 0], [2000, 0], [3200, 10]]);
+    expect(history(replay, scan!, profile.wall_ms, "total_time_ns")).toEqual([[0, 0], [1000, 4e8], [2000, 8e8], [3200, 8e8]]);
+    expect(history(replay, sink!, profile.wall_ms, "rows_received")).toEqual([[0, 0], [1000, 0], [2000, 0], [3200, 50]]);
   });
 
   it("is drawn as an overlay: states on nodes, moving dots on edges with rows flowing", () => {
@@ -154,6 +182,12 @@ describe("a replayed moment", () => {
     expect(scan.className).toContain("flowing");
     expect(scan.data).toEqual({ rate: 1 / flowSeconds(500) });
     expect(edges.find((e) => e.source === "2")!.data).toEqual({});
+  });
+
+  it("keeps the focus of the whole run while replaying", () => {
+    const positions = Object.fromEntries(plan.physical.map((n) => [String(n.id), { x: 0, y: 0 }]));
+    const { nodes } = toFlow(profile.plan.physical, positions, { logical: false, selectedId: null, thresholdMs: 500, moment: momentAt(replay, 100) });
+    expect(nodes.map((n) => String(n.className).includes("faded"))).toEqual([false, false, true]);
   });
 
   it("moves the dots faster for more rows, within readable bounds", () => {

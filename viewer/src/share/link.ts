@@ -23,11 +23,20 @@ function fromBase64Url(text: string): Uint8Array {
 }
 
 /** Samples stay out of links: they make one far too long, and the downloaded session keeps them. */
-const withoutReplay = (document: unknown): unknown => {
+/** Samples stay out of links; a query the recording cut off keeps each node's last counters instead. */
+function withoutReplay(document: unknown): unknown {
   if (!isObject(document) || !("replay" in document)) return document;
-  const { replay: _, ...rest } = document;
-  return rest;
-};
+  const { replay, ...rest } = document;
+  if (rest.unfinished !== true || !isObject(replay) || !Array.isArray(replay.samples) || !isObject(rest.plan)) return rest;
+  const last = new Map<string, unknown>();
+  const samples = replay.samples.filter(isObject).sort((a, b) => Number(a.t) - Number(b.t));
+  for (const sample of samples) if (isObject(sample.nodes)) for (const [id, counters] of Object.entries(sample.nodes)) last.set(id, counters);
+  const physical = Array.isArray(rest.plan.physical) ? rest.plan.physical : [];
+  return {
+    ...rest,
+    plan: { ...rest.plan, physical: physical.map((n) => (isObject(n) && !n.metrics && last.has(String(n.id)) ? { ...n, metrics: last.get(String(n.id)) } : n)) },
+  };
+}
 
 export function shareFragment(documents: unknown[]): string {
   const packed = deflateSync(strToU8(JSON.stringify(documents.map(withoutReplay))), { level: 9, dictionary: DICTIONARIES[CURRENT] });

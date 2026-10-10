@@ -171,13 +171,13 @@ export function stepFor(steps: FocusStep[], coverage: number | null): number {
   return chosen;
 }
 
-/** Faster dots for more rows per second: 0.25 s per step at tens of millions, 1.6 s at a thousand. */
+/** Faster dots for more rows per second: 1.6 s per step at a thousand, 0.25 s from a hundred million. */
 export const flowSeconds = (rowsPerSecond: number): number =>
   Math.min(1.6, Math.max(0.25, 1.6 - 0.27 * Math.max(0, Math.log10(rowsPerSecond) - 3)));
 
 const HANDLE = 6;
 
-/** Nodes have a fixed size, so their handles are known up front and never need measuring again when a node's data changes. */
+/** Fixed, so React Flow never re-measures a node whose data changed. */
 const HANDLES: NodeHandle[] = [
   { type: "target", position: Position.Bottom, x: NODE_W / 2 - HANDLE / 2, y: NODE_H - HANDLE / 2, width: HANDLE, height: HANDLE },
   { type: "source", position: Position.Top, x: NODE_W / 2 - HANDLE / 2, y: -HANDLE / 2, width: HANDLE, height: HANDLE },
@@ -193,8 +193,9 @@ export function toFlow(
   const total = shown.reduce((sum, n) => sum + cpuMs(n), 0) || 1;
   const byId = new Map(shown.map((n) => [n.id, n]));
   // The selected node stays lit so the details never describe a faded node.
+  const whole = new Map(plan.map((n) => [n.id, n]));
   const faded = (n: PlanNode): boolean =>
-    !logical && thresholdMs > 0 && n.id !== selectedId && cpuMs(n) < thresholdMs;
+    !logical && thresholdMs > 0 && n.id !== selectedId && cpuMs(whole.get(n.id) ?? n) < thresholdMs;
   const live = (n: PlanNode): NodeState | undefined =>
     moment && !logical ? (moment.state.get(n.id) ?? "waiting") : undefined;
 

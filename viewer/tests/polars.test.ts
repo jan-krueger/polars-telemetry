@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { basename, chainLines, conjunction, exprLines, derivedRole, exprColumn, nodeMarks, nodeSubject, nodeVariant, relationName, roleOf, type RawNode } from "../src/lib/polars";
+import { basename, chainLines, conjunction, exprLines, derivedRole, nodeMarks, nodeSubject, nodeVariant, relationName, roleOf, type RawNode } from "../src/lib/polars";
 
 const profile = JSON.parse(
   readFileSync(new URL("./fixtures/profile.json", import.meta.url), "utf8"),
@@ -32,23 +32,6 @@ describe("roles", () => {
 
   it("calls a kind it has never seen unknown, without throwing", () => {
     expect(derivedRole({ kind: "HashJoin" })).toBe("unknown");
-  });
-});
-
-describe("exprColumn", () => {
-  it.each([
-    ['col("region")', "region"],
-    ['col("with \\"quote\\"")', 'with \\"quote\\"'],
-    ['col("a").dt.year()', 'col("a").dt.year()'],
-    ["lit(5)", "lit(5)"],
-    ["", ""],
-  ])("%s → %s", (input, expected) => {
-    expect(exprColumn(input)).toBe(expected);
-  });
-
-  it("never throws on a value that is not a string", () => {
-    expect(exprColumn(undefined)).toBe("");
-    expect(exprColumn(42)).toBe("42");
   });
 });
 
@@ -93,6 +76,13 @@ describe("node text", () => {
     expect(nodeSubject(node("SimpleProjection", { columns: ["a", "b"] }))).toBe("");
     expect(nodeSubject(node("InMemorySink", {}))).toBe("");
     expect(nodeSubject(node("Select", { selectors: ['col("a").alias("total")'], extend_original: true }))).toBe("adds total");
+  });
+
+  it("never puts an internal name in a mark, and reads a tail as the last rows", () => {
+    const scan = node("MultiScan", { predicate: 'col("_POLARS_TMP_PHYS_3")', projected_file_columns: ["a", "_POLARS_TMP_PHYS_4"] });
+    expect(nodeMarks(scan).map((m) => m.detail)).toEqual(["computed condition", "2: a"]);
+    expect(nodeSubject(node("Slice", { offset: -5, length: 5 }))).toBe("last 5 rows");
+    expect(nodeSubject(node("Select", { selectors: ['col("a").alias("x")', 'col("b").alias("_POLARS_TMP_PHYS_1")'], extend_original: true }))).toBe("adds 2 columns");
   });
 
   it("marks the work a scan or sort did not have to do", () => {

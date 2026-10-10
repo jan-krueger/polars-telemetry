@@ -6,7 +6,7 @@ import NodeDetails from "./components/NodeDetails";
 import Notice from "./components/Notice";
 import Overview from "./components/Overview";
 import QueryView from "./components/QueryView";
-import { momentAt, nodeAt } from "./lib/replay";
+import { momentAt, nodeAt, replayEnd } from "./lib/replay";
 import { SessionsPage } from "./components/Sessions";
 import Sidebar from "./components/Sidebar";
 import StartPage from "./components/StartPage";
@@ -84,7 +84,7 @@ export default function App() {
                          plan={physical ? physicalAt : undefined}
                          findings={physical ? findings.get(state.node!.id) : undefined}
                          recorded={physical && profile?.replay && picked
-                           ? { replay: profile.replay, final: picked, end: profile.wall_ms, t: moment?.t ?? null } : undefined} />
+                           ? { replay: profile.replay, final: picked, end: replayEnd(profile), t: moment?.t ?? null } : undefined} />
           )}
         </aside>
       </div>

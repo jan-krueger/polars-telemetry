@@ -1,4 +1,4 @@
-import type { ReactElement } from "react";
+import { memo, type ReactElement } from "react";
 import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
 import { ROLES, nodeMarks, nodeVariant, roleOf, type MarkKind } from "../lib/polars";
 import { num, span } from "../lib/format";
@@ -47,7 +47,7 @@ function Mark({ kind, name, detail, tone }: { kind: MarkKind | "open"; name: str
 }
 
 // Logical nodes have no counters: outlined, never filled by CPU share.
-export default function PlanNode({ data, selected }: NodeProps<Node<FlowData>>) {
+function PlanNode({ data, selected }: NodeProps<Node<FlowData>>) {
   const { node, share, logical, label, far, finding, live } = data;
   const role = roleOf(node);
   const info = ROLES[role];
@@ -100,3 +100,4 @@ export default function PlanNode({ data, selected }: NodeProps<Node<FlowData>>) 
   );
 }
 
+export default memo(PlanNode);

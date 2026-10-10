@@ -100,6 +100,7 @@ export default function NodeDetails({ node, plan = [], findings, recorded }: Pro
     .filter(([k, v]) => v != null && k !== "type" && !(Array.isArray(v) && !v.length));
   const info = ROLES[roleOf(node)];
   const replaying = recorded !== undefined && recorded.t !== null;
+  const between = replaying && !recorded.replay.times.includes(recorded.t!);
   const started = !!m && Object.entries(m).some(([k, v]) => k !== "done" && typeof v === "number" && v > 0);
 
   return (
@@ -173,7 +174,6 @@ export default function NodeDetails({ node, plan = [], findings, recorded }: Pro
           })}
           {visibleCounters(recorded?.final.metrics ?? m).map(({ label, key, unit, peak }) => {
             const raw = Number(m[key] ?? 0);
-            const between = recorded && recorded.t !== null && !recorded.replay.times.includes(recorded.t);
             const v = unit === "ns" ? ms(raw / 1e6)
               : unit === "bytes" ? bytes(raw)
               : num(raw);

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { getBezierPath, type Edge, type EdgeProps } from "@xyflow/react";
 
-export type FlowEdgeData = { rate?: number };
+type FlowEdgeData = { rate?: number };
 
 const STEP = 9.1;
 const still = () => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;

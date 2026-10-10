@@ -12,7 +12,7 @@ interface Life {
   finished?: Doc;
 }
 
-/** Each query's life so far, one event at a time: a whole file, or a stream as it arrives. */
+/** Each query's life so far, built one event at a time. */
 export class EventLog {
   private readonly lives = new Map<string, Life>();
 
