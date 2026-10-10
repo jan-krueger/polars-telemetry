@@ -129,8 +129,6 @@ export interface FlowData extends Record<string, unknown> {
   label: string;
   far?: boolean;
   finding?: "warn" | "info" | null;
-  /** While replaying: whether the node has started or finished at that moment. */
-  live?: NodeState;
 }
 
 export const cpuMs = (n: PlanNode): number => Number(n.metrics?.total_time_ns ?? 0) / 1e6;
@@ -183,23 +181,27 @@ const HANDLES: NodeHandle[] = [
   { type: "source", position: Position.Top, x: NODE_W / 2 - HANDLE / 2, y: -HANDLE / 2, width: HANDLE, height: HANDLE },
 ];
 
+const sent = (n: PlanNode | undefined): number | undefined => {
+  const rows = n?.metrics?.rows_sent;
+  return typeof rows === "number" ? rows : undefined;
+};
+
+const busiestOf = (plan: PlanNode[]): number => Math.max(0, ...plan.map((n) => sent(n) ?? 0));
+
+/** The plan as it ended. While replaying it stays as it is; `liveFlow` lays the moment over it. */
 export function toFlow(
   plan: PlanNode[],
   positions: Positions,
-  { logical, selectedId, thresholdMs = 0, findings, moment }:
-    { logical: boolean; selectedId: number | null; thresholdMs?: number; findings?: Map<number, Finding[]>; moment?: Moment | null },
+  { logical, selectedId, thresholdMs = 0, findings }:
+    { logical: boolean; selectedId: number | null; thresholdMs?: number; findings?: Map<number, Finding[]> },
 ): { nodes: Node<FlowData>[]; edges: Edge[] } {
-  const shown = moment && !logical ? plan.map((n) => nodeAt(n, moment)) : plan;
-  const total = shown.reduce((sum, n) => sum + cpuMs(n), 0) || 1;
-  const byId = new Map(shown.map((n) => [n.id, n]));
+  const total = plan.reduce((sum, n) => sum + cpuMs(n), 0) || 1;
+  const byId = new Map(plan.map((n) => [n.id, n]));
   // The selected node stays lit so the details never describe a faded node.
-  const whole = new Map(plan.map((n) => [n.id, n]));
   const faded = (n: PlanNode): boolean =>
-    !logical && thresholdMs > 0 && n.id !== selectedId && cpuMs(whole.get(n.id) ?? n) < thresholdMs;
-  const live = (n: PlanNode): NodeState | undefined =>
-    moment && !logical ? (moment.state.get(n.id) ?? "waiting") : undefined;
+    !logical && thresholdMs > 0 && n.id !== selectedId && cpuMs(n) < thresholdMs;
 
-  const nodes = shown.map((n): Node<FlowData> => ({
+  const nodes = plan.map((n): Node<FlowData> => ({
     id: String(n.id),
     type: "plan",
     position: positions[String(n.id)] ?? { x: 0, y: 0 },
@@ -209,35 +211,84 @@ export function toFlow(
     handles: HANDLES,
     selected: selectedId === n.id,
     className: classes(faded(n) && "faded", badge(findings?.get(n.id)) && `flag-${badge(findings?.get(n.id))}`),
-    data: { node: n, share: (cpuMs(n) / total) * 100, logical, label: n.label, finding: badge(findings?.get(n.id)), live: live(n) },
+    data: { node: n, share: (cpuMs(n) / total) * 100, logical, label: n.label, finding: badge(findings?.get(n.id)) },
   }));
 
-  const sent = (n: PlanNode | undefined): number | undefined => {
-    const rows = n?.metrics?.rows_sent;
-    return typeof rows === "number" ? rows : undefined;
-  };
-  const busiest = logical ? 0 : Math.max(0, ...shown.map((n) => sent(n) ?? 0));
-
-  const edges = shown.flatMap((n) =>
+  const busiest = logical ? 0 : busiestOf(plan);
+  const edges = plan.flatMap((n) =>
     n.inputs.flatMap((input): Edge[] => {
       const upstream = byId.get(input);
       if (!upstream) return [];
       const rows = logical ? undefined : sent(upstream);
-      const flow = moment?.flow.get(input) ?? 0;
       return [{
         id: `${input}-${n.id}`,
-        ...(logical ? {} : { type: "flow", data: flow > 0 ? { rate: 1 / flowSeconds(flow) } : {} }),
-        className: classes(faded(upstream) || faded(n) ? "faded" : false, flow > 0 && "flowing"),
+        ...(logical ? {} : { type: "flow" }),
+        className: classes(faded(upstream) || faded(n) ? "faded" : false),
         source: String(input),
         target: String(n.id),
         label: rows === undefined ? undefined : `${formatRows(rows)} rows`,
         style: logical
           ? { stroke: "var(--axis)", strokeDasharray: "4 3" }
-          : flow > 0
-            ? { strokeWidth: Math.max(2.5, edgeWidth(rows, busiest)) }
-            : { stroke: "var(--axis)", strokeWidth: edgeWidth(rows, busiest) },
+          : { stroke: "var(--axis)", strokeWidth: edgeWidth(rows, busiest) },
       }];
     }),
   );
   return { nodes, edges };
+}
+
+/** A node at the replayed moment. */
+export interface NodeLive {
+  node: PlanNode;
+  share: number;
+  state: NodeState;
+}
+
+/** An edge at the replayed moment; `rate` only while rows flow along it. */
+export interface EdgeLive {
+  label?: string;
+  width: number;
+  rate?: number;
+}
+
+export interface Live {
+  nodes: Map<string, NodeLive>;
+  edges: Map<string, EdgeLive>;
+}
+
+/**
+ * The physical plan at `moment`, scaled like the whole run so a node or edge that did not change keeps its entry:
+ * with `previous`, each one that is the same as before is the very same object.
+ */
+export function liveFlow(plan: PlanNode[], moment: Moment, previous?: Live | null): Live {
+  const total = plan.reduce((sum, n) => sum + cpuMs(n), 0) || 1;
+  const busiest = busiestOf(plan);
+  const shown = new Map(plan.map((n) => [n.id, nodeAt(n, moment)]));
+  const nodes = new Map<string, NodeLive>();
+  const edges = new Map<string, EdgeLive>();
+  for (const [id, node] of shown) {
+    const live: NodeLive = { node, share: (cpuMs(node) / total) * 100, state: moment.state.get(id) ?? "waiting" };
+    nodes.set(String(id), reuse(previous?.nodes.get(String(id)), live));
+    for (const input of node.inputs) {
+      const upstream = shown.get(input);
+      if (!upstream) continue;
+      const rows = sent(upstream);
+      const flow = moment.flow.get(input) ?? 0;
+      const edge: EdgeLive = {
+        label: rows === undefined ? undefined : `${formatRows(rows)} rows`,
+        width: edgeWidth(rows, busiest),
+        ...(flow > 0 ? { rate: 1 / flowSeconds(flow) } : {}),
+      };
+      const key = `${input}-${id}`;
+      edges.set(key, reuse(previous?.edges.get(key), edge));
+    }
+  }
+  return { nodes, edges };
+}
+
+function reuse<T extends object>(old: T | undefined, next: T): T {
+  if (!old) return next;
+  const a = old as Record<string, unknown>;
+  const b = next as Record<string, unknown>;
+  const keys = Object.keys(a);
+  return keys.length === Object.keys(b).length && keys.every((k) => a[k] === b[k]) ? old : next;
 }

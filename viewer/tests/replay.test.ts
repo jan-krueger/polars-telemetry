@@ -1,6 +1,6 @@
 import { gzipSync, strToU8 } from "fflate";
 import { describe, expect, it } from "vitest";
-import { flowSeconds, toFlow } from "../src/lib/graph";
+import { flowSeconds, liveFlow } from "../src/lib/graph";
 import { gunzipText, isGzip } from "../src/lib/gzip";
 import { busy, finishes, history, momentAt, nodeAt } from "../src/lib/replay";
 import { EventLog } from "../src/model/events";
@@ -174,21 +174,22 @@ describe("a replayed moment", () => {
     expect(history(replay, sink!, profile.wall_ms, "rows_received")).toEqual([[0, 0], [1000, 0], [2000, 0], [3200, 50]]);
   });
 
-  it("is drawn as an overlay: states on nodes, moving dots on edges with rows flowing", () => {
-    const positions = Object.fromEntries(plan.physical.map((n) => [String(n.id), { x: 0, y: 0 }]));
-    const { nodes, edges } = toFlow(profile.plan.physical, positions, { logical: false, selectedId: null, moment: momentAt(replay, 500) });
-    expect(nodes.map((n) => n.data.live)).toEqual(["running", "running", "waiting"]);
-    const scan = edges.find((e) => e.source === "1")!;
-    expect(scan.className).toContain("flowing");
-    expect(scan.data).toEqual({ rate: 1 / flowSeconds(500) });
-    expect(edges.find((e) => e.source === "2")!.data).toEqual({});
+  it("is laid over the plan: states on nodes, moving dots on edges with rows flowing", () => {
+    const live = liveFlow(profile.plan.physical, momentAt(replay, 500));
+    expect(["1", "2", "3"].map((id) => live.nodes.get(id)!.state)).toEqual(["running", "running", "waiting"]);
+    expect(live.edges.get("1-2")!.rate).toBe(1 / flowSeconds(500));
+    expect(live.edges.get("2-3")!.rate).toBeUndefined();
   });
 
-  it("keeps the focus of the whole run while replaying", () => {
-    const positions = Object.fromEntries(plan.physical.map((n) => [String(n.id), { x: 0, y: 0 }]));
-    const { nodes } = toFlow(profile.plan.physical, positions, { logical: false, selectedId: null, thresholdMs: 500, moment: momentAt(replay, 100) });
-    expect(nodes.map((n) => String(n.className).includes("faded"))).toEqual([false, false, true]);
+  it("keeps each node and edge that did not change between two moments as the same object", () => {
+    const first = liveFlow(profile.plan.physical, momentAt(replay, 1200));
+    const second = liveFlow(profile.plan.physical, momentAt(replay, 1300), first);
+    expect(["1", "2", "3"].map((id) => second.nodes.get(id) === first.nodes.get(id))).toEqual([false, true, true]);
+    expect(["1-2", "2-3"].map((id) => second.edges.get(id) === first.edges.get(id))).toEqual([false, true]);
+    expect(first.nodes.get("3")!.share).toBe(0);
+    expect(first.nodes.get("1")!.share).toBeCloseTo((480 / 1900) * 100);
   });
+
 
   it("moves the dots faster for more rows, within readable bounds", () => {
     expect(flowSeconds(10)).toBe(1.6);

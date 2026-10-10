@@ -2,7 +2,7 @@ import type { PlanNode, Profile } from "../model/profile";
 import { busy, compact, inputs, num, span } from "./format";
 import { cpuMs } from "./graph";
 import { impact, measured, ruleDocs } from "./insights";
-import { basename, nodeVariant } from "./polars";
+import { basename } from "./polars";
 import { iso } from "./time";
 import { title } from "../state/viewer";
 
@@ -56,7 +56,7 @@ export function planTree(plan: PlanNode[]): string {
   const lines: { left: string; right: string }[] = [];
 
   const visit = (node: PlanNode, lead: string, branch: string) => {
-    const variant = nodeVariant(node);
+    const { variant } = node;
     const name = [variant ? `${node.kind} (${variant})` : node.kind, node.label && clip(node.label, LABEL_MAX)].filter(Boolean).join(" ");
     if (shown.has(node.id)) {
       lines.push({ left: `${lead}${branch}${node.kind} (shared, see above)`, right: "" });

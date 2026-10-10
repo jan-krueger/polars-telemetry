@@ -1,6 +1,6 @@
 // Built per schema version by read.ts; components read only this.
 
-import type { Role } from "../lib/polars";
+import type { Mark, Role } from "../lib/polars";
 
 export type Metrics = Record<string, number | boolean> & { done?: boolean };
 
@@ -18,7 +18,10 @@ export interface PlanNode {
   kind: string;
   /** Derived when the profile predates it. */
   role: Role;
+  /** What the node works on; see `nodeSubject`. */
   label: string;
+  variant: string;
+  marks: Mark[];
   inputs: number[];
   properties: Record<string, unknown>;
   metrics: Metrics | null;

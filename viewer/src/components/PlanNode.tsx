@@ -1,8 +1,9 @@
 import { memo, type ReactElement } from "react";
 import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
-import { ROLES, nodeMarks, nodeVariant, roleOf, type MarkKind } from "../lib/polars";
+import { ROLES, roleOf, type MarkKind } from "../lib/polars";
 import { num, span } from "../lib/format";
 import { cpuMs, type FlowData } from "../lib/graph";
+import { useLiveNode } from "../hooks/useLive";
 import Tip, { TipText } from "./Tip";
 
 const bin = (p: number): number => (p >= 50 ? 4 : p >= 10 ? 3 : p >= 1 ? 2 : 1);
@@ -47,12 +48,15 @@ function Mark({ kind, name, detail, tone }: { kind: MarkKind | "open"; name: str
 }
 
 // Logical nodes have no counters: outlined, never filled by CPU share.
-function PlanNode({ data, selected }: NodeProps<Node<FlowData>>) {
-  const { node, share, logical, label, far, finding, live } = data;
+function PlanNode({ id, data, selected }: NodeProps<Node<FlowData>>) {
+  const now = useLiveNode(id);
+  const { logical, label, far, finding } = data;
+  const node = now?.node ?? data.node;
+  const share = now?.share ?? data.share;
+  const live = now?.state;
   const role = roleOf(node);
   const info = ROLES[role];
-  const variant = nodeVariant(node);
-  const marks = nodeMarks(node);
+  const { variant, marks } = node;
   const open = !logical && !live && node.metrics?.done === false;
   const className = `pnode${logical ? " logical" : ` pnode--b${bin(share)}`}${selected ? " pnode--sel" : ""}`
     + (live === "waiting" ? " pnode--waiting" : "");

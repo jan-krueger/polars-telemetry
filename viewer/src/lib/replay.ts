@@ -111,8 +111,17 @@ export const replayEnd = (profile: Profile): number =>
   Math.max(profile.wall_ms, profile.replay?.times[profile.replay.times.length - 1] ?? 0);
 
 /** A plan node with the counters it had at `moment`. */
-export const nodeAt = (node: PlanNode, moment: Moment): PlanNode =>
-  ({ ...node, metrics: moment.metrics.get(node.id) ?? NOT_STARTED, custom: [] });
+export function nodeAt(node: PlanNode, moment: Moment): PlanNode {
+  const metrics = moment.metrics.get(node.id) ?? NOT_STARTED;
+  let byNode = placed.get(metrics);
+  if (!byNode) placed.set(metrics, (byNode = new WeakMap()));
+  let at = byNode.get(node);
+  if (!at) byNode.set(node, (at = { ...node, metrics, custom: [] }));
+  return at;
+}
+
+/** The same node for the same counters, so a node that did not change between two moments is the same object. */
+const placed = new WeakMap<Metrics, WeakMap<PlanNode, PlanNode>>();
 
 /** When each node first reported itself finished, in ms. */
 export function finishes(replay: Replay): number[] {

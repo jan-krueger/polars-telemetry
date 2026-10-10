@@ -1,18 +1,21 @@
 import { useEffect, useRef } from "react";
 import { getBezierPath, type Edge, type EdgeProps } from "@xyflow/react";
+import { useLiveEdge } from "../hooks/useLive";
 
-type FlowEdgeData = { rate?: number };
 
 const STEP = 9.1;
 const still = () => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /** A plan edge whose dots move while rows flow; the speed changes on the running animation, so they never jump. */
 export default function FlowEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition,
-                                   data, style, label, markerEnd, interactionWidth = 20 }: EdgeProps<Edge<FlowEdgeData>>) {
+                                   style, label: ended, markerEnd, interactionWidth = 20 }: EdgeProps<Edge>) {
   const [path, labelX, labelY] = getBezierPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition });
   const line = useRef<SVGPathElement>(null);
   const motion = useRef<Animation | null>(null);
-  const rate = data?.rate;
+  const now = useLiveEdge(id);
+  const rate = now?.rate;
+  const label = now && ended !== undefined ? now.label : ended;
+  const width = rate !== undefined ? { strokeWidth: Math.max(2.5, now!.width) } : now ? { ...style, strokeWidth: now.width } : style;
 
   useEffect(() => {
     if (rate === undefined || still()) {
@@ -36,7 +39,8 @@ export default function FlowEdge({ id, sourceX, sourceY, targetX, targetY, sourc
 
   return (
     <>
-      <path ref={line} id={id} d={path} fill="none" className="react-flow__edge-path" style={style} markerEnd={markerEnd} />
+      <path ref={line} id={id} d={path} fill="none" className={rate !== undefined ? "react-flow__edge-path flowing" : "react-flow__edge-path"}
+            style={width} markerEnd={markerEnd} />
       <path d={path} fill="none" strokeOpacity={0} strokeWidth={interactionWidth} className="react-flow__edge-interaction" />
       {label != null && (
         <text x={labelX} y={labelY} className="edge-label" textAnchor="middle" dominantBaseline="central">{label}</text>
