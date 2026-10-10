@@ -77,6 +77,22 @@ export interface Profile {
   /** Most important first. */
   insights: Finding[] | null;
   plan: { physical: PlanNode[]; logical: PlanNode[] };
+  /** Samples taken while the query ran, from an events file; null otherwise. */
+  replay: Replay | null;
+  /** The recording ended while the query ran: its counters are from its last sample. */
+  unfinished: boolean;
+}
+
+/** A node's counters from each sample at which they changed, until the next. */
+export interface Series {
+  at: number[];
+  metrics: Metrics[];
+}
+
+export interface Replay {
+  /** Milliseconds since the query started, one per sample. */
+  times: number[];
+  nodes: Map<number, Series>;
 }
 
 export interface SessionInfo {

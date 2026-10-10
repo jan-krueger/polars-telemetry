@@ -1,16 +1,15 @@
 // Storage keeps raw documents and reads them on every load: no migrations, and a newer reader improves old sessions.
 
 import { nodeLabel, roleOf, type RawNode } from "../lib/polars";
-import type { CustomMetric, Finding, FindingLevel, Measure, Metrics, PlanNode, Profile, SessionInfo } from "./profile";
+import type { CustomMetric, Finding, FindingLevel, Measure, Metrics, PlanNode, Profile, Replay, Series, SessionInfo } from "./profile";
+import { isEvent, profilesFromEvents } from "./events";
+import { SCHEMA_PREFIX, isObject } from "./schema";
 import { ranOf } from "../lib/time";
 
-export const SCHEMA_PREFIX = "polars-telemetry/profile@";
+export { SCHEMA_PREFIX };
 export const SUPPORTED_VERSIONS: ReadonlySet<number> = new Set([1]);
 
 export type Read = { profile: Profile } | { problem: string };
-
-const isObject = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
 
 const num = (value: unknown, fallback = 0): number =>
   typeof value === "number" && Number.isFinite(value) ? value : fallback;
@@ -76,6 +75,9 @@ function readV1(raw: Record<string, unknown>, schema: string, position?: number)
   if (typeof logical === "string") return { problem: logical };
 
   const site = isObject(raw.call_site) ? raw.call_site : null;
+  const replay = readReplay(raw.replay);
+  const unfinished = raw.unfinished === true;
+  const nodes = unfinished ? lastCounters(physical, replay) : physical;
   return {
     profile: {
       query_id: str(raw.query_id) || (position === undefined ? crypto.randomUUID() : `profile-${position}`),
@@ -88,7 +90,7 @@ function readV1(raw: Record<string, unknown>, schema: string, position?: number)
       wall_ms: num(raw.wall_ms),
       planning_ms: Number.isFinite(raw.planning_ms) ? (raw.planning_ms as number) : null,
       telemetry_ms: Number.isFinite(raw.telemetry_ms) ? (raw.telemetry_ms as number) : null,
-      cpu_ms: num(raw.cpu_ms),
+      cpu_ms: unfinished ? nodes.reduce((sum, n) => sum + num(n.metrics?.total_time_ns), 0) / 1e6 : num(raw.cpu_ms),
       result_rows: Number.isFinite(raw.result_rows) ? (raw.result_rows as number) : null,
       call_site: site
         ? { filepath: str(site.filepath), lineno: num(site.lineno), function: str(site.function) }
@@ -96,15 +98,46 @@ function readV1(raw: Record<string, unknown>, schema: string, position?: number)
       failed: typeof raw.failed === "string" ? raw.failed : null,
       diagnostics: isObject(raw.diagnostics) ? scalars(raw.diagnostics) : {},
       insights: readInsights(raw.insights),
-      plan: { physical, logical },
+      plan: { physical: nodes, logical },
+      replay,
+      unfinished,
     },
   };
+}
+
+/** Each sample lists only the nodes whose counters changed; keep it that sparse. */
+function readReplay(value: unknown): Replay | null {
+  if (!isObject(value) || !Array.isArray(value.samples) || !value.samples.length) return null;
+  const times: number[] = [];
+  const nodes = new Map<number, Series>();
+  for (const sample of value.samples) {
+    if (!isObject(sample) || !Number.isFinite(sample.t)) continue;
+    const index = times.push(sample.t as number) - 1;
+    if (!isObject(sample.nodes)) continue;
+    for (const [key, counters] of Object.entries(sample.nodes)) {
+      const id = Number(key);
+      if (!isObject(counters) || !Number.isFinite(id)) continue;
+      let series = nodes.get(id);
+      if (!series) nodes.set(id, (series = { at: [], metrics: [] }));
+      series.at.push(index);
+      series.metrics.push(scalars(counters) as Metrics);
+    }
+  }
+  return times.length ? { times, nodes } : null;
+}
+
+/** A query the recording ended before keeps the counters of its last sample. */
+function lastCounters(nodes: PlanNode[], replay: Replay | null): PlanNode[] {
+  if (!replay) return nodes;
+  return nodes.map((n) => (n.metrics ? n : { ...n, metrics: replay.nodes.get(n.id)?.metrics.at(-1) ?? null }));
 }
 
 export function readJsonl(text: string): { profiles: Profile[]; raw: unknown[]; rejected: string[] } {
   const profiles: Profile[] = [];
   const raw: unknown[] = [];
   const rejected: string[] = [];
+  const parsedLines: unknown[] = [];
+  const events: Record<string, unknown>[] = [];
   for (const line of text.split("\n")) {
     const trimmed = line.trim();
     if (!trimmed) continue;
@@ -115,6 +148,10 @@ export function readJsonl(text: string): { profiles: Profile[]; raw: unknown[]; 
       rejected.push("not valid JSON");
       continue;
     }
+    if (isEvent(parsed)) events.push(parsed);
+    else parsedLines.push(parsed);
+  }
+  for (const parsed of [...parsedLines, ...profilesFromEvents(events)]) {
     const read = readProfile(parsed, raw.length);
     if ("problem" in read) {
       rejected.push(read.problem);

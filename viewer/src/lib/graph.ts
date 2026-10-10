@@ -3,6 +3,7 @@
 import dagre from "@dagrejs/dagre";
 import type { Edge, Node } from "@xyflow/react";
 import { rows as formatRows } from "./format";
+import { nodeAt, type Moment, type NodeState } from "./replay";
 import type { Finding, PlanNode } from "../model/profile";
 import { badge } from "./insights";
 
@@ -85,7 +86,9 @@ export function withSelection(
     nodes: flow.nodes.map((n) => (n.id === id ? { ...n, selected: true, className: unfaded(n.className) } : n)),
     edges: flow.edges.map((e) =>
       e.source === id || e.target === id
-        ? { ...e, className: lit.has(e.source) && lit.has(e.target) ? undefined : "faded" }
+        ? lit.has(e.source) && lit.has(e.target)
+          ? { ...e, className: unfaded(e.className) }
+          : { ...e, className: classes(unfaded(e.className), "faded") }
         : e),
   };
 }
@@ -126,6 +129,8 @@ export interface FlowData extends Record<string, unknown> {
   label: string;
   far?: boolean;
   finding?: "warn" | "info" | null;
+  /** While replaying: whether the node has started or finished at that moment. */
+  live?: NodeState;
 }
 
 export const cpuMs = (n: PlanNode): number => Number(n.metrics?.total_time_ns ?? 0) / 1e6;
@@ -166,19 +171,26 @@ export function stepFor(steps: FocusStep[], coverage: number | null): number {
   return chosen;
 }
 
+/** Faster dots for more rows per second: 0.25 s per step at tens of millions, 1.6 s at a thousand. */
+export const flowSeconds = (rowsPerSecond: number): number =>
+  Math.min(1.6, Math.max(0.25, 1.6 - 0.27 * Math.max(0, Math.log10(rowsPerSecond) - 3)));
+
 export function toFlow(
   plan: PlanNode[],
   positions: Positions,
-  { logical, selectedId, thresholdMs = 0, findings }:
-    { logical: boolean; selectedId: number | null; thresholdMs?: number; findings?: Map<number, Finding[]> },
+  { logical, selectedId, thresholdMs = 0, findings, moment }:
+    { logical: boolean; selectedId: number | null; thresholdMs?: number; findings?: Map<number, Finding[]>; moment?: Moment | null },
 ): { nodes: Node<FlowData>[]; edges: Edge[] } {
-  const total = plan.reduce((sum, n) => sum + cpuMs(n), 0) || 1;
-  const byId = new Map(plan.map((n) => [n.id, n]));
+  const shown = moment && !logical ? plan.map((n) => nodeAt(n, moment)) : plan;
+  const total = shown.reduce((sum, n) => sum + cpuMs(n), 0) || 1;
+  const byId = new Map(shown.map((n) => [n.id, n]));
   // The selected node stays lit so the details never describe a faded node.
   const faded = (n: PlanNode): boolean =>
     !logical && thresholdMs > 0 && n.id !== selectedId && cpuMs(n) < thresholdMs;
+  const live = (n: PlanNode): NodeState | undefined =>
+    moment && !logical ? (moment.state.get(n.id) ?? "waiting") : undefined;
 
-  const nodes = plan.map((n): Node<FlowData> => ({
+  const nodes = shown.map((n): Node<FlowData> => ({
     id: String(n.id),
     type: "plan",
     position: positions[String(n.id)] ?? { x: 0, y: 0 },
@@ -186,29 +198,33 @@ export function toFlow(
     height: NODE_H,
     selected: selectedId === n.id,
     className: classes(faded(n) && "faded", badge(findings?.get(n.id)) && `flag-${badge(findings?.get(n.id))}`),
-    data: { node: n, share: (cpuMs(n) / total) * 100, logical, label: n.label, finding: badge(findings?.get(n.id)) },
+    data: { node: n, share: (cpuMs(n) / total) * 100, logical, label: n.label, finding: badge(findings?.get(n.id)), live: live(n) },
   }));
 
   const sent = (n: PlanNode | undefined): number | undefined => {
     const rows = n?.metrics?.rows_sent;
     return typeof rows === "number" ? rows : undefined;
   };
-  const busiest = logical ? 0 : Math.max(0, ...plan.map((n) => sent(n) ?? 0));
+  const busiest = logical ? 0 : Math.max(0, ...shown.map((n) => sent(n) ?? 0));
 
-  const edges = plan.flatMap((n) =>
+  const edges = shown.flatMap((n) =>
     n.inputs.flatMap((input): Edge[] => {
       const upstream = byId.get(input);
       if (!upstream) return [];
       const rows = logical ? undefined : sent(upstream);
+      const flow = moment?.flow.get(input) ?? 0;
       return [{
         id: `${input}-${n.id}`,
-        className: faded(upstream) || faded(n) ? "faded" : undefined,
+        ...(logical ? {} : { type: "flow", data: flow > 0 ? { rate: 1 / flowSeconds(flow) } : {} }),
+        className: classes(faded(upstream) || faded(n) ? "faded" : false, flow > 0 && "flowing"),
         source: String(input),
         target: String(n.id),
         label: rows === undefined ? undefined : `${formatRows(rows)} rows`,
         style: logical
           ? { stroke: "var(--axis)", strokeDasharray: "4 3" }
-          : { stroke: "var(--axis)", strokeWidth: edgeWidth(rows, busiest) },
+          : flow > 0
+            ? { strokeWidth: Math.max(2.5, edgeWidth(rows, busiest)) }
+            : { stroke: "var(--axis)", strokeWidth: edgeWidth(rows, busiest) },
       }];
     }),
   );

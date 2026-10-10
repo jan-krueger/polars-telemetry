@@ -23,7 +23,7 @@ export default function TopBar({ booted, stored, fileInput, onBrowse, onChoose, 
           <span className="hint">{!booted ? "" : storageUnavailable() ? "storage unavailable" : "nothing loaded"}</span>
         )}
         <button className="btn" onClick={onChoose}>Open .jsonl</button>
-        <input ref={fileInput} type="file" accept=".jsonl,.json" multiple hidden
+        <input ref={fileInput} type="file" accept=".jsonl,.json,.gz" multiple hidden
                onChange={(e) => { if (e.target.files?.length) onFiles([...e.target.files]); e.target.value = ""; }} />
       </div>
     </header>

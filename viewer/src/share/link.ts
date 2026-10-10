@@ -1,6 +1,7 @@
 // Every dictionary ever shipped stays here, so old links keep opening.
 
 import { deflateSync, inflateSync, strFromU8, strToU8 } from "fflate";
+import { isObject } from "../model/schema";
 import dictionary1 from "./dictionary-1.txt?raw";
 
 const DICTIONARIES: Record<number, Uint8Array> = { 1: strToU8(dictionary1) };
@@ -21,8 +22,15 @@ function fromBase64Url(text: string): Uint8Array {
   return Uint8Array.from(binary, (c) => c.charCodeAt(0));
 }
 
+/** Samples stay out of links: they make one far too long, and the downloaded session keeps them. */
+const withoutReplay = (document: unknown): unknown => {
+  if (!isObject(document) || !("replay" in document)) return document;
+  const { replay: _, ...rest } = document;
+  return rest;
+};
+
 export function shareFragment(documents: unknown[]): string {
-  const packed = deflateSync(strToU8(JSON.stringify(documents)), { level: 9, dictionary: DICTIONARIES[CURRENT] });
+  const packed = deflateSync(strToU8(JSON.stringify(documents.map(withoutReplay))), { level: 9, dictionary: DICTIONARIES[CURRENT] });
   return `#${KEY}${CURRENT}.${toBase64Url(packed)}`;
 }
 

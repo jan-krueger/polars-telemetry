@@ -8,12 +8,13 @@ const bin = (p: number): number => (p >= 50 ? 4 : p >= 10 ? 3 : p >= 1 ? 2 : 1);
 
 // Logical nodes have no counters: outlined, never filled by CPU share.
 export default function PlanNode({ data, selected }: NodeProps<Node<FlowData>>) {
-  const { node, share, logical, label, far, finding } = data;
+  const { node, share, logical, label, far, finding, live } = data;
   const role = roleOf(node);
   const info = ROLES[role];
   const relation = role === "scan" ? relationName(node.properties ?? {}) : "";
   const title = relation || node.kind;
-  const className = `pnode${logical ? " logical" : ` pnode--b${bin(share)}`}${selected ? " pnode--sel" : ""}`;
+  const className = `pnode${logical ? " logical" : ` pnode--b${bin(share)}`}${selected ? " pnode--sel" : ""}`
+    + (live && live !== "done" ? ` pnode--${live}` : "");
 
   if (far) {
     return (
@@ -47,7 +48,7 @@ export default function PlanNode({ data, selected }: NodeProps<Node<FlowData>>) 
         </span>
       ) : null}
       {!logical && node.metrics ? (
-        <Tip content={node.metrics.done ? "Completed" : "Unfinished when the counters were read"}>
+        <Tip content={node.metrics.done ? "Completed" : live === "waiting" ? "Not started yet" : live ? "Running" : "Unfinished when the counters were read"}>
           <span className={node.metrics.done ? "status status--done" : "status status--open"} />
         </Tip>
       ) : null}
