@@ -7,14 +7,16 @@ replays it.
 
 Each line is a complete event:
 
-    {"schema": "polars-telemetry/events@1", "type": "process", ...}
-    {"schema": ..., "type": "query.started", "query_id": ..., "profile": {...}}
-    {"schema": ..., "type": "query.progress", "query_id": ..., "elapsed_ms": ..., "nodes": {...}}
-    {"schema": ..., "type": "query.finished", "query_id": ..., "profile": {...}}
+    {"schema": "polars-telemetry/events@1", "seq": 1, "type": "process", "id": ..., ...}
+    {"schema": ..., "seq": 2, "type": "query.started", "query_id": ..., "profile": {...}}
+    {"schema": ..., "seq": 3, "type": "query.progress", "query_id": ..., "nodes": {...}, ...}
+    {"schema": ..., "seq": 4, "type": "query.finished", "query_id": ..., "profile": {...}}
 
-Progress lists only nodes whose counters changed since the previous sample,
-and leaves out counters that are zero. Counters are cumulative, so a node's
-latest entry is its state at that moment.
+The process line's `id` names this exporter's stream of events, and `seq`
+numbers each event in it, so a receiver can tell a repeated event from a new
+one. Progress lists only nodes whose counters changed since the previous
+sample, and leaves out counters that are zero. Counters are cumulative, so a
+node's latest entry is its state at that moment.
 
 A path ending in `.gz` is written gzip-compressed, as one gzip member per
 batch: everything up to the last batch can be read even if the process dies.
@@ -23,6 +25,7 @@ batch: everything up to the last batch can be read even if the process dies.
 from __future__ import annotations
 
 import gzip
+import itertools
 import json
 import os
 import socket
@@ -30,6 +33,7 @@ import threading
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+from uuid import uuid4
 
 from polars_telemetry._version import __version__
 from polars_telemetry.export.file import RotatingFile
@@ -47,8 +51,8 @@ _BATCH_BYTES = 256 * 1024
 _BATCH_SECONDS = 2.0
 
 
-def _line(event: dict[str, Any]) -> str:
-    return json.dumps({"schema": SCHEMA, **event}, separators=(",", ":"), default=str)
+def _line(seq: int, event: dict[str, Any]) -> str:
+    return json.dumps({"schema": SCHEMA, "seq": seq, **event}, separators=(",", ":"), default=str)
 
 
 def _counters(progress: Progress) -> dict[str, dict[str, Any]]:
@@ -73,6 +77,9 @@ class FileEventExporter:
     Args:
         path: The events file. Its directory is created if missing. A name
             ending in `.gz` is written compressed.
+        service: What the process is, such as `"orders-etl"`. Written on the
+            process line so a dashboard can group by it.
+        environment: Where it runs, such as `"prod"`. Also on the process line.
         max_bytes: 256 MiB by default. When the file would grow past this, it
             moves to `<name>.1`, replacing the previous one, and a new file
             starts.
@@ -87,10 +94,29 @@ class FileEventExporter:
         "_gzip",
         "_lock",
         "_opened",
+        "_process",
+        "_seq",
     )
 
-    def __init__(self, path: str | Path, *, max_bytes: int = DEFAULT_MAX_BYTES) -> None:
+    def __init__(
+        self,
+        path: str | Path,
+        *,
+        service: str | None = None,
+        environment: str | None = None,
+        max_bytes: int = DEFAULT_MAX_BYTES,
+    ) -> None:
         self._file = RotatingFile(path, max_bytes, "event")
+        self._seq = itertools.count(1)
+        self._process = {
+            "type": "process",
+            "id": str(uuid4()),
+            "service": service,
+            "environment": environment,
+            "host": socket.gethostname(),
+            "pid": os.getpid(),
+            "polars_telemetry_version": __version__,
+        }
         self._gzip = self._file.path.suffix == ".gz"
         self._lock = threading.Lock()
         self._buffer: list[str] = []
@@ -146,17 +172,17 @@ class FileEventExporter:
             self._closed = True
 
     def _write(self, event: dict[str, Any], *, urgent: bool = False) -> None:
-        try:
-            line = _line(event)
-        except Exception as exc:
-            self._file.record(exc, "building an event")
-            return
         with self._lock:
             if not self._buffer:
                 self._buffered_at = time.monotonic()
             if not self._opened:
                 self._opened = True
-                self._append(_line(_process()))
+                self._append(self._process_line())
+            try:
+                line = _line(next(self._seq), event)
+            except Exception as exc:
+                self._file.record(exc, "building an event")
+                return
             self._append(line)
             if (
                 urgent
@@ -179,21 +205,14 @@ class FileEventExporter:
         try:
             data = self._encode(data)
             if self._file.rotate_if_needed(len(data)):
-                data = self._encode((_line(_process()) + "\n").encode("utf-8")) + data
+                data = self._encode((self._process_line() + "\n").encode("utf-8")) + data
             with self._file.path.open("ab") as handle:
                 handle.write(data)
         except Exception as exc:
             self._file.record(exc, f"writing to {self._file.path}")
 
+    def _process_line(self) -> str:
+        return _line(next(self._seq), {**self._process, "started_unix_ns": time.time_ns()})
+
     def _encode(self, data: bytes) -> bytes:
         return gzip.compress(data, compresslevel=6) if self._gzip else data
-
-
-def _process() -> dict[str, Any]:
-    return {
-        "type": "process",
-        "host": socket.gethostname(),
-        "pid": os.getpid(),
-        "started_unix_ns": time.time_ns(),
-        "polars_telemetry_version": __version__,
-    }

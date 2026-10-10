@@ -12,6 +12,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   second, a sample of every changed node's counters each second after that, and
   its full profile when it finishes. One background thread samples the running
   queries; nothing is sampled while no such exporter is installed.
+  Its `service` and `environment` arguments name where the events come from,
+  and every event is numbered, so a receiver can drop one sent twice.
 - `Config.progress_interval`, the seconds between those samples, 1 by default.
 - Exporters can follow running queries with optional `started(query)` and
   `progress(progress)` methods next to `export(query)`.

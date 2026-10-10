@@ -148,3 +148,29 @@ def test_the_file_rotates_past_max_bytes(tmp_path):
 def test_max_bytes_must_be_positive(tmp_path):
     with pytest.raises(ValueError, match="positive"):
         FileEventExporter(tmp_path / "x.jsonl", max_bytes=0)
+
+
+def test_every_event_is_numbered_in_a_stream_named_on_its_process_line(tmp_path):
+    path = tmp_path / "events.jsonl"
+    exporter = FileEventExporter(path, service="orders-etl", environment="prod")
+    query = _query()
+    exporter.started(query)
+    exporter.progress(_progress(query, 2))
+    exporter.export(query)
+    events = _events(path)
+    process = events[0]
+    assert (process["service"], process["environment"]) == ("orders-etl", "prod")
+    assert len(process["id"]) == 36
+    assert [e["seq"] for e in events] == [1, 2, 3, 4]
+
+
+def test_a_rotated_file_continues_the_same_stream(tmp_path):
+    path = tmp_path / "events.jsonl"
+    exporter = FileEventExporter(path, max_bytes=2_000)
+    for _ in range(4):
+        exporter.export(_query())
+    before = _events(tmp_path / "events.jsonl.1")
+    after = _events(path)
+    assert after[0]["id"] == before[0]["id"]
+    assert after[0]["seq"] > before[-1]["seq"]
+    assert (before[0]["service"], before[0]["environment"]) == (None, None)
