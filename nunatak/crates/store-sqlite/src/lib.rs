@@ -247,7 +247,7 @@ impl Index for SqliteIndex {
         let rows = self
             .run(move |c| {
                 let sql = format!(
-                    "SELECT {column}, status, started_unix_ns, wall_ms, fingerprint, rules FROM queries {clause}"
+                    "SELECT {column}, status, started_unix_ns, wall_ms, rules FROM queries {clause}"
                 );
                 c.prepare(&sql)?
                     .query_map(params_from_iter(values), |row| {
@@ -258,8 +258,7 @@ impl Index for SqliteIndex {
                                 status: Status::parse(&status).unwrap_or(Status::Unfinished),
                                 started_unix_ns: row.get(2)?,
                                 wall_ms: row.get(3)?,
-                                fingerprint: row.get(4)?,
-                                rules: split(&row.get::<_, String>(5)?),
+                                rules: split(&row.get::<_, String>(4)?),
                             },
                         ))
                     })?

@@ -29,9 +29,6 @@ export interface GroupSummary {
   failed: number;
   last_started_unix_ns: number;
   total_wall_ms: number;
-  usual_wall_ms: number | null;
-  slow_wall_ms: number | null;
-  shapes: number;
   rules: string[];
   recent_wall_ms: number[];
 }

@@ -248,7 +248,7 @@ async fn groups_and_filters_answer_and_refuse_what_they_do_not_know() {
     let (_, groups) = get_json(&app, "/api/groups?by=label").await;
     assert_eq!(groups[0]["key"], "clickbench/regex_domains");
     assert_eq!(groups[0]["runs"], 1);
-    assert!(groups[0]["usual_wall_ms"].as_f64().unwrap() > 0.0);
+    assert!(groups[0]["total_wall_ms"].as_f64().unwrap() > 0.0);
     assert_eq!(groups[0]["recent_wall_ms"].as_array().unwrap().len(), 1);
     let (_, facets) = get_json(&app, "/api/facets").await;
     assert_eq!(facets["service"][0]["value"], "clickbench");

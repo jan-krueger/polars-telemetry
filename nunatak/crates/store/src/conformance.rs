@@ -139,21 +139,14 @@ pub async fn groups_count_runs_failures_and_times(index: &dyn Index) {
         .find(|g| g.key.as_deref() == Some("a"))
         .unwrap();
     assert_eq!((a.runs, a.failed, a.last_started_unix_ns), (4, 0, 2_600));
-    assert_eq!(
-        (a.usual_wall_ms, a.slow_wall_ms),
-        (Some(200.0), Some(300.0))
-    );
     assert!((a.total_wall_ms - 1_000.0).abs() < 1e-9);
-    assert_eq!(
-        (a.shapes, a.rules.as_slice()),
-        (2, ["python_udf".to_owned()].as_slice())
-    );
+    assert_eq!(a.rules, ["python_udf"]);
     assert_eq!(a.recent_wall_ms, [300.0, 100.0, 200.0, 400.0]);
     let b = groups
         .iter()
         .find(|g| g.key.as_deref() == Some("b"))
         .unwrap();
-    assert_eq!((b.runs, b.failed, b.usual_wall_ms), (1, 1, None));
+    assert_eq!((b.runs, b.failed, b.total_wall_ms), (1, 1, 0.0));
     assert_eq!(groups[0].key.as_deref(), Some("b"));
     let shapes = index
         .groups(&Filter::default(), Grouping::Fingerprint)

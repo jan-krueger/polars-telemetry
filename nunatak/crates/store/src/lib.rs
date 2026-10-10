@@ -120,9 +120,6 @@ pub struct GroupSummary {
     pub failed: u64,
     pub last_started_unix_ns: i64,
     pub total_wall_ms: f64,
-    pub usual_wall_ms: Option<f64>,
-    pub slow_wall_ms: Option<f64>,
-    pub shapes: u64,
     pub rules: Vec<String>,
     pub recent_wall_ms: Vec<f64>,
 }
@@ -132,25 +129,10 @@ pub struct GroupRun {
     pub status: Status,
     pub started_unix_ns: i64,
     pub wall_ms: Option<f64>,
-    pub fingerprint: Option<String>,
     pub rules: Vec<String>,
 }
 
 pub const RECENT_RUNS: usize = 30;
-
-#[must_use]
-pub fn quantile(sorted: &[f64], q: f64) -> Option<f64> {
-    if sorted.is_empty() {
-        return None;
-    }
-    #[allow(
-        clippy::cast_possible_truncation,
-        clippy::cast_sign_loss,
-        clippy::cast_precision_loss
-    )]
-    let at = ((sorted.len() - 1) as f64 * q).floor() as usize;
-    sorted.get(at.min(sorted.len() - 1)).copied()
-}
 
 #[must_use]
 pub fn summarize(key: Option<String>, runs: &[GroupRun]) -> GroupSummary {
@@ -161,12 +143,6 @@ pub fn summarize(key: Option<String>, runs: &[GroupRun]) -> GroupSummary {
         .filter(|run| run.status == Status::Finished)
         .filter_map(|run| run.wall_ms)
         .collect();
-    let mut sorted = finished.clone();
-    sorted.sort_by(f64::total_cmp);
-    let shapes: BTreeSet<&str> = runs
-        .iter()
-        .filter_map(|run| run.fingerprint.as_deref())
-        .collect();
     GroupSummary {
         key,
         runs: runs.len() as u64,
@@ -176,9 +152,6 @@ pub fn summarize(key: Option<String>, runs: &[GroupRun]) -> GroupSummary {
             .count() as u64,
         last_started_unix_ns: order.last().map_or(0, |run| run.started_unix_ns),
         total_wall_ms: finished.iter().fold(0.0, |total, wall| total + wall),
-        usual_wall_ms: quantile(&sorted, 0.5),
-        slow_wall_ms: quantile(&sorted, 0.9),
-        shapes: shapes.len() as u64,
         rules: runs
             .iter()
             .flat_map(|run| run.rules.iter().cloned())
