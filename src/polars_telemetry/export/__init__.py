@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-__all__ = ["ConsoleExporter", "Exporter", "FileExporter", "OTelExporter"]
+__all__ = ["ConsoleExporter", "Exporter", "FileEventExporter", "FileExporter", "OTelExporter"]
 
 from polars_telemetry.export.base import Exporter
 from polars_telemetry.export.console import ConsoleExporter
+from polars_telemetry.export.events import FileEventExporter
 from polars_telemetry.export.file import FileExporter
 from polars_telemetry.export.otel import OTelExporter
