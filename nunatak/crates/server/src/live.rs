@@ -26,7 +26,7 @@ pub struct Busiest {
 
 #[derive(Debug, Clone)]
 pub enum Change {
-    Query(QuerySummary),
+    Query(Box<QuerySummary>),
     Pulse(Pulse),
     Events {
         query_id: String,

@@ -10,7 +10,8 @@ use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 
-const MIGRATIONS: &[&str] = &["
+const MIGRATIONS: &[&str] = &[
+    "
 CREATE TABLE queries (
     query_id TEXT PRIMARY KEY,
     stream_id TEXT NOT NULL,
@@ -37,10 +38,14 @@ CREATE TABLE seen (
     through INTEGER NOT NULL,
     above TEXT NOT NULL
 );
-"];
+",
+    "
+ALTER TABLE queries ADD COLUMN rules TEXT NOT NULL DEFAULT '';
+",
+];
 
 const COLUMNS: &str = "query_id, stream_id, project, service, environment, host, label, fingerprint, \
-    status, started_unix_ns, wall_ms, cpu_ms, result_rows, failed, warnings, recording";
+    status, started_unix_ns, wall_ms, cpu_ms, result_rows, failed, warnings, recording, rules";
 
 #[derive(Clone)]
 pub struct SqliteIndex {
@@ -140,7 +145,16 @@ fn summary(row: &Row<'_>) -> rusqlite::Result<QuerySummary> {
         failed: row.get(13)?,
         warnings: row.get(14)?,
         recording: row.get::<_, Option<String>>(15)?.map(RecordingKey),
+        rules: split(&row.get::<_, String>(16)?),
     })
+}
+
+fn split(rules: &str) -> Vec<String> {
+    rules
+        .split(',')
+        .filter(|rule| !rule.is_empty())
+        .map(str::to_owned)
+        .collect()
 }
 
 fn conditions(filter: &Filter) -> (String, Vec<Value>) {
@@ -186,11 +200,11 @@ impl Index for SqliteIndex {
         let q = query.clone();
         self.run(move |c| {
             c.execute(
-                &format!("INSERT OR REPLACE INTO queries ({COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)"),
+                &format!("INSERT OR REPLACE INTO queries ({COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)"),
                 params![
                     q.query_id, q.stream_id, q.project, q.service, q.environment, q.host, q.label,
                     q.fingerprint, q.status.as_str(), q.started_unix_ns, q.wall_ms, q.cpu_ms,
-                    q.result_rows, q.failed, q.warnings, q.recording.map(|k| k.0),
+                    q.result_rows, q.failed, q.warnings, q.recording.map(|k| k.0), q.rules.join(","),
                 ],
             )
             .map(|_| ())
@@ -233,7 +247,7 @@ impl Index for SqliteIndex {
         let rows = self
             .run(move |c| {
                 let sql = format!(
-                    "SELECT {column}, status, started_unix_ns, wall_ms, fingerprint, warnings FROM queries {clause}"
+                    "SELECT {column}, status, started_unix_ns, wall_ms, fingerprint, rules FROM queries {clause}"
                 );
                 c.prepare(&sql)?
                     .query_map(params_from_iter(values), |row| {
@@ -245,7 +259,7 @@ impl Index for SqliteIndex {
                                 started_unix_ns: row.get(2)?,
                                 wall_ms: row.get(3)?,
                                 fingerprint: row.get(4)?,
-                                warnings: row.get(5)?,
+                                rules: split(&row.get::<_, String>(5)?),
                             },
                         ))
                     })?
@@ -365,12 +379,16 @@ mod tests {
             .put_query(&written)
             .await
             .unwrap();
-        let next = [MIGRATIONS[0], "ALTER TABLE queries ADD COLUMN note TEXT;"];
+        let next = [MIGRATIONS, &["ALTER TABLE queries ADD COLUMN note TEXT;"]].concat();
+        let known = i64::try_from(MIGRATIONS.len()).unwrap();
         let mut connection = Connection::open(&path).unwrap();
         migrate(&mut connection, Some(&path), &next).unwrap();
         drop(connection);
-        assert_eq!(version(&path), 2);
-        assert_eq!(version(&folder.path().join("index.db.v1.bak")), 1);
+        assert_eq!(version(&path), known + 1);
+        assert_eq!(
+            version(&folder.path().join(format!("index.db.v{known}.bak"))),
+            known
+        );
         let reopened = SqliteIndex::with(Connection::open(&path).unwrap());
         assert_eq!(
             reopened.query(&written.query_id).await.unwrap(),
@@ -399,12 +417,13 @@ mod tests {
         let path = folder.path().join("index.db");
         SqliteIndex::open(&path).unwrap();
         let broken = [
-            MIGRATIONS[0],
-            "ALTER TABLE queries ADD COLUMN a TEXT; NOT SQL;",
-        ];
+            MIGRATIONS,
+            &["ALTER TABLE queries ADD COLUMN a TEXT; NOT SQL;"],
+        ]
+        .concat();
         let mut connection = Connection::open(&path).unwrap();
         assert!(migrate(&mut connection, Some(&path), &broken).is_err());
-        assert_eq!(version(&path), 1);
+        assert_eq!(version(&path), i64::try_from(MIGRATIONS.len()).unwrap());
     }
 
     #[tokio::test]

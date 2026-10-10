@@ -1,5 +1,6 @@
 use serde::Deserialize;
 use serde_json::Value;
+use std::collections::BTreeSet;
 
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Summary {
@@ -11,6 +12,7 @@ pub struct Summary {
     pub result_rows: Option<i64>,
     pub failed: Option<String>,
     pub warnings: u32,
+    pub rules: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -38,6 +40,7 @@ struct Insights {
 #[derive(Deserialize)]
 struct Finding {
     level: Option<Value>,
+    rule: Option<Value>,
 }
 
 impl Summary {
@@ -48,15 +51,18 @@ impl Summary {
             Some(Value::String(text)) => Some(text),
             _ => None,
         };
-        let warnings = profile
+        let findings = profile
             .insights
             .and_then(|insights| insights.findings)
-            .map_or(0, |findings| {
-                findings
-                    .iter()
-                    .filter(|f| f.level.as_ref().and_then(Value::as_str) == Some("warn"))
-                    .count()
-            });
+            .unwrap_or_default();
+        let warned: Vec<&Finding> = findings
+            .iter()
+            .filter(|f| f.level.as_ref().and_then(Value::as_str) == Some("warn"))
+            .collect();
+        let rules: BTreeSet<String> = warned
+            .iter()
+            .filter_map(|f| f.rule.as_ref().and_then(Value::as_str).map(str::to_owned))
+            .collect();
         Some(Self {
             label: text(profile.label),
             fingerprint: text(profile.fingerprint),
@@ -65,7 +71,8 @@ impl Summary {
             cpu_ms: profile.cpu_ms.as_ref().and_then(Value::as_f64),
             result_rows: profile.result_rows.as_ref().and_then(Value::as_i64),
             failed: text(profile.failed),
-            warnings: u32::try_from(warnings).unwrap_or(u32::MAX),
+            warnings: u32::try_from(warned.len()).unwrap_or(u32::MAX),
+            rules: rules.into_iter().collect(),
         })
     }
 }

@@ -112,10 +112,10 @@ impl Pipeline {
             if let Some(finished) = events.iter().find(|e| e.kind == Kind::Finished) {
                 let row = self.finish(&batch.stream, query, finished).await?;
                 self.live.finished(query);
-                self.live.publish(Change::Query(row));
+                self.live.publish(Change::Query(Box::new(row)));
             } else {
                 if let Some(row) = self.start(&batch.stream, query, started.copied()).await? {
-                    self.live.publish(Change::Query(row));
+                    self.live.publish(Change::Query(Box::new(row)));
                 }
                 let pulse = events
                     .iter()
@@ -269,6 +269,7 @@ impl Pipeline {
             result_rows: summary.result_rows.or(before.and_then(|r| r.result_rows)),
             failed: summary.failed.clone(),
             warnings: summary.warnings,
+            rules: summary.rules.clone(),
             recording: recording.or_else(|| before.and_then(|r| r.recording.clone())),
         }
     }

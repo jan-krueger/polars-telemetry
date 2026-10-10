@@ -25,6 +25,7 @@ pub fn query(id: u8, label: &str, started: i64) -> QuerySummary {
         result_rows: Some(25),
         failed: None,
         warnings: 1,
+        rules: vec!["python_udf".into()],
         recording: Some(RecordingKey(format!("2026/10/10/{id}.jsonl.gz"))),
     }
 }
@@ -143,7 +144,10 @@ pub async fn groups_count_runs_failures_and_times(index: &dyn Index) {
         (Some(200.0), Some(300.0))
     );
     assert!((a.total_wall_ms - 1_000.0).abs() < 1e-9);
-    assert_eq!((a.shapes, a.warnings), (2, 4));
+    assert_eq!(
+        (a.shapes, a.rules.as_slice()),
+        (2, ["python_udf".to_owned()].as_slice())
+    );
     assert_eq!(a.recent_wall_ms, [300.0, 100.0, 200.0, 400.0]);
     let b = groups
         .iter()

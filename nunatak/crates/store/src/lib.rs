@@ -84,6 +84,7 @@ pub struct QuerySummary {
     pub result_rows: Option<i64>,
     pub failed: Option<String>,
     pub warnings: u32,
+    pub rules: Vec<String>,
     pub recording: Option<RecordingKey>,
 }
 
@@ -122,7 +123,7 @@ pub struct GroupSummary {
     pub usual_wall_ms: Option<f64>,
     pub slow_wall_ms: Option<f64>,
     pub shapes: u64,
-    pub warnings: u64,
+    pub rules: Vec<String>,
     pub recent_wall_ms: Vec<f64>,
 }
 
@@ -132,7 +133,7 @@ pub struct GroupRun {
     pub started_unix_ns: i64,
     pub wall_ms: Option<f64>,
     pub fingerprint: Option<String>,
-    pub warnings: u32,
+    pub rules: Vec<String>,
 }
 
 pub const RECENT_RUNS: usize = 30;
@@ -178,7 +179,12 @@ pub fn summarize(key: Option<String>, runs: &[GroupRun]) -> GroupSummary {
         usual_wall_ms: quantile(&sorted, 0.5),
         slow_wall_ms: quantile(&sorted, 0.9),
         shapes: shapes.len() as u64,
-        warnings: runs.iter().map(|run| u64::from(run.warnings)).sum(),
+        rules: runs
+            .iter()
+            .flat_map(|run| run.rules.iter().cloned())
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect(),
         recent_wall_ms: finished[finished.len().saturating_sub(RECENT_RUNS)..].to_vec(),
     }
 }

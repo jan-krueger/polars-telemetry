@@ -106,3 +106,15 @@ fn a_profile_gives_its_summary() {
     assert_eq!(summary.failed, None);
     assert!(Summary::of(text.lines().nth(2).unwrap()).is_none());
 }
+
+#[test]
+fn a_summary_names_each_warning_rule_once() {
+    let line = r#"{"profile":{"insights":{"findings":[
+        {"rule":"python_udf","level":"warn"},
+        {"rule":"python_udf","level":"warn"},
+        {"rule":"cross_join","level":"info"}]}}}"#
+        .replace('\n', "");
+    let summary = Summary::of(&line).unwrap();
+    assert_eq!(summary.warnings, 2);
+    assert_eq!(summary.rules, ["python_udf"]);
+}
