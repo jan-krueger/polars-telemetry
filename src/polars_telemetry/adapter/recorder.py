@@ -21,6 +21,7 @@ from polars_telemetry._callsite import caller
 from polars_telemetry.adapter.build import build_metrics, build_plan, enrich
 from polars_telemetry.adapter.decode import decode_optional_plan, decode_plan, is_nil
 from polars_telemetry.adapter.handle import MetricsHandle
+from polars_telemetry.adapter.sampler import SAMPLER
 from polars_telemetry.labels import current_label
 from polars_telemetry.model.types import CallSite, NodeRole, PlanNode, Query
 
@@ -29,6 +30,7 @@ if TYPE_CHECKING:
 
     from polars_telemetry._safety import FailureTracker
     from polars_telemetry.config import Config
+    from polars_telemetry.model.types import Progress
 
 _log = logging.getLogger("polars_telemetry")
 
@@ -57,6 +59,15 @@ def _report_unknown_kinds(*plans: dict[int, PlanNode]) -> None:
                 )
 
 
+@dataclass(frozen=True, slots=True)
+class Follow:
+    """Where running queries go, for exporters that follow them."""
+
+    wanted: Callable[[], bool]
+    started: Callable[[Query], None]
+    progress: Callable[[Progress], None]
+
+
 @dataclass(slots=True)
 class _Run:
     """One query in flight: what its start and plan delivered so far."""
@@ -82,17 +93,19 @@ class QueryRecorder:
     each thread's query is kept apart.
     """
 
-    __slots__ = ("_config", "_emit", "_lock", "_runs", "_tracker")
+    __slots__ = ("_config", "_emit", "_follow", "_lock", "_runs", "_tracker")
 
     def __init__(
         self,
         config: Config,
         emit: Callable[[Query], None],
         tracker: FailureTracker,
+        follow: Follow | None = None,
     ) -> None:
         self._config = config
         self._emit = emit
         self._tracker = tracker
+        self._follow = follow
         self._runs: dict[int, _Run] = {}
         self._lock = threading.Lock()
 
@@ -150,6 +163,16 @@ class QueryRecorder:
         # is nothing to attribute them to.
         collect = self._config.node_metrics and physical is not None
         run.handle = MetricsHandle(handle) if collect else None
+        follow = self._follow
+        if run.handle is not None and follow is not None and follow.wanted():
+            SAMPLER.watch(
+                run.query_id,
+                run.handle,
+                started=run.started,
+                interval=self._config.progress_interval,
+                announce=lambda: follow.started(self._running(run)),
+                deliver=follow.progress,
+            )
 
     def failed(self, message: str) -> None:
         self._finish(failure=message)
@@ -181,6 +204,7 @@ class QueryRecorder:
         if run.handle is None:
             metrics = {}
         else:
+            SAMPLER.unwatch(run.query_id)
             # A failed query's nodes never report done, so settling would only
             # spend the retry budget inside the caller's exception path.
             records = run.handle.snapshot() if failure else run.handle.settled_snapshot()
@@ -204,5 +228,24 @@ class QueryRecorder:
                     telemetry_ms=run.telemetry_ms,
                 ),
                 insights=self._config.insights,
+            )
+        )
+
+    def _running(self, run: _Run) -> Query:
+        """The query as known at its first sample: its plan, not yet its counters."""
+        return enrich(
+            Query(
+                query_id=run.query_id,
+                wall_ms=(time.perf_counter() - run.started) * 1000,
+                plan=run.plan,
+                logical=run.logical,
+                metrics={},
+                call_site=run.call_site,
+                label=run.label,
+                engine=run.engine,
+                polars_version=_POLARS_VERSION,
+                started_unix_ns=run.started_unix_ns,
+                planning_ms=run.planning_ms,
+                telemetry_ms=run.telemetry_ms,
             )
         )

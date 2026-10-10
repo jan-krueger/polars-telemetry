@@ -88,6 +88,7 @@ polars query 1a8cfdfd ok wall=1.92ms planning=0.47ms cpu=1.57ms parallelism=0.82
 | [OpenTelemetry](https://jan-krueger.github.io/polars-telemetry/exporters/opentelemetry/), the default | `pip install 'polars-telemetry[otlp]'`, then set up the SDK | a span per query, per-node metrics, findings as span events |
 | [DogStatsD](https://jan-krueger.github.io/polars-telemetry/exporters/dogstatsd/) | `pip install 'polars-telemetry[datadog]'` | the same metrics, tagged, to the Datadog Agent or Telegraf |
 | [JSONL file](https://jan-krueger.github.io/polars-telemetry/exporters/jsonl/) | included | a profile per query, for the viewer and the CLI |
+| [Events file](https://jan-krueger.github.io/polars-telemetry/exporters/events/) | included | a query's plan, samples while it runs, and its profile |
 | [Console](https://jan-krueger.github.io/polars-telemetry/exporters/console/) | included | a short summary on standard error |
 
 `pt.install()` without an exporter sends to OpenTelemetry, through the SDK you
@@ -117,6 +118,7 @@ pt.install(pt.Config(node_metrics=False))
 | `call_site` | `True` | Record the file, line and function that ran the query |
 | `describe_fallbacks` | `True` | Have Polars describe what an in-memory fallback node runs |
 | `insights` | `True` | Find what slows each query down, as it runs |
+| `progress_interval` | `1.0` | Seconds between samples of a running query, for exporters that follow queries live |
 | `redaction` | `None` | What to mask before exporters see a query; `Redaction()` masks literal values |
 
 Details: [Configuration](https://jan-krueger.github.io/polars-telemetry/reference/configuration/).

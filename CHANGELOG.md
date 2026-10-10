@@ -4,6 +4,18 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- `FileEventExporter` writes what happens to each query while it runs to a
+  `.jsonl` or `.jsonl.gz` file: the query and its plan once it has run for a
+  second, a sample of every changed node's counters each second after that, and
+  its full profile when it finishes. One background thread samples every
+  running query, and only while such an exporter is installed.
+- `Config.progress_interval`, the seconds between those samples, 1 by default.
+- Exporters can follow running queries with optional `started(query)` and
+  `progress(progress)` methods next to `export(query)`.
+
 ## [0.8.3] - 2026-10-06
 
 ### Fixed

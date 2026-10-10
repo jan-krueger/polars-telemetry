@@ -49,6 +49,16 @@ class Config:
     node kinds only.
     """
 
+    progress_interval: float = 1.0
+    """Seconds between samples of a running query, for exporters that record
+    progress, such as `FileEventExporter`.
+
+    One background thread samples every running query and hands each sample
+    to every such exporter. A query that ends before its first sample is never
+    announced as running. A sample costs well under a millisecond for a small
+    plan and about 15 ms for 500 nodes.
+    """
+
     redaction: Redaction | None = None
     """What to mask before any exporter receives a query; None masks only URL
     query strings, which can hold credentials.
@@ -56,3 +66,8 @@ class Config:
     `Redaction()` masks literal values. One exporter can be given its own with
     `redacted()`. Metrics never carry literals, whatever this says.
     """
+
+    def __post_init__(self) -> None:
+        if not self.progress_interval > 0:
+            msg = f"progress_interval must be positive, got {self.progress_interval}"
+            raise ValueError(msg)

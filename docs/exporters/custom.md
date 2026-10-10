@@ -58,6 +58,30 @@ queue or a background thread.
 An exporter that holds data, such as a buffer, can add a `close()` method.
 `uninstall()` calls it, and so does the process on exit.
 
+## Following running queries
+
+To see queries while they run, as the [events exporter](events.md) does, add
+either or both of these methods:
+
+```python
+from polars_telemetry.model.types import Progress, Query
+
+
+class LiveExporter:
+    def started(self, query: Query) -> None:
+        """A query still running at its first sample, with its plan; no counters yet."""
+
+    def progress(self, progress: Progress) -> None:
+        """Counters of the nodes that changed since the previous sample."""
+
+    def export(self, query: Query) -> None:
+        """The finished query, as for every exporter."""
+```
+
+They are called on a background thread, every `Config.progress_interval`
+seconds per running query, and never after that query's `export()`. Sampling
+only runs while an installed exporter has a `progress` method.
+
 ## When it fails
 
 An exception from `export()` never reaches the query; see

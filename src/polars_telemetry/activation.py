@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING
 from polars_telemetry import _dispatch
 from polars_telemetry.adapter import module as mod
 from polars_telemetry.adapter.hook import ObserverFactory
-from polars_telemetry.adapter.recorder import QueryRecorder
+from polars_telemetry.adapter.recorder import Follow, QueryRecorder
 from polars_telemetry.compat import SUPPORTED, Capabilities, probe
 from polars_telemetry.config import Config
 from polars_telemetry.export.base import Redacted
@@ -379,9 +379,16 @@ def _join(config: Config | None, exporters: tuple[Exporter, ...], *, scoped: boo
     return _state
 
 
+_FOLLOW = Follow(
+    wanted=_dispatch.wants_progress,
+    started=_dispatch.dispatch_started,
+    progress=_dispatch.dispatch_progress,
+)
+
+
 def _factory(config: Config, binding: mod.Binding) -> ObserverFactory:
     return ObserverFactory(
-        lambda tracker: QueryRecorder(config, _dispatch.dispatch, tracker),
+        lambda tracker: QueryRecorder(config, _dispatch.dispatch, tracker, _FOLLOW),
         delegate=binding.previous_factory,
     )
 
@@ -405,7 +412,11 @@ def _register(exporters: tuple[Exporter, ...], config: Config) -> tuple[_dispatc
             target, redaction = _redaction_for(exporter, config)
             receivers.append(
                 _dispatch.add(
-                    target.export, f"exporter {type(target).__name__}", redaction=redaction
+                    target.export,
+                    f"exporter {type(target).__name__}",
+                    redaction=redaction,
+                    started=getattr(target, "started", None),
+                    progress=getattr(target, "progress", None),
                 )
             )
     except BaseException:
