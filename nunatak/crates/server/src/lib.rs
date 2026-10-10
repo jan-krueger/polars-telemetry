@@ -1,7 +1,10 @@
 mod api;
 mod ingest;
+mod live;
 mod pipeline;
+mod stream;
 
+pub use live::{Busiest, Change, Live, Pulse};
 pub use pipeline::{Accepted, Imported, Pipeline};
 
 use axum::Router;
@@ -51,6 +54,8 @@ pub fn app_router(pipeline: Arc<Pipeline>) -> Router {
         .route("/api/queries/{id}/recording", get(api::recording))
         .route("/api/groups", get(api::groups))
         .route("/api/facets", get(api::facets))
+        .route("/api/live", get(stream::running))
+        .route("/api/live/{id}", get(stream::query))
         .route("/api/{*rest}", get(api::unknown))
         .fallback(get(|| async { Html(PAGE) }))
         .with_state(pipeline)

@@ -106,6 +106,14 @@ impl Log for FsLog {
         Ok(())
     }
 
+    async fn read(&self, query_id: &str) -> Result<Option<Bytes>> {
+        match fs::read(self.path(query_id)?).await {
+            Ok(bytes) => Ok(Some(Bytes::from(bytes))),
+            Err(e) if e.kind() == ErrorKind::NotFound => Ok(None),
+            Err(e) => Err(e.into()),
+        }
+    }
+
     async fn take(&self, query_id: &str) -> Result<Option<Bytes>> {
         let path = self.path(query_id)?;
         let bytes = match fs::read(&path).await {
@@ -178,6 +186,10 @@ mod tests {
         log.append(QUERY, "process", &["a", "b"]).await.unwrap();
         log.append(QUERY, "process", &["c"]).await.unwrap();
         assert_eq!(log.open().await.unwrap(), vec![QUERY.to_owned()]);
+        assert_eq!(
+            &log.read(QUERY).await.unwrap().unwrap()[..],
+            b"process\na\nb\nc\n"
+        );
         let text = log.take(QUERY).await.unwrap().unwrap();
         assert_eq!(&text[..], b"process\na\nb\nc\n");
         assert!(log.take(QUERY).await.unwrap().is_none());

@@ -1,3 +1,4 @@
+use crate::live::{Change, Live};
 use bytes::Bytes;
 use flate2::Compression;
 use flate2::write::GzEncoder;
@@ -14,6 +15,7 @@ pub struct Pipeline {
     recordings: Arc<dyn Recordings>,
     index: Arc<dyn Index>,
     streams: Mutex<HashMap<String, Seen>>,
+    live: Live,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -44,6 +46,7 @@ impl Pipeline {
             recordings,
             index,
             streams: Mutex::new(HashMap::new()),
+            live: Live::default(),
         }
     }
 
@@ -57,6 +60,14 @@ impl Pipeline {
 
     pub fn recordings(&self) -> &dyn Recordings {
         self.recordings.as_ref()
+    }
+
+    pub fn live(&self) -> &Live {
+        &self.live
+    }
+
+    pub fn log(&self) -> &dyn Log {
+        self.log.as_ref()
     }
 
     pub async fn accept(&self, batch: &Batch) -> Result<Accepted> {
@@ -90,11 +101,30 @@ impl Pipeline {
             let events = &by_query[query];
             let lines: Vec<&str> = events.iter().map(|e| e.line.as_str()).collect();
             self.log.append(query, &batch.process.line, &lines).await?;
+            self.live.publish(Change::Events {
+                query_id: query.to_owned(),
+                lines: events.iter().map(|e| (e.seq, e.line.clone())).collect(),
+            });
             let started = events.iter().find(|e| e.kind == Kind::Started);
+            if let Some(started) = started {
+                self.live.started(query, &started.line);
+            }
             if let Some(finished) = events.iter().find(|e| e.kind == Kind::Finished) {
-                self.finish(&batch.stream, query, finished).await?;
+                let row = self.finish(&batch.stream, query, finished).await?;
+                self.live.finished(query);
+                self.live.publish(Change::Query(row));
             } else {
-                self.start(&batch.stream, query, started.copied()).await?;
+                if let Some(row) = self.start(&batch.stream, query, started.copied()).await? {
+                    self.live.publish(Change::Query(row));
+                }
+                let pulse = events
+                    .iter()
+                    .filter(|e| e.kind == Kind::Progress)
+                    .filter_map(|e| self.live.progress(query, &e.line))
+                    .last();
+                if let Some(pulse) = pulse {
+                    self.live.publish(Change::Pulse(pulse));
+                }
                 running.push(query.to_owned());
             }
         }
@@ -142,10 +172,15 @@ impl Pipeline {
         self.index.put_query(&row).await
     }
 
-    async fn start(&self, stream: &Stream, query: &str, started: Option<&Event>) -> Result<()> {
+    async fn start(
+        &self,
+        stream: &Stream,
+        query: &str,
+        started: Option<&Event>,
+    ) -> Result<Option<QuerySummary>> {
         let existing = self.index.query(query).await?;
         if existing.is_some() && started.is_none() {
-            return Ok(());
+            return Ok(None);
         }
         let summary = started
             .and_then(|e| Summary::of(&e.line))
@@ -158,10 +193,11 @@ impl Pipeline {
             None,
             existing.as_ref(),
         );
-        self.index.put_query(&row).await
+        self.index.put_query(&row).await?;
+        Ok(Some(row))
     }
 
-    async fn finish(&self, stream: &Stream, query: &str, finished: &Event) -> Result<()> {
+    async fn finish(&self, stream: &Stream, query: &str, finished: &Event) -> Result<QuerySummary> {
         let existing = self.index.query(query).await?;
         let summary = Summary::of(&finished.line).unwrap_or_default();
         let status = if summary.failed.is_some() {
@@ -182,7 +218,8 @@ impl Pipeline {
             recording,
             existing.as_ref(),
         );
-        self.index.put_query(&row).await
+        self.index.put_query(&row).await?;
+        Ok(row)
     }
 
     async fn record(&self, query: &str, started_unix_ns: i64) -> Result<Option<RecordingKey>> {

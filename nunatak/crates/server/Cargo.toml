@@ -11,6 +11,7 @@ repository.workspace = true
 axum.workspace = true
 bytes.workspace = true
 flate2.workspace = true
+futures-util.workspace = true
 nunatak-protocol.workspace = true
 nunatak-store.workspace = true
 serde.workspace = true
