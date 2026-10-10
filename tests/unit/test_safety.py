@@ -22,7 +22,7 @@ class Failing:
         self.calls += 1
         raise self.exc
 
-    started = planned = failed = closed = _fail
+    started = planned = failed = closed = release = _fail
 
 
 def test_a_failing_recorder_never_reaches_polars():
