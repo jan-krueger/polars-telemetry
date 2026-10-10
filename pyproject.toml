@@ -141,7 +141,7 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 # The adapter mirrors an untyped foreign protocol and must swallow everything.
 "src/polars_telemetry/adapter/*" = ["BLE001", "ANN401"]
-"tests/*" = ["S101", "ANN", "PLR2004"]
+"tests/*" = ["S101", "S106", "ANN", "PLR2004"]
 # These modules exist to absorb failures from a foreign interface.
 "src/polars_telemetry/_safety.py" = ["BLE001"]
 "src/polars_telemetry/_dispatch.py" = ["BLE001"]
@@ -151,6 +151,7 @@ ignore = [
 "src/polars_telemetry/export/profile.py" = ["BLE001"]
 "src/polars_telemetry/export/file.py" = ["BLE001"]
 "src/polars_telemetry/export/events.py" = ["BLE001"]
+"src/polars_telemetry/export/http_events.py" = ["BLE001"]
 "noxfile.py" = ["ANN"]
 
 [tool.ruff.lint.flake8-tidy-imports]

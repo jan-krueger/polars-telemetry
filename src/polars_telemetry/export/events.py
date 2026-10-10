@@ -51,10 +51,6 @@ _BATCH_BYTES = 256 * 1024
 _BATCH_SECONDS = 2.0
 
 
-def _line(seq: int, event: dict[str, Any]) -> str:
-    return json.dumps({"schema": SCHEMA, "seq": seq, **event}, separators=(",", ":"), default=str)
-
-
 def _counters(progress: Progress) -> dict[str, dict[str, Any]]:
     nodes: dict[str, dict[str, Any]] = {}
     for node_id, metric in progress.nodes.items():
@@ -69,6 +65,58 @@ def _counters(progress: Progress) -> dict[str, dict[str, Any]]:
             ]
         nodes[str(node_id)] = counters
     return nodes
+
+
+def started_event(query: Query) -> dict[str, Any]:
+    return {
+        "type": "query.started",
+        "query_id": str(query.query_id),
+        "profile": build_profile(query),
+    }
+
+
+def progress_event(progress: Progress) -> dict[str, Any]:
+    return {
+        "type": "query.progress",
+        "query_id": str(progress.query_id),
+        "elapsed_ms": round(progress.elapsed_ms, 1),
+        "nodes": _counters(progress),
+    }
+
+
+def finished_event(query: Query) -> dict[str, Any]:
+    return {
+        "type": "query.finished",
+        "query_id": str(query.query_id),
+        "profile": build_profile(query),
+    }
+
+
+class Stream:
+    """One exporter's events: the process line that names them, and a number for each."""
+
+    __slots__ = ("_process", "_seq")
+
+    def __init__(self, service: str | None, environment: str | None) -> None:
+        self._seq = itertools.count(1)
+        self._process = {
+            "type": "process",
+            "id": str(uuid4()),
+            "service": service,
+            "environment": environment,
+            "host": socket.gethostname(),
+            "pid": os.getpid(),
+            "polars_telemetry_version": __version__,
+        }
+
+    def process(self) -> str:
+        """A process line, numbered like any event."""
+        return self.line({**self._process, "started_unix_ns": time.time_ns()})
+
+    def line(self, event: dict[str, Any]) -> str:
+        return json.dumps(
+            {"schema": SCHEMA, "seq": next(self._seq), **event}, separators=(",", ":"), default=str
+        )
 
 
 class FileEventExporter:
@@ -94,8 +142,7 @@ class FileEventExporter:
         "_gzip",
         "_lock",
         "_opened",
-        "_process",
-        "_seq",
+        "_stream",
     )
 
     def __init__(
@@ -107,16 +154,7 @@ class FileEventExporter:
         max_bytes: int = DEFAULT_MAX_BYTES,
     ) -> None:
         self._file = RotatingFile(path, max_bytes, "event")
-        self._seq = itertools.count(1)
-        self._process = {
-            "type": "process",
-            "id": str(uuid4()),
-            "service": service,
-            "environment": environment,
-            "host": socket.gethostname(),
-            "pid": os.getpid(),
-            "polars_telemetry_version": __version__,
-        }
+        self._stream = Stream(service, environment)
         self._gzip = self._file.path.suffix == ".gz"
         self._lock = threading.Lock()
         self._buffer: list[str] = []
@@ -136,34 +174,13 @@ class FileEventExporter:
         return self._file.errors
 
     def started(self, query: Query) -> None:
-        self._write(
-            {
-                "type": "query.started",
-                "query_id": str(query.query_id),
-                "profile": build_profile(query),
-            },
-            urgent=True,
-        )
+        self._write(started_event(query), urgent=True)
 
     def progress(self, progress: Progress) -> None:
-        self._write(
-            {
-                "type": "query.progress",
-                "query_id": str(progress.query_id),
-                "elapsed_ms": round(progress.elapsed_ms, 1),
-                "nodes": _counters(progress),
-            }
-        )
+        self._write(progress_event(progress))
 
     def export(self, query: Query) -> None:
-        self._write(
-            {
-                "type": "query.finished",
-                "query_id": str(query.query_id),
-                "profile": build_profile(query),
-            },
-            urgent=True,
-        )
+        self._write(finished_event(query), urgent=True)
 
     def close(self) -> None:
         """Write what is buffered. `uninstall()` calls it, and so does exit."""
@@ -177,9 +194,9 @@ class FileEventExporter:
                 self._buffered_at = time.monotonic()
             if not self._opened:
                 self._opened = True
-                self._append(self._process_line())
+                self._append(self._stream.process())
             try:
-                line = _line(next(self._seq), event)
+                line = self._stream.line(event)
             except Exception as exc:
                 self._file.record(exc, "building an event")
                 return
@@ -205,14 +222,11 @@ class FileEventExporter:
         try:
             data = self._encode(data)
             if self._file.rotate_if_needed(len(data)):
-                data = self._encode((self._process_line() + "\n").encode("utf-8")) + data
+                data = self._encode((self._stream.process() + "\n").encode("utf-8")) + data
             with self._file.path.open("ab") as handle:
                 handle.write(data)
         except Exception as exc:
             self._file.record(exc, f"writing to {self._file.path}")
-
-    def _process_line(self) -> str:
-        return _line(next(self._seq), {**self._process, "started_unix_ns": time.time_ns()})
 
     def _encode(self, data: bytes) -> bytes:
         return gzip.compress(data, compresslevel=6) if self._gzip else data

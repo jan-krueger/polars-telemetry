@@ -89,6 +89,7 @@ polars query 1a8cfdfd ok wall=1.92ms planning=0.47ms cpu=1.57ms parallelism=0.82
 | [DogStatsD](https://jan-krueger.github.io/polars-telemetry/exporters/dogstatsd/) | `pip install 'polars-telemetry[datadog]'` | the same metrics, tagged, to the Datadog Agent or Telegraf |
 | [JSONL file](https://jan-krueger.github.io/polars-telemetry/exporters/jsonl/) | included | a profile per query, for the viewer and the CLI |
 | [Events file](https://jan-krueger.github.io/polars-telemetry/exporters/events/) | included | a query's plan, samples while it runs, and its profile |
+| [Events over HTTP](https://jan-krueger.github.io/polars-telemetry/exporters/http-events/) | included | the same, sent to a server while the query runs |
 | [Console](https://jan-krueger.github.io/polars-telemetry/exporters/console/) | included | a short summary on standard error |
 
 `pt.install()` without an exporter sends to OpenTelemetry, through the SDK you
