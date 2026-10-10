@@ -9,6 +9,10 @@ use std::io::Write;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::time::Duration;
+
+const QUIET: Duration = Duration::from_mins(1);
+const SWEEP: Duration = Duration::from_secs(10);
 
 #[derive(Parser)]
 #[command(version, about)]
@@ -87,6 +91,7 @@ async fn serve(args: Args) -> std::io::Result<()> {
         Some(token) if !token.is_empty() => token,
         _ => stored_token(&args.data, args.ingest_bind.unwrap_or(args.bind))?,
     };
+    tokio::spawn(close_silent(Arc::clone(&pipeline)));
     let ingest = ingest_router(Arc::clone(&pipeline), token, Limits::default());
     let app = app_router(pipeline);
     let main = tokio::net::TcpListener::bind(args.bind).await?;
@@ -105,6 +110,21 @@ async fn serve(args: Args) -> std::io::Result<()> {
                 axum::serve(events, ingest).with_graceful_shutdown(stopped()),
             );
             a.and(b)
+        }
+    }
+}
+
+async fn close_silent(pipeline: Arc<Pipeline>) {
+    let mut every = tokio::time::interval(SWEEP);
+    loop {
+        every.tick().await;
+        match pipeline.close_silent(QUIET).await {
+            Ok(closed) => {
+                for query in closed {
+                    tracing::info!(%query, "closed a query its process stopped reporting");
+                }
+            }
+            Err(error) => tracing::warn!("closing silent queries failed: {error}"),
         }
     }
 }

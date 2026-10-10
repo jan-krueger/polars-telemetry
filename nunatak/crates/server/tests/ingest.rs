@@ -402,3 +402,63 @@ async fn facets_keep_every_value_and_count_each_field_under_the_other_filters() 
         serde_json::json!({ "value": "finished", "runs": 1 })
     );
 }
+
+#[tokio::test]
+async fn a_query_whose_process_went_silent_is_closed_as_unfinished_with_its_recording() {
+    let data = tempfile::tempdir().unwrap();
+    let pipeline = pipeline(data.path());
+    let app = ingest_router(Arc::clone(&pipeline), TOKEN.into(), Limits::default());
+    post(&app, TOKEN, gzip(&example("unfinished.jsonl"))).await;
+
+    let still = pipeline
+        .close_silent(std::time::Duration::from_mins(1))
+        .await
+        .unwrap();
+    assert_eq!(still, Vec::<String>::new());
+    let closed = pipeline
+        .close_silent(std::time::Duration::ZERO)
+        .await
+        .unwrap();
+    assert_eq!(closed.len(), 1);
+
+    let row = pipeline.index().query(&closed[0]).await.unwrap().unwrap();
+    assert_eq!(row.status.as_str(), "unfinished");
+    assert!(row.recording.is_some());
+    assert_eq!(recordings(data.path()).len(), 1);
+    assert_eq!(pipeline.live().pulses(), Vec::new());
+}
+
+#[tokio::test]
+async fn a_closed_query_that_reports_again_keeps_everything_in_one_recording() {
+    let data = tempfile::tempdir().unwrap();
+    let pipeline = pipeline(data.path());
+    let app = ingest_router(Arc::clone(&pipeline), TOKEN.into(), Limits::default());
+    let all: Vec<&str> = example("finished.jsonl").leak().lines().collect();
+    post(&app, TOKEN, gzip(&(all[..5].join("\n") + "\n"))).await;
+    let closed = pipeline
+        .close_silent(std::time::Duration::ZERO)
+        .await
+        .unwrap();
+    assert_eq!(closed.len(), 1);
+
+    post(
+        &app,
+        TOKEN,
+        gzip(&format!("{}\n{}\n", all[0], all[5..7].join("\n"))),
+    )
+    .await;
+    let row = pipeline.index().query(&closed[0]).await.unwrap().unwrap();
+    assert_eq!(row.status.as_str(), "running");
+    post(
+        &app,
+        TOKEN,
+        gzip(&format!("{}\n{}\n", all[0], all[7..].join("\n"))),
+    )
+    .await;
+
+    let row = pipeline.index().query(&closed[0]).await.unwrap().unwrap();
+    assert_eq!(row.status.as_str(), "finished");
+    let stored = recordings(data.path());
+    assert_eq!(stored.len(), 1);
+    assert_eq!(lines(&stored[0]), all);
+}

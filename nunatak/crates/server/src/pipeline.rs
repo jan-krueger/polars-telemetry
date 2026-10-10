@@ -1,12 +1,16 @@
 use crate::live::{Change, Live};
 use bytes::Bytes;
 use flate2::Compression;
+use flate2::read::MultiGzDecoder;
 use flate2::write::GzEncoder;
 use nunatak_protocol::{Batch, Event, Kind, Stream, Summary};
-use nunatak_store::{Index, Log, QuerySummary, RecordingKey, Recordings, Result, Seen, Status};
+use nunatak_store::{
+    Filter, Index, Log, Page, QuerySummary, RecordingKey, Recordings, Result, Seen, Status,
+};
 use std::collections::{HashMap, HashSet};
-use std::io::Write;
-use std::sync::Arc;
+use std::io::{Read, Write};
+use std::sync::{Arc, PoisonError};
+use std::time::{Duration, Instant};
 use tokio::sync::Mutex;
 
 pub struct Pipeline {
@@ -15,6 +19,7 @@ pub struct Pipeline {
     recordings: Arc<dyn Recordings>,
     index: Arc<dyn Index>,
     streams: Mutex<HashMap<String, Seen>>,
+    heard: std::sync::Mutex<HashMap<String, Instant>>,
     live: Live,
 }
 
@@ -46,6 +51,7 @@ impl Pipeline {
             recordings,
             index,
             streams: Mutex::new(HashMap::new()),
+            heard: std::sync::Mutex::new(HashMap::new()),
             live: Live::default(),
         }
     }
@@ -111,6 +117,7 @@ impl Pipeline {
             }
             if let Some(finished) = events.iter().find(|e| e.kind == Kind::Finished) {
                 let row = self.finish(&batch.stream, query, finished).await?;
+                self.heard().remove(query);
                 self.live.finished(query);
                 self.live.publish(Change::Query(Box::new(row)));
             } else {
@@ -125,6 +132,7 @@ impl Pipeline {
                 if let Some(pulse) = pulse {
                     self.live.publish(Change::Pulse(pulse));
                 }
+                self.heard().insert(query.to_owned(), Instant::now());
                 running.push(query.to_owned());
             }
         }
@@ -160,6 +168,50 @@ impl Pipeline {
         Ok(total)
     }
 
+    pub async fn close_silent(&self, quiet: Duration) -> Result<Vec<String>> {
+        let _streams = self.streams.lock().await;
+        let filter = Filter {
+            project: Some(self.project.clone()),
+            status: Some(Status::Running),
+            ..Filter::default()
+        };
+        let running = self
+            .index
+            .list(
+                &filter,
+                Page {
+                    limit: u32::MAX,
+                    offset: 0,
+                },
+            )
+            .await?;
+        let now = Instant::now();
+        let silent: Vec<String> = {
+            let mut heard = self.heard();
+            running
+                .into_iter()
+                .filter(|row| {
+                    let at = *heard.entry(row.query_id.clone()).or_insert(now);
+                    now.duration_since(at) >= quiet
+                })
+                .map(|row| row.query_id)
+                .collect()
+        };
+        for query in &silent {
+            self.close_unfinished(query).await?;
+            self.heard().remove(query);
+            self.live.finished(query);
+            if let Some(row) = self.index.query(query).await? {
+                self.live.publish(Change::Query(Box::new(row)));
+            }
+        }
+        Ok(silent)
+    }
+
+    fn heard(&self) -> std::sync::MutexGuard<'_, HashMap<String, Instant>> {
+        self.heard.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
     pub async fn close_unfinished(&self, query: &str) -> Result<()> {
         let Some(mut row) = self.index.query(query).await? else {
             return Ok(());
@@ -167,7 +219,9 @@ impl Pipeline {
         if row.status != Status::Running {
             return Ok(());
         }
-        row.recording = self.record(query, row.started_unix_ns).await?;
+        row.recording = self
+            .record(query, row.started_unix_ns, row.recording.as_ref())
+            .await?;
         row.status = Status::Unfinished;
         self.index.put_query(&row).await
     }
@@ -179,7 +233,11 @@ impl Pipeline {
         started: Option<&Event>,
     ) -> Result<Option<QuerySummary>> {
         let existing = self.index.query(query).await?;
-        if existing.is_some() && started.is_none() {
+        if started.is_none()
+            && existing
+                .as_ref()
+                .is_some_and(|row| row.status != Status::Unfinished)
+        {
             return Ok(None);
         }
         let summary = started
@@ -209,7 +267,8 @@ impl Pipeline {
             .started_unix_ns
             .or(existing.as_ref().map(|row| row.started_unix_ns))
             .unwrap_or_else(now_unix_ns);
-        let recording = self.record(query, started).await?;
+        let earlier = existing.as_ref().and_then(|row| row.recording.as_ref());
+        let recording = self.record(query, started, earlier).await?;
         let row = self.row(
             stream,
             query,
@@ -222,16 +281,39 @@ impl Pipeline {
         Ok(row)
     }
 
-    async fn record(&self, query: &str, started_unix_ns: i64) -> Result<Option<RecordingKey>> {
+    async fn record(
+        &self,
+        query: &str,
+        started_unix_ns: i64,
+        earlier: Option<&RecordingKey>,
+    ) -> Result<Option<RecordingKey>> {
         let Some(text) = self.log.take(query).await? else {
-            return Ok(None);
+            return Ok(earlier.cloned());
         };
         let mut gzip = GzEncoder::new(Vec::new(), Compression::default());
-        gzip.write_all(&text)?;
+        let before = match earlier {
+            Some(key) => self.recordings.get(key).await?,
+            None => None,
+        };
+        if let Some(before) = before {
+            let mut kept = Vec::new();
+            MultiGzDecoder::new(before.as_ref()).read_to_end(&mut kept)?;
+            gzip.write_all(&kept)?;
+            let process = text
+                .iter()
+                .position(|&b| b == b'\n')
+                .map_or(text.len(), |at| at + 1);
+            gzip.write_all(&text[process..])?;
+        } else {
+            gzip.write_all(&text)?;
+        }
         let key = RecordingKey(format!("{}/{query}.jsonl.gz", date(started_unix_ns)));
         self.recordings
             .put(&key, Bytes::from(gzip.finish()?))
             .await?;
+        if let Some(earlier) = earlier.filter(|earlier| **earlier != key) {
+            self.recordings.delete(earlier).await?;
+        }
         Ok(Some(key))
     }
 

@@ -31,7 +31,7 @@ serde_json = "1.0.151"
 subtle = "2.6.1"
 tempfile = "3.27.0"
 thiserror = "2.0.21"
-tokio = { version = "1.53.1", features = ["fs", "io-util", "macros", "net", "rt-multi-thread", "signal", "sync"] }
+tokio = { version = "1.53.1", features = ["fs", "io-util", "macros", "net", "rt-multi-thread", "signal", "sync", "time"] }
 tower = { version = "0.5.3", features = ["util"] }
 tower-http = { version = "0.7.1", features = ["decompression-gzip", "limit"] }
 tracing = "0.1.44"
