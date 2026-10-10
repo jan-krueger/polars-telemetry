@@ -8,7 +8,7 @@ import type { Moment } from "../lib/replay";
 import type { Finding, PlanNode as PlanNodeData } from "../model/profile";
 import type { Channel, Pane } from "../hooks/usePanes";
 import {
-  FAR_ZOOM, NODE_H, NODE_W, applyView, cpuMs, distant, extent, focusSteps, liveFlow, shareView, startsFar, stepFor, toFlow, withSelection,
+  FAR_ZOOM, NODE_H, NODE_W, applyView, distant, extent, focusSteps, liveFlow, shareView, startsFar, stepFor, toFlow, withSelection,
   type Box, type FocusStep, type Positions,
 } from "../lib/graph";
 import useLayout from "../hooks/useLayout";
@@ -20,7 +20,7 @@ const nodeTypes = { plan: PlanNode };
 const edgeTypes = { flow: FlowEdge };
 const MINI = { width: 112, height: 172 };
 const READABLE = 0.7;
-const UNREADABLE = 0.4;
+const FIT = { minZoom: 0.4 };
 const miniClass = (n: Node): string => n.className ?? "";
 
 type Reveal = { id: number } | null;
@@ -108,7 +108,6 @@ function PlanView({ plan, positions, logical, selectedId, onSelect, thresholdMs,
     live.set(moment && !logical ? liveFlow(plan, moment, live.current()) : null);
   }, [live, plan, moment, logical]);
   const box = useMemo(() => extent(positions), [positions]);
-  const home = useMemo(() => start(plan, positions), [plan, positions]);
   const [far, setFar] = useState(() => startsFar(box));
   const [fitted, setFitted] = useState(false);
   const seen = useMemo(() => (far ? distant(flow) : flow), [flow, far]);
@@ -138,6 +137,8 @@ function PlanView({ plan, positions, logical, selectedId, onSelect, thresholdMs,
           edges={edges}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
+          fitView
+          fitViewOptions={FIT}
           minZoom={0.01}
           nodesDraggable={false}
           nodesConnectable={false}
@@ -148,7 +149,7 @@ function PlanView({ plan, positions, logical, selectedId, onSelect, thresholdMs,
           <Background variant={BackgroundVariant.Dots} gap={16} size={1} color="var(--axis)" />
           <MiniMap pannable zoomable nodeClassName={miniClass} style={MINI} />
           <Controls showInteractive={false} />
-          <Home when={alone} box={box} target={home} />
+          <Refit when={alone} />
           <InView id={selectedId} positions={positions} />
           <Distance onChange={setFar} onFitted={setFitted} />
           <Reveal request={reveal} positions={positions} />
@@ -208,34 +209,27 @@ function Focus({ steps, step, onFocus }: { steps: FocusStep[]; step: number; onF
   );
 }
 
-/** Where a plan too large to read whole opens: its most expensive node, else its top. */
-function start(plan: PlanNodeData[], positions: Positions): { x: number; y: number } | null {
-  const hottest = plan.reduce<PlanNodeData | null>((best, n) => (cpuMs(n) > (best ? cpuMs(best) : 0) ? n : best), null);
-  const at = hottest ? positions[String(hottest.id)] : Object.values(positions).reduce<{ x: number; y: number } | undefined>((top, p) => (!top || p.y < top.y ? p : top), undefined);
-  return at ? { x: at.x + NODE_W / 2, y: at.y + NODE_H / 2 } : null;
-}
-
-function Home({ when, box, target }: { when: boolean; box: Box; target: { x: number; y: number } | null }) {
-  const { fitView, setCenter } = useReactFlow();
+function Refit({ when }: { when: boolean }) {
+  const { fitView } = useReactFlow();
   const width = useStore((s) => s.width);
   const height = useStore((s) => s.height);
-  const placed = useRef(false);
+  const first = useRef(true);
   const pending = useRef(false);
   const size = useRef({ width, height });
   useEffect(() => {
-    if (placed.current) pending.current = true;
+    if (first.current) {
+      first.current = false;
+      return;
+    }
+    pending.current = true;
   }, [when]);
   useEffect(() => {
     const resized = size.current.width !== width || size.current.height !== height;
     size.current = { width, height };
-    if (!width || !height || (placed.current && !(resized && pending.current))) return;
-    const duration = placed.current ? 200 : 0;
-    placed.current = true;
+    if (!resized || !pending.current) return;
     pending.current = false;
-    const fit = Math.min(width / box.width, height / box.height) * 0.9;
-    if (fit >= UNREADABLE || !target) fitView({ duration });
-    else setCenter(target.x, target.y, { zoom: READABLE, duration });
-  }, [width, height, box, target, fitView, setCenter]);
+    fitView({ ...FIT, duration: 200 });
+  }, [width, height, fitView]);
   return null;
 }
 
