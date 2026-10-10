@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { span } from "../lib/format";
 import { clock } from "../lib/time";
 import { facets, groups, queries, type Filter, type GroupSummary, type QuerySummary } from "./api";
-import { FacetList, useLoad, useSearch } from "./shared";
+import { FacetList, FilterRail, useLoad, useSearch } from "./shared";
 import { follow, go } from "./App";
 
 type Sort = "name" | "runs" | "total" | "last";
@@ -24,6 +24,7 @@ export default function QueriesPage() {
   const key = JSON.stringify(filter);
   const found = useLoad(() => groups(filter), key);
   const counts = useLoad(() => facets(filter), key);
+  const anything = useLoad(() => queries({ limit: 1 }), "anything");
   const sort = (params.get("sort") as Sort | null) ?? "total";
   const text = params.get("q") ?? "";
   const label = params.get("label");
@@ -32,12 +33,16 @@ export default function QueriesPage() {
     return sortGroups((found ?? []).filter((g) => !needle || (g.key ?? "").toLowerCase().includes(needle)), sort);
   }, [found, sort, text]);
   const now = Date.now();
+  const flagged = (found ?? []).some((group) => group.failed || group.rules.length);
+  const active = (["service", "environment", "host", "status"] as const).filter((f) => filter[f]).length;
 
   return (
-    <div className="shell shell--queries">
-      <aside className="rail">
-        <FacetList counts={counts} params={params} update={update} />
-      </aside>
+    <div className={anything?.length === 0 ? "shell shell--alone" : "shell shell--queries"}>
+      {anything?.length !== 0 && (
+        <FilterRail active={active}>
+          <FacetList counts={counts} params={params} update={update} />
+        </FilterRail>
+      )}
       <main>
         <div className="nbar">
           <input id="label-search" className="nsearch" type="search" placeholder="Search labels" value={text}
@@ -48,7 +53,11 @@ export default function QueriesPage() {
           </select>
         </div>
         {found === null ? <div className="nsoon">Loading…</div>
-          : !found.length ? <div className="nsoon">No queries in this range.</div>
+          : !found.length ? (
+            anything?.length === 0
+              ? <div className="nsoon">No queries yet. <a className="ninline" href="/" onClick={follow}>Now</a> shows how to send them from Python.</div>
+              : <div className="nsoon">No queries match this range and these filters.</div>
+          )
           : (
           <div className="nsplit">
             <table className="ntable">
@@ -59,8 +68,8 @@ export default function QueriesPage() {
                       <button className="nsort" onClick={() => update({ sort: column === "total" ? null : column })}>{name}</button>
                     </th>
                   ))}
-                  <th>Trend</th>
-                  <th>Warnings</th>
+                  <th className="nwide">Trend</th>
+                  {flagged && <th className="nwide">Warnings</th>}
                 </tr>
               </thead>
               <tbody>
@@ -70,11 +79,11 @@ export default function QueriesPage() {
                     <td className="num">{group.runs}</td>
                     <td className="num">{group.recent_wall_ms.length ? span(group.total_wall_ms) : "–"}</td>
                     <td className="num dim">{ago(group.last_started_unix_ns, now)}</td>
-                    <td><Spark values={group.recent_wall_ms} /></td>
-                    <td><Rules group={group} /></td>
+                    <td className="nwide"><Spark values={group.recent_wall_ms} /></td>
+                    {flagged && <td className="nwide"><Rules group={group} /></td>}
                   </tr>
                 ))}
-                {!sorted.length && <tr className="nnone"><td colSpan={6}>No label matches “{text}”.</td></tr>}
+                {!sorted.length && <tr className="nnone"><td colSpan={COLUMNS.length + (flagged ? 2 : 1)}>No label matches “{text}”.</td></tr>}
               </tbody>
             </table>
             {label !== null && <LabelPanel label={label} key={label} now={now} />}
@@ -154,7 +163,11 @@ function LabelPanel({ label, now }: { label: string; now: number }) {
           ))}
         </tbody>
       </table>
-      {runs.length > shown && <button className="link" onClick={() => setShown(shown + PAGE * 2)}>Show {Math.min(PAGE * 2, runs.length - shown)} more of {runs.length - shown}</button>}
+      {runs.length > shown && (
+        <button className="link" onClick={() => setShown(shown + PAGE * 2)}>
+          {runs.length - shown <= PAGE * 2 ? `Show the other ${runs.length - shown}` : `Show ${PAGE * 2} more`}
+        </button>
+      )}
     </aside>
   );
 }
@@ -175,7 +188,7 @@ function Trend({ runs, changed, when }: { runs: QuerySummary[]; changed: number 
       {split !== null && (
         <>
           <line x1={split} x2={split} y1={top} y2={h - 20} className="nguide" />
-          <text x={split + 4} y={top + 10}>plan changed</text>
+          <text x={split > w * 0.6 ? split - 4 : split + 4} y={top + 10} textAnchor={split > w * 0.6 ? "end" : "start"}>plan changed</text>
         </>
       )}
       {runs.map((run, i) => run.status === "failed" || run.wall_ms === null

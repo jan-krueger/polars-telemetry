@@ -83,6 +83,28 @@
 .nrecent-what .nlabel:hover{color:var(--accent)}
 .nrecent tr.nrecent--failed td:first-child{box-shadow:inset 2px 0 var(--crit)}
 .nwaiting{max-width:640px;margin:40px auto;display:flex;flex-direction:column;gap:12px;align-items:flex-start}
-.nwaiting h2{margin:0;font-size:18px}
+.nwaiting h2{margin:0;font:inherit;font-size:18px;font-weight:600;line-height:1.3;letter-spacing:normal;text-transform:none;color:var(--ink)}
 .nwaiting p{margin:0}
 .ncode{font:12.5px/1.6 ui-monospace,monospace;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin:0;width:100%;overflow-x:auto}
+.shell.shell--alone{grid-template-columns:minmax(0,1fr)}
+.nunset{font-style:italic}
+.nrail-toggle{display:none;width:100%;text-align:left;background:none;border:0;padding:2px 0;font:inherit;font-size:12.5px;font-weight:600;color:var(--ink);cursor:pointer}
+.nrail-toggle::after{content:" ▾";color:var(--muted)}
+.nrail.open .nrail-toggle::after{content:" ▴"}
+.ninline{color:var(--accent);text-decoration:none}
+.ninline:hover{text-decoration:underline}
+@media (max-width:760px){
+  .shell.shell--queries,.shell.shell--run,.shell.shell--alone{grid-template-columns:minmax(0,1fr);height:auto}
+  .shell > main{overflow:visible}
+  .rail{border-right:0;border-bottom:1px solid var(--border)}
+  .rail.right{border-left:0;border-top:1px solid var(--border)}
+  .nrail-toggle{display:block}
+  .nrail .nrail-body{display:none;margin-top:10px}
+  .nrail.open .nrail-body{display:block}
+  .ntable .nwide{display:none}
+  .npanel{order:-1}
+  .react-flow__minimap{display:none}
+  .nsplit{flex-direction:column;align-items:stretch}
+  .npanel{width:auto;position:static}
+  .nerror{max-width:180px}
+}

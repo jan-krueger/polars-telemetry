@@ -28,7 +28,7 @@ function usePath(): string {
 export default function App() {
   const path = usePath();
   const run = /^\/queries\/([^/]+)$/.exec(path);
-  const tab = path.startsWith("/queries") ? "queries" : "now";
+  const tab = path === "/" ? "now" : path.startsWith("/queries") ? "queries" : null;
   return (
     <>
       <header className="top">

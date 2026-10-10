@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { Count, Facets } from "./api";
 import { go } from "./App";
 
@@ -33,6 +33,18 @@ export function useSearch(): [URLSearchParams, (changes: Record<string, string |
   return [params, update];
 }
 
+export function FilterRail({ active, children }: { active: number; children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <aside className={open ? "rail nrail open" : "rail nrail"}>
+      <button className="nrail-toggle" aria-expanded={open} onClick={() => setOpen(!open)}>
+        Filters{active ? ` · ${active}` : ""}
+      </button>
+      <div className="nrail-body">{children}</div>
+    </aside>
+  );
+}
+
 export function FacetList({ counts, params, update, fields = FIELDS }: { counts: Facets | null; params: URLSearchParams; update: (changes: Record<string, string | null>) => void; fields?: readonly (typeof FIELDS)[number][] }) {
   return (
     <div className="nfacets">
@@ -47,7 +59,7 @@ export function FacetList({ counts, params, update, fields = FIELDS }: { counts:
               <button key={count.value ?? ""} aria-pressed={chosen === count.value}
                       disabled={count.value === null || (count.runs === 0 && chosen !== count.value)}
                       onClick={() => update({ [field]: chosen === count.value ? null : count.value })}>
-                <span>{count.value ?? "none"}</span><span className="dim">{count.runs}</span>
+                <span className={count.value === null ? "nunset" : undefined}>{count.value ?? "not set"}</span><span className="dim">{count.runs}</span>
               </button>
             ))}
           </section>

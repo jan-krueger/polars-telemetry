@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { num, span } from "../lib/format";
+import { span } from "../lib/format";
 import { clock } from "../lib/time";
 import { facets, queries, type Filter, type Pulse, type QuerySummary } from "./api";
 import { follow, go } from "./App";
-import { FacetList, useLoad, useSearch } from "./shared";
+import { FacetList, FilterRail, useLoad, useSearch } from "./shared";
 
 const RECENT = 12;
 const FAILED_WITHIN_MS = 3_600_000;
@@ -82,8 +82,12 @@ export default function NowPage() {
   const empty = live.connected && !running.length && recentLoaded !== null && !recentLoaded.length && !filter.service && !filter.environment && !filter.host;
 
   return (
-    <div className="shell shell--queries">
-      <aside className="rail"><FacetList counts={counts} params={params} update={update} fields={FIELDS} /></aside>
+    <div className={empty ? "shell shell--alone" : "shell shell--queries"}>
+      {!empty && (
+        <FilterRail active={FIELDS.filter((f) => filter[f]).length}>
+          <FacetList counts={counts} params={params} update={update} fields={FIELDS} />
+        </FilterRail>
+      )}
       <main>
         {empty ? <Waiting /> : (
           <>
@@ -159,7 +163,7 @@ function Card({ query, pulse, now }: { query: QuerySummary; pulse?: { pulse: Pul
       <Bars values={pulse?.pulse.threads ?? []} />
       <span><b>{span(elapsed)}</b> <span className="dim">so far</span></span>
       <span className="dim">
-        {pulse?.pulse.busiest ? <>Busiest now: <span className="ink">{pulse.pulse.busiest.kind}</span> · {num(pulse.pulse.busiest.threads, 1)} threads</> : "Waiting for the first sample"}
+        {pulse?.pulse.busiest ? <>Busiest now: <span className="ink">{pulse.pulse.busiest.kind}</span></> : "Waiting for the first sample"}
         {pulse && pulse.pulse.nodes ? <> · nodes done {pulse.pulse.done}/{pulse.pulse.nodes}</> : null}
       </span>
     </a>
@@ -169,7 +173,7 @@ function Card({ query, pulse, now }: { query: QuerySummary; pulse?: { pulse: Pul
 function Bars({ values }: { values: number[] }) {
   const w = 300, h = 44, shown = values.slice(-60), max = Math.max(...shown, 1e-9), bw = w / Math.max(shown.length, 12);
   return (
-    <svg className="nbars" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" aria-label="Threads busy per sample">
+    <svg className="nbars" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" aria-label="Node CPU per sample">
       <rect width={w} height={h} rx={4} className="nbars-ground" />
       {shown.map((v, i) => <rect key={i} x={i * bw + 1} y={h - (v / max) * (h - 4)} width={bw - 2} height={(v / max) * (h - 4)} className="nbars-bar" />)}
     </svg>
@@ -197,7 +201,7 @@ function Recent({ runs }: { runs: QuerySummary[] }) {
       <td className="dim">{clock(query.started_unix_ns, false)}</td>
       <td className="nrecent-what">
         <a className="nlabel" href={`/queries/${query.query_id}`} onClick={follow}>{query.label ?? query.query_id}</a>
-        <span className="dim">{[query.service, query.host].filter(Boolean).join(" · ")}</span>
+        <span className="dim nwide">{[query.service, query.host].filter(Boolean).join(" · ")}</span>
       </td>
       <td className="num dim">{runs.length > 1 ? `×${runs.length}` : ""}</td>
       <td className="num">
@@ -205,7 +209,7 @@ function Recent({ runs }: { runs: QuerySummary[] }) {
           : query.status === "unfinished" ? <span className="npill npill--unfinished">unfinished</span>
           : !walls.length ? "–" : low === high ? span(low) : `${span(low)}–${span(high)}`}
       </td>
-      <td>
+      <td className="nwide">
         {query.status === "failed" && query.failed ? <span className="nerror" title={query.failed}>{query.failed.split("\n")[0]}</span>
           : query.rules.map((rule) => <code key={rule} className="nrule">{rule}</code>)}
       </td>
@@ -218,14 +222,14 @@ function Waiting() {
     <div className="nwaiting">
       <h2>Waiting for the first query</h2>
       <p className="dim">Add this to the Python process whose queries you want to follow. A query appears here once it has run for a second.</p>
-      <pre className="ncode">{`import os
-import polars_telemetry
+      <pre className="ncode">{`import polars_telemetry
 from polars_telemetry.export import HttpEventExporter
 
 polars_telemetry.install(exporter=HttpEventExporter(
-    "${location.origin}", token=os.environ["NUNATAK_TOKEN"], service="my-service",
+    "${location.origin}",
+    service="my-service",
 ))`}</pre>
-      <p className="dim">The token is printed when nunatak first starts, and kept in <code>token</code> in its data folder. Recordings from <code>FileEventExporter</code> can be added with <code>nunatak import FILE</code>.</p>
+      <p className="dim">Run it with <code>NUNATAK_TOKEN</code> set to the token Nunatak printed when it first started; it is kept in the file <code>token</code> in Nunatak&rsquo;s data folder. Recordings from <code>FileEventExporter</code> can be added with <code>nunatak import FILE</code>.</p>
       <button className="link" onClick={() => go("/queries")}>Or look at queries recorded before</button>
     </div>
   );
