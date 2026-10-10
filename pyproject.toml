@@ -78,6 +78,8 @@ dev = [
     "opentelemetry-sdk>=1.20",
     "opentelemetry-exporter-otlp-proto-grpc>=1.20",
     "datadog>=0.50",
+    "jsonschema>=4.18",
+    "types-jsonschema>=4.26.0.20260518",
 ]
 
 docs = [

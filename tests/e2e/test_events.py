@@ -16,6 +16,7 @@ polars = pytest.importorskip("polars")
 import polars_telemetry  # noqa: E402
 from polars_telemetry import Config  # noqa: E402
 from polars_telemetry.export.events import FileEventExporter  # noqa: E402
+from tests.unit.test_event_schema import EVENT, _problems  # noqa: E402
 
 
 def _slowly(df: Any) -> Any:
@@ -51,6 +52,11 @@ def test_a_running_query_is_announced_sampled_and_finished_in_order(tmp_path):
     assert slow[0]["profile"]["plan"]["physical"]
     elapsed = [e["elapsed_ms"] for e in slow if e["type"] == "query.progress"]
     assert elapsed == sorted(elapsed)
+
+
+def test_a_real_recording_matches_the_events_schema(tmp_path):
+    events = _record(tmp_path)
+    assert [problem for event in events for problem in _problems(EVENT, event)] == []
 
 
 def test_a_query_that_ends_before_its_first_sample_is_only_finished(tmp_path):
