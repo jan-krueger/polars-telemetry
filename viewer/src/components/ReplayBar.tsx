@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState, type Dispatch, type KeyboardEvent } from "react";
 import type { Profile } from "../model/profile";
-import type { Action } from "../state/viewer";
+import type { QueryAction } from "../state/viewer";
 import { span } from "../lib/format";
 import { busy, finishes, replayEnd, type Stretch } from "../lib/replay";
 
@@ -9,7 +9,7 @@ const WHOLE_RUN_MS = 12_000;
 const times = (v: number): string => `${v >= 10 ? Math.round(v) : Number(v.toPrecision(2))}×`;
 
 /** Scrub or play through the query's run over a chart of how many threads it kept busy. */
-export default function ReplayBar({ profile, at, dispatch }: { profile: Profile; at: number | null; dispatch: Dispatch<Action> }) {
+export default function ReplayBar({ profile, at, dispatch }: { profile: Profile; at: number | null; dispatch: Dispatch<QueryAction> }) {
   const replay = profile.replay!;
   const end = replayEnd(profile);
   const t = at ?? end;

@@ -2,11 +2,14 @@ import { useMemo, useReducer, useRef } from "react";
 import "@xyflow/react/dist/style.css";
 import "./styles.css";
 import Booting from "./components/Booting";
-import NodeDetails from "./components/NodeDetails";
 import Notice from "./components/Notice";
 import Overview from "./components/Overview";
+import PickedNode from "./components/PickedNode";
 import QueryView from "./components/QueryView";
-import { momentAt, nodeAt, replayEnd } from "./lib/replay";
+import useMoment from "./hooks/useMoment";
+import { shareFragment } from "./share/link";
+import { documentsFor } from "./share/session";
+import { spansDays } from "./lib/time";
 import { SessionsPage } from "./components/Sessions";
 import Sidebar from "./components/Sidebar";
 import StartPage from "./components/StartPage";
@@ -17,7 +20,7 @@ import useSessions from "./hooks/useSessions";
 import { byNode } from "./lib/insights";
 import { storageUnavailable } from "./lib/storage";
 import {
-  currentProfile, currentSession, findNode, initialState, reducer, sharedPrefix, visibleShapes,
+  currentProfile, currentSession, initialState, reducer, sharedPrefix, visibleShapes,
 } from "./state/viewer";
 
 export default function App() {
@@ -36,16 +39,8 @@ export default function App() {
     [state.sessions, state.sessionId, state.search, state.sort]);
   const prefix = useMemo(() => sharedPrefix(profiles), [profiles]);
   const findings = useMemo(() => byNode(profile), [profile]);
-  const moment = useMemo(
-    () => (profile?.replay && state.replayAt !== null ? momentAt(profile.replay, state.replayAt) : null),
-    [profile, state.replayAt],
-  );
-  const physicalAt = useMemo(
-    () => (profile && moment ? profile.plan.physical.map((n) => nodeAt(n, moment)) : profile?.plan.physical),
-    [profile, moment],
-  );
-  const picked = findNode(profile, state.node);
-  const physical = state.node?.plan === "physical";
+  const { moment, physical } = useMoment(profile, state.replayAt);
+  const withDates = useMemo(() => spansDays(profiles), [profiles]);
 
   return (
     <>
@@ -73,18 +68,23 @@ export default function App() {
           ) : !profile ? (
             <Overview session={current} shapes={shapes} sort={state.sort} dispatch={dispatch} />
           ) : (
-            <QueryView state={state} dispatch={dispatch} session={current} profile={profile} moment={moment}
-                       findings={findings} panes={panes} onDownload={save} />
+            <QueryView profile={profile} moment={moment} findings={findings} panes={panes}
+                       node={state.node} focus={state.focus} replayAt={state.replayAt} dispatch={dispatch}
+                       withDates={withDates}
+                       share={{
+                         link: () => {
+                           const fragment = shareFragment(documentsFor(current, [profile]));
+                           return { url: location.href.split("#")[0] + fragment, chars: fragment.length };
+                         },
+                         linkNote: "Opens this query in the viewer",
+                         download: { label: "Download session", note: "Every query in it, as the .jsonl file", run: () => save(current) },
+                       }} />
           )}
         </main>
 
         <aside className="rail right">
           {!state.browsing && (
-            <NodeDetails node={physical && moment ? (physicalAt?.find((n) => n.id === picked?.id) ?? picked) : picked}
-                         plan={physical ? physicalAt : undefined}
-                         findings={physical ? findings.get(state.node!.id) : undefined}
-                         recorded={physical && profile?.replay && picked
-                           ? { replay: profile.replay, final: picked, end: replayEnd(profile), t: moment?.t ?? null } : undefined} />
+            <PickedNode profile={profile} node={state.node} moment={moment} physical={physical} findings={findings} />
           )}
         </aside>
       </div>
