@@ -9,13 +9,13 @@ raising disarms itself, and the others carry on.
 from __future__ import annotations
 
 import threading
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from polars_telemetry._safety import FailureTracker
 from polars_telemetry.model.redaction import URL_QUERIES, Redaction, redact_query
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Iterator
 
     from polars_telemetry.model.types import Progress, Query
 
@@ -77,12 +77,12 @@ def dispatch(query: Query) -> None:
     The tuple is swapped whole under the lock, so iterating the reference read
     here needs none.
     """
-    _deliver(query, lambda receiver: receiver.receive)
+    _deliver(query, "receive")
 
 
 def dispatch_started(query: Query) -> None:
     """Announce a query still running at its first sample, with its plan."""
-    _deliver(query, lambda receiver: receiver.started)
+    _deliver(query, "started")
 
 
 def dispatch_progress(progress: Progress) -> None:
@@ -90,26 +90,28 @@ def dispatch_progress(progress: Progress) -> None:
 
     Counters carry no literals, so there is nothing to mask.
     """
-    for receiver in _receivers:
-        if receiver.progress is None or receiver.tracker.disarmed:
-            continue
+    for receiver, handler in _handlers("progress"):
         try:
-            receiver.progress(progress)
+            handler(progress)
         except Exception as exc:
             receiver.tracker.record(exc)
 
 
 def wants_progress() -> bool:
     """Whether any receiver follows running queries, so sampling is worth it."""
-    return any(r.progress is not None and not r.tracker.disarmed for r in _receivers)
+    return any(_handlers("started")) or any(_handlers("progress"))
 
 
-def _deliver(query: Query, target: Callable[[Receiver], Callable[[Query], None] | None]) -> None:
-    masked: dict[Redaction, Query] = {}
+def _handlers(name: str) -> Iterator[tuple[Receiver, Callable[[Any], None]]]:
     for receiver in _receivers:
-        handler = target(receiver)
-        if handler is None or receiver.tracker.disarmed:
-            continue
+        handler = getattr(receiver, name)
+        if handler is not None and not receiver.tracker.disarmed:
+            yield receiver, handler
+
+
+def _deliver(query: Query, name: str) -> None:
+    masked: dict[Redaction, Query] = {}
+    for receiver, handler in _handlers(name):
         try:
             redaction = receiver.redaction or URL_QUERIES
             # Once per redaction per query, however many receivers share it.

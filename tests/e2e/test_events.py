@@ -48,7 +48,7 @@ def test_a_running_query_is_announced_sampled_and_finished_in_order(tmp_path):
     assert types[-1] == "query.finished"
     assert "query.progress" in types
     assert set(types[1:-1]) == {"query.progress"}
-    assert slow[0]["plan"]["physical"]
+    assert slow[0]["profile"]["plan"]["physical"]
     elapsed = [e["elapsed_ms"] for e in slow if e["type"] == "query.progress"]
     assert elapsed == sorted(elapsed)
 

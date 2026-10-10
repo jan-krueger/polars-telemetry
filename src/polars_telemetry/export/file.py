@@ -28,6 +28,42 @@ DEFAULT_MAX_BYTES = 64 * 1024 * 1024
 queries before the first rotation."""
 
 
+class RotatingFile:
+    """A file that moves to `<name>.1` past `max_bytes` and reports its first failure."""
+
+    __slots__ = ("errors", "max_bytes", "path", "what")
+
+    def __init__(self, path: str | Path, max_bytes: int, what: str) -> None:
+        if max_bytes <= 0:
+            msg = f"max_bytes must be positive, got {max_bytes}"
+            raise ValueError(msg)
+        self.path = Path(path)
+        self.max_bytes = max_bytes
+        self.what = what
+        self.errors = 0
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+
+    def rotate_if_needed(self, incoming: int) -> None:
+        try:
+            current = self.path.stat().st_size
+        except FileNotFoundError:
+            return
+        if current + incoming <= self.max_bytes:
+            return
+        os.replace(self.path, self.path.with_name(self.path.name + ".1"))
+
+    def record(self, exc: Exception, doing: str) -> None:
+        self.errors += 1
+        if self.errors == 1:
+            _log.warning(
+                "polars-telemetry: %s export failed while %s (%s: %s). Queries are unaffected.",
+                self.what,
+                doing,
+                type(exc).__name__,
+                exc,
+            )
+
+
 class FileExporter:
     """Append one profile per query to a `.jsonl` file the viewer can open.
 
@@ -39,7 +75,7 @@ class FileExporter:
             split, so a file can run over by one record.
     """
 
-    __slots__ = ("_errors", "_lock", "_max_bytes", "_path")
+    __slots__ = ("_file", "_lock")
 
     def __init__(
         self,
@@ -47,56 +83,30 @@ class FileExporter:
         *,
         max_bytes: int = DEFAULT_MAX_BYTES,
     ) -> None:
-        if max_bytes <= 0:
-            msg = f"max_bytes must be positive, got {max_bytes}"
-            raise ValueError(msg)
-        self._path = Path(path)
-        self._max_bytes = max_bytes
+        self._file = RotatingFile(path, max_bytes, "profile")
         self._lock = threading.Lock()
-        self._errors = 0
-        self._path.parent.mkdir(parents=True, exist_ok=True)
 
     @property
     def path(self) -> Path:
         """The file being written."""
-        return self._path
+        return self._file.path
 
     def export(self, query: Query) -> None:
         try:
             document = build_profile(query)
             line = profile_line(document)
         except Exception as exc:
-            self._record(exc, "building the profile")
+            self._file.record(exc, "building the profile")
             return
 
         with self._lock:
             try:
-                self._rotate_if_needed(len(line) + 1)
-                with self._path.open("a", encoding="utf-8") as handle:
+                self._file.rotate_if_needed(len(line) + 1)
+                with self._file.path.open("a", encoding="utf-8") as handle:
                     handle.write(line + "\n")
             except Exception as exc:
-                self._record(exc, f"writing to {self._path}")
-
-    def _rotate_if_needed(self, incoming: int) -> None:
-        try:
-            current = self._path.stat().st_size
-        except FileNotFoundError:
-            return
-        if current + incoming <= self._max_bytes:
-            return
-        os.replace(self._path, self._path.with_suffix(self._path.suffix + ".1"))
-
-    def _record(self, exc: Exception, doing: str) -> None:
-        self._errors += 1
-        if self._errors == 1:
-            _log.warning(
-                "polars-telemetry: profile export failed while %s (%s: %s). "
-                "Queries are unaffected.",
-                doing,
-                type(exc).__name__,
-                exc,
-            )
+                self._file.record(exc, f"writing to {self._file.path}")
 
     @property
     def errors(self) -> int:
-        return self._errors
+        return self._file.errors

@@ -30,7 +30,7 @@ One event per line. Every line has `"schema": "polars-telemetry/events@1"` and a
 
 ```json
 {"type": "process", "host": "worker-3", "pid": 4711, "started_unix_ns": ..., "polars_telemetry_version": "0.9.0"}
-{"type": "query.started", "query_id": "...", "label": "nightly/orders", "fingerprint": "c4833db25e35", "plan": {"physical": [...], "logical": [...]}, ...}
+{"type": "query.started", "query_id": "...", "profile": { ...its profile, without counters yet... }}
 {"type": "query.progress", "query_id": "...", "elapsed_ms": 1500.2, "nodes": {"4294967297": {"rows_sent": 1048576, "total_time_ns": 812000000, ...}}}
 {"type": "query.finished", "query_id": "...", "profile": { ...the same document the JSONL exporter writes... }}
 ```
@@ -38,7 +38,7 @@ One event per line. Every line has `"schema": "polars-telemetry/events@1"` and a
 | Event | When | Holds |
 | --- | --- | --- |
 | `process` | Once, when the file is first written by a process | Host, process id, polars-telemetry version |
-| `query.started` | At a query's first sample, one second in | Its plan, label, call site and fingerprint. A query that finishes sooner has no `started` or `progress` events, only `finished` |
+| `query.started` | At a query's first sample, one second in | Its [profile](jsonl.md#what-you-get) so far: plans, label, call site and fingerprint, with no counters yet. A query that finishes sooner has no `started` or `progress` events, only `finished` |
 | `query.progress` | At every sample while it runs | The counters of each node that changed since the previous sample. Counters are cumulative: a node's latest entry is its state at that moment, and one dropped sample loses nothing. A counter that is zero is left out |
 | `query.finished` | When it ends | The complete [profile](jsonl.md#what-you-get), as the JSONL exporter writes it |
 

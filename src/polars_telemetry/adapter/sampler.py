@@ -12,7 +12,7 @@ import logging
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from polars_telemetry.adapter.build import build_metrics
 from polars_telemetry.model.types import Progress
@@ -22,7 +22,6 @@ if TYPE_CHECKING:
     from uuid import UUID
 
     from polars_telemetry.adapter.handle import MetricsHandle
-    from polars_telemetry.model.types import NodeMetrics
 
 _log = logging.getLogger("polars_telemetry")
 
@@ -33,11 +32,10 @@ class _Watch:
     handle: MetricsHandle
     started: float
     interval: float
-    announce: Callable[[], None]
+    announce: Callable[[], None] | None
     deliver: Callable[[Progress], None]
     due: float
-    announced: bool = False
-    previous: dict[int, NodeMetrics] = field(default_factory=dict)
+    previous: dict[Any, dict[str, Any]] = field(default_factory=dict)
 
 
 class Sampler:
@@ -117,22 +115,17 @@ class Sampler:
                     self._cond.notify_all()
 
     def _sample(self, watch: _Watch) -> None:
-        metrics = build_metrics(watch.handle.snapshot())
-        if not metrics:
+        records = watch.handle.snapshot()
+        if not records:
             return
-        first = not watch.announced
-        if first:
-            watch.announced = True
-            watch.announce()
-        changed = {
-            node_id: metric
-            for node_id, metric in metrics.items()
-            if first or watch.previous.get(node_id) != metric
-        }
-        watch.previous = metrics
+        if watch.announce is not None:
+            announce, watch.announce = watch.announce, None
+            announce()
+        changed = [r for r in records if watch.previous.get(r.get("phys_node_key")) != r]
+        watch.previous = {r.get("phys_node_key"): r for r in records}
         if changed:
             elapsed_ms = (self._clock() - watch.started) * 1000
-            watch.deliver(Progress(watch.query_id, elapsed_ms, changed))
+            watch.deliver(Progress(watch.query_id, elapsed_ms, build_metrics(changed)))
 
 
 SAMPLER = Sampler()

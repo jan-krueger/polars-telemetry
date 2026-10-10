@@ -23,7 +23,7 @@ from polars_telemetry.adapter.decode import decode_optional_plan, decode_plan, i
 from polars_telemetry.adapter.handle import MetricsHandle
 from polars_telemetry.adapter.sampler import SAMPLER
 from polars_telemetry.labels import current_label
-from polars_telemetry.model.types import CallSite, NodeRole, PlanNode, Query
+from polars_telemetry.model.types import CallSite, NodeMetrics, NodeRole, PlanNode, Query
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -212,40 +212,31 @@ class QueryRecorder:
 
         self._emit(
             enrich(
-                Query(
-                    query_id=run.query_id,
-                    wall_ms=wall_ms,
-                    plan=run.plan,
-                    logical=run.logical,
-                    metrics=metrics,
-                    call_site=run.call_site,
-                    label=run.label,
-                    engine=run.engine,
-                    polars_version=_POLARS_VERSION,
-                    failed=failure,
-                    started_unix_ns=run.started_unix_ns,
-                    planning_ms=run.planning_ms,
-                    telemetry_ms=run.telemetry_ms,
-                ),
+                _query(run, wall_ms, metrics, failure),
                 insights=self._config.insights,
             )
         )
 
     def _running(self, run: _Run) -> Query:
         """The query as known at its first sample: its plan, not yet its counters."""
-        return enrich(
-            Query(
-                query_id=run.query_id,
-                wall_ms=(time.perf_counter() - run.started) * 1000,
-                plan=run.plan,
-                logical=run.logical,
-                metrics={},
-                call_site=run.call_site,
-                label=run.label,
-                engine=run.engine,
-                polars_version=_POLARS_VERSION,
-                started_unix_ns=run.started_unix_ns,
-                planning_ms=run.planning_ms,
-                telemetry_ms=run.telemetry_ms,
-            )
-        )
+        return enrich(_query(run, (time.perf_counter() - run.started) * 1000, {}, None))
+
+
+def _query(
+    run: _Run, wall_ms: float, metrics: dict[int, NodeMetrics], failure: str | None
+) -> Query:
+    return Query(
+        query_id=run.query_id,
+        wall_ms=wall_ms,
+        plan=run.plan,
+        logical=run.logical,
+        metrics=metrics,
+        call_site=run.call_site,
+        label=run.label,
+        engine=run.engine,
+        polars_version=_POLARS_VERSION,
+        failed=failure,
+        started_unix_ns=run.started_unix_ns,
+        planning_ms=run.planning_ms,
+        telemetry_ms=run.telemetry_ms,
+    )

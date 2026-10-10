@@ -71,8 +71,8 @@ def test_a_query_is_written_as_its_life(tmp_path, name):
     ]
     assert {e["schema"] for e in events} == {SCHEMA}
     started, progress, finished = events[1:]
-    assert started["label"] == "nightly/orders"
-    assert started["plan"]["physical"][0]["kind"] == "InMemorySink"
+    assert started["profile"]["label"] == "nightly/orders"
+    assert started["profile"]["plan"]["physical"][0]["kind"] == "InMemorySink"
     assert progress["nodes"] == {"1": {"rows_received": 2}}
     assert finished["profile"]["schema"] == "polars-telemetry/profile@1"
     assert {started["query_id"], progress["query_id"], finished["query_id"]} == {
