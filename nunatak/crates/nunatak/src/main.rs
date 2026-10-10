@@ -143,14 +143,22 @@ async fn serve(args: Args) -> std::io::Result<()> {
     let app = app_router(pipeline);
     match events {
         None => {
-            axum::serve(main, app.merge(ingest))
-                .with_graceful_shutdown(stopped())
-                .await
+            axum::serve(
+                main,
+                app.merge(ingest)
+                    .into_make_service_with_connect_info::<SocketAddr>(),
+            )
+            .with_graceful_shutdown(stopped())
+            .await
         }
         Some(events) => {
             let (a, b) = tokio::join!(
                 axum::serve(main, app).with_graceful_shutdown(stopped()),
-                axum::serve(events, ingest).with_graceful_shutdown(stopped()),
+                axum::serve(
+                    events,
+                    ingest.into_make_service_with_connect_info::<SocketAddr>()
+                )
+                .with_graceful_shutdown(stopped()),
             );
             a.and(b)
         }

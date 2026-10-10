@@ -32,7 +32,11 @@ impl Default for Limits {
 }
 
 pub fn ingest_router(pipeline: Arc<Pipeline>, token: String, limits: Limits) -> Router {
-    let state = Arc::new(ingest::Ingest { pipeline, token });
+    let state = Arc::new(ingest::Ingest {
+        pipeline,
+        token,
+        refused: std::sync::Mutex::default(),
+    });
     let events = post(ingest::events).layer(
         ServiceBuilder::new()
             .layer(RequestBodyLimitLayer::new(limits.body))
