@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use bytes::Bytes;
 use serde::Serialize;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 #[cfg(feature = "conformance")]
 pub mod conformance;
@@ -176,6 +176,63 @@ pub struct Facets {
     pub status: Vec<Count>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Combination {
+    pub service: Option<String>,
+    pub environment: Option<String>,
+    pub host: String,
+    pub status: Status,
+    pub runs: u64,
+}
+
+impl Facets {
+    /// Every value found among `combinations`, each counted under the filter's other fields.
+    #[must_use]
+    pub fn of(combinations: &[Combination], filter: &Filter) -> Self {
+        let status = filter.status.map(|status| status.as_str().to_owned());
+        let chosen = [
+            filter.service.clone(),
+            filter.environment.clone(),
+            filter.host.clone(),
+            status,
+        ];
+        let field = |combination: &Combination, at: usize| match at {
+            0 => combination.service.clone(),
+            1 => combination.environment.clone(),
+            2 => Some(combination.host.clone()),
+            _ => Some(combination.status.as_str().to_owned()),
+        };
+        let counts = |at: usize| {
+            let mut all: BTreeMap<Option<String>, (u64, u64)> = BTreeMap::new();
+            for combination in combinations {
+                let kept = (0..chosen.len()).all(|other| {
+                    other == at
+                        || chosen[other]
+                            .as_ref()
+                            .is_none_or(|value| field(combination, other).as_ref() == Some(value))
+                });
+                let entry = all.entry(field(combination, at)).or_default();
+                entry.0 += combination.runs;
+                if kept {
+                    entry.1 += combination.runs;
+                }
+            }
+            let mut counts: Vec<(u64, Count)> = all
+                .into_iter()
+                .map(|(value, (total, runs))| (total, Count { value, runs }))
+                .collect();
+            counts.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.value.cmp(&b.1.value)));
+            counts.into_iter().map(|(_, count)| count).collect()
+        };
+        Self {
+            service: counts(0),
+            environment: counts(1),
+            host: counts(2),
+            status: counts(3),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Seen {
     pub through: u64,
@@ -206,7 +263,7 @@ pub trait Index: Send + Sync {
     async fn query(&self, query_id: &str) -> Result<Option<QuerySummary>>;
     async fn list(&self, filter: &Filter, page: Page) -> Result<Vec<QuerySummary>>;
     async fn groups(&self, filter: &Filter, by: Grouping) -> Result<Vec<GroupSummary>>;
-    async fn facets(&self, filter: &Filter) -> Result<Facets>;
+    async fn combinations(&self, filter: &Filter) -> Result<Vec<Combination>>;
     async fn seen(&self, stream_id: &str) -> Result<Seen>;
     async fn set_seen(&self, stream_id: &str, seen: &Seen) -> Result<()>;
     async fn delete(&self, query_ids: &[String]) -> Result<()>;
@@ -215,6 +272,64 @@ pub trait Index: Send + Sync {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn mix(
+        service: &str,
+        environment: Option<&str>,
+        host: &str,
+        status: Status,
+        runs: u64,
+    ) -> Combination {
+        Combination {
+            service: Some(service.into()),
+            environment: environment.map(str::to_owned),
+            host: host.into(),
+            status,
+            runs,
+        }
+    }
+
+    fn count(value: Option<&str>, runs: u64) -> Count {
+        Count {
+            value: value.map(str::to_owned),
+            runs,
+        }
+    }
+
+    #[test]
+    fn facets_list_every_value_by_runs_and_count_each_field_under_the_other_filters() {
+        let combinations = [
+            mix("etl", Some("prod"), "worker-3", Status::Finished, 2),
+            mix("etl", None, "worker-9", Status::Failed, 1),
+            mix("web", Some("prod"), "worker-9", Status::Finished, 4),
+        ];
+        let all = Facets::of(&combinations, &Filter::default());
+        assert_eq!(all.service, [count(Some("web"), 4), count(Some("etl"), 3)]);
+        assert_eq!(all.environment, [count(Some("prod"), 6), count(None, 1)]);
+        assert_eq!(
+            all.status,
+            [count(Some("finished"), 6), count(Some("failed"), 1)]
+        );
+
+        let filter = Filter {
+            host: Some("worker-9".into()),
+            status: Some(Status::Failed),
+            ..Filter::default()
+        };
+        let narrowed = Facets::of(&combinations, &filter);
+        assert_eq!(
+            narrowed.service,
+            [count(Some("web"), 0), count(Some("etl"), 1)]
+        );
+        assert_eq!(
+            narrowed.host,
+            [count(Some("worker-9"), 1), count(Some("worker-3"), 0)]
+        );
+        assert_eq!(
+            narrowed.status,
+            [count(Some("finished"), 4), count(Some("failed"), 1)]
+        );
+    }
 
     #[test]
     fn a_stream_remembers_what_it_has_seen() {

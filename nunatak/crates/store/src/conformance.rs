@@ -1,6 +1,6 @@
 #![allow(clippy::missing_panics_doc)]
 
-use crate::{Count, Filter, Grouping, Index, Page, QuerySummary, RecordingKey, Seen, Status};
+use crate::{Combination, Filter, Grouping, Index, Page, QuerySummary, RecordingKey, Seen, Status};
 
 const PAGE: Page = Page {
     limit: 100,
@@ -159,7 +159,7 @@ pub async fn groups_count_runs_failures_and_times(index: &dyn Index) {
     );
 }
 
-pub async fn facets_count_runs_per_value(index: &dyn Index) {
+pub async fn combinations_count_runs_per_mix_of_fields(index: &dyn Index) {
     index.put_query(&query(1, "a", 1_000)).await.unwrap();
     let mut elsewhere = query(2, "a", 2_000);
     elsewhere.host = "worker-9".into();
@@ -168,28 +168,29 @@ pub async fn facets_count_runs_per_value(index: &dyn Index) {
     index.put_query(&elsewhere).await.unwrap();
     index.put_query(&query(3, "b", 3_000)).await.unwrap();
 
-    let facets = index.facets(&Filter::default()).await.unwrap();
-    let count = |value: Option<&str>, runs| Count {
-        value: value.map(str::to_owned),
+    let mut combinations = index.combinations(&Filter::default()).await.unwrap();
+    combinations.sort_by_key(|c| c.runs);
+    let mix = |environment: Option<&str>, host: &str, status, runs| Combination {
+        service: Some("orders-etl".into()),
+        environment: environment.map(str::to_owned),
+        host: host.into(),
+        status,
         runs,
     };
-    assert_eq!(facets.service, [count(Some("orders-etl"), 3)]);
     assert_eq!(
-        facets.host,
-        [count(Some("worker-3"), 2), count(Some("worker-9"), 1)]
-    );
-    assert_eq!(facets.environment, [count(Some("prod"), 2), count(None, 1)]);
-    assert_eq!(
-        facets.status,
-        [count(Some("finished"), 2), count(Some("failed"), 1)]
+        combinations,
+        [
+            mix(None, "worker-9", Status::Failed, 1),
+            mix(Some("prod"), "worker-3", Status::Finished, 2),
+        ]
     );
     let only_b = Filter {
         label: Some("b".into()),
         ..Filter::default()
     };
     assert_eq!(
-        index.facets(&only_b).await.unwrap().service,
-        [count(Some("orders-etl"), 1)]
+        index.combinations(&only_b).await.unwrap(),
+        [mix(Some("prod"), "worker-3", Status::Finished, 1)]
     );
 }
 
@@ -254,8 +255,8 @@ macro_rules! conformance {
             }
 
             #[tokio::test]
-            async fn facets_count_runs_per_value() {
-                $crate::conformance::facets_count_runs_per_value(&$index).await;
+            async fn combinations_count_runs_per_mix_of_fields() {
+                $crate::conformance::combinations_count_runs_per_mix_of_fields(&$index).await;
             }
 
             #[tokio::test]

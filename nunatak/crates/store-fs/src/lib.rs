@@ -102,7 +102,7 @@ impl Log for FsLog {
             .open(&path)
             .await?;
         file.write_all(text.as_bytes()).await?;
-        file.sync_data().await?;
+        file.flush().await?;
         Ok(())
     }
 

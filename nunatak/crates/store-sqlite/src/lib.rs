@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use nunatak_store::{
-    Count, Error, Facets, Filter, GroupRun, GroupSummary, Grouping, Index, Page, QuerySummary,
+    Combination, Error, Filter, GroupRun, GroupSummary, Grouping, Index, Page, QuerySummary,
     RecordingKey, Result, Seen, Status, summarize,
 };
 use rusqlite::types::Value;
@@ -58,7 +58,13 @@ impl SqliteIndex {
         connection
             .pragma_update(None, "journal_mode", "WAL")
             .map_err(backend)?;
+        connection
+            .pragma_update(None, "synchronous", "NORMAL")
+            .map_err(backend)?;
         migrate(&mut connection, Some(path), MIGRATIONS)?;
+        connection
+            .pragma_update(None, "optimize", 0x10002)
+            .map_err(backend)?;
         Ok(Self::with(connection))
     }
 
@@ -277,28 +283,24 @@ impl Index for SqliteIndex {
         Ok(groups)
     }
 
-    async fn facets(&self, filter: &Filter) -> Result<Facets> {
+    async fn combinations(&self, filter: &Filter) -> Result<Vec<Combination>> {
         let (clause, values) = conditions(filter);
         self.run(move |c| {
-            let by = |column: &str| -> rusqlite::Result<Vec<Count>> {
-                let sql = format!(
-                    "SELECT {column}, COUNT(*) FROM queries {clause} GROUP BY {column} ORDER BY COUNT(*) DESC, {column}"
-                );
-                c.prepare(&sql)?
-                    .query_map(params_from_iter(values.iter()), |row| {
-                        Ok(Count {
-                            value: row.get(0)?,
-                            runs: count(row.get(1)?),
-                        })
-                    })?
-                    .collect()
-            };
-            Ok(Facets {
-                service: by("service")?,
-                environment: by("environment")?,
-                host: by("host")?,
-                status: by("status")?,
-            })
+            let sql = format!(
+                "SELECT service, environment, host, status, COUNT(*) FROM queries {clause} GROUP BY service, environment, host, status"
+            );
+            c.prepare(&sql)?
+                .query_map(params_from_iter(values), |row| {
+                    let status: String = row.get(3)?;
+                    Ok(Combination {
+                        service: row.get(0)?,
+                        environment: row.get(1)?,
+                        host: row.get(2)?,
+                        status: Status::parse(&status).unwrap_or(Status::Unfinished),
+                        runs: count(row.get(4)?),
+                    })
+                })?
+                .collect()
         })
         .await
     }

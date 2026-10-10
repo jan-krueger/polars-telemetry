@@ -4,7 +4,7 @@ use axum::Json;
 use axum::extract::{Path, Query, State};
 use axum::http::{StatusCode, header};
 use axum::response::{IntoResponse, Response};
-use nunatak_store::{Count, Facets, Filter, Grouping, Index, Page, Status};
+use nunatak_store::{Facets, Filter, Grouping, Index, Page, Status};
 use serde::Deserialize;
 use std::sync::Arc;
 
@@ -157,44 +157,8 @@ async fn facets_for(index: &dyn Index, filter: &Filter) -> nunatak_store::Result
         until_unix_ns: filter.until_unix_ns,
         ..Filter::default()
     };
-    let all = index.facets(&everything).await?;
-    let service = Filter {
-        service: None,
-        ..filter.clone()
-    };
-    let environment = Filter {
-        environment: None,
-        ..filter.clone()
-    };
-    let host = Filter {
-        host: None,
-        ..filter.clone()
-    };
-    let status = Filter {
-        status: None,
-        ..filter.clone()
-    };
-    Ok(Facets {
-        service: within(all.service, &index.facets(&service).await?.service),
-        environment: within(
-            all.environment,
-            &index.facets(&environment).await?.environment,
-        ),
-        host: within(all.host, &index.facets(&host).await?.host),
-        status: within(all.status, &index.facets(&status).await?.status),
-    })
-}
-
-fn within(all: Vec<Count>, matching: &[Count]) -> Vec<Count> {
-    all.into_iter()
-        .map(|count| Count {
-            runs: matching
-                .iter()
-                .find(|m| m.value == count.value)
-                .map_or(0, |m| m.runs),
-            value: count.value,
-        })
-        .collect()
+    let combinations = index.combinations(&everything).await?;
+    Ok(Facets::of(&combinations, filter))
 }
 
 fn failed(error: &nunatak_store::Error) -> Response {
