@@ -47,6 +47,14 @@ the events in it, so a receiver can tell an event sent twice from a new one.
 | `query.progress` | At every sample while it runs | The counters of each node that changed since the previous sample. Counters are cumulative: a node's latest entry is its state at that moment, and one dropped sample loses nothing. A counter that is zero is left out |
 | `query.finished` | When it ends | The complete [profile](jsonl.md#what-you-get), as the JSONL exporter writes it |
 
+Every event is described by a JSON Schema,
+[`events-v1.schema.json`](../schemas/events-v1.schema.json), and the profile it
+carries by [`profile-v1.schema.json`](../schemas/profile-v1.schema.json). Two
+example recordings show a [finished query](../schemas/examples/finished.jsonl)
+and [one the recording ended before](../schemas/examples/unfinished.jsonl). A
+reader ignores fields and event types it does not know; a change that would break
+that is a new version, `events@2`.
+
 Samples are taken every `Config.progress_interval` seconds, 1 by default, for
 as long as the query runs. One background thread takes them for every running
 query and hands each sample to every exporter that follows running queries.

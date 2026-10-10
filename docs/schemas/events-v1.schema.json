@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jan-krueger.github.io/polars-telemetry/schemas/events-v1.schema.json",
+  "title": "polars-telemetry/events@1",
+  "description": "One event, one line of a recording or of a request body. Readers ignore fields and event types they do not know.",
+  "type": "object",
+  "required": ["schema", "seq", "type"],
+  "properties": {
+    "schema": { "const": "polars-telemetry/events@1" },
+    "seq": { "type": "integer", "minimum": 1 },
+    "type": { "type": "string" }
+  },
+  "allOf": [
+    { "if": { "properties": { "type": { "const": "process" } } }, "then": { "$ref": "#/$defs/process" } },
+    { "if": { "properties": { "type": { "const": "query.started" } } }, "then": { "$ref": "#/$defs/started" } },
+    { "if": { "properties": { "type": { "const": "query.progress" } } }, "then": { "$ref": "#/$defs/progress" } },
+    { "if": { "properties": { "type": { "const": "query.finished" } } }, "then": { "$ref": "#/$defs/finished" } }
+  ],
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "process": {
+      "description": "Opens a stream: before its first event, at the top of a rotated file, and at the top of every request.",
+      "required": ["id", "host", "pid", "polars_telemetry_version", "started_unix_ns"],
+      "properties": {
+        "id": { "$ref": "#/$defs/uuid" },
+        "service": { "type": ["string", "null"] },
+        "environment": { "type": ["string", "null"] },
+        "host": { "type": "string" },
+        "pid": { "type": "integer", "minimum": 0 },
+        "polars_telemetry_version": { "type": "string" },
+        "started_unix_ns": { "type": "integer" }
+      }
+    },
+    "started": {
+      "description": "A query still running at its first sample, with its profile so far: plans, no counters.",
+      "required": ["query_id", "profile"],
+      "properties": {
+        "query_id": { "$ref": "#/$defs/uuid" },
+        "profile": { "$ref": "profile-v1.schema.json" }
+      }
+    },
+    "progress": {
+      "description": "A sample: each node whose counters changed, by physical node id. Counters are cumulative and zero counters are left out.",
+      "required": ["query_id", "elapsed_ms", "nodes"],
+      "properties": {
+        "query_id": { "$ref": "#/$defs/uuid" },
+        "elapsed_ms": { "type": "number", "minimum": 0 },
+        "nodes": {
+          "type": "object",
+          "propertyNames": { "pattern": "^[0-9]+$" },
+          "additionalProperties": { "$ref": "profile-v1.schema.json#/$defs/counters" }
+        }
+      }
+    },
+    "finished": {
+      "description": "The query's complete profile.",
+      "required": ["query_id", "profile"],
+      "properties": {
+        "query_id": { "$ref": "#/$defs/uuid" },
+        "profile": { "$ref": "profile-v1.schema.json" }
+      }
+    }
+  }
+}

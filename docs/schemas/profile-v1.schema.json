@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jan-krueger.github.io/polars-telemetry/schemas/profile-v1.schema.json",
+  "title": "polars-telemetry/profile@1",
+  "description": "One query's profile, as FileExporter writes it and events carry it. Readers ignore fields they do not know.",
+  "type": "object",
+  "required": ["schema", "query_id", "wall_ms", "plan"],
+  "properties": {
+    "schema": { "const": "polars-telemetry/profile@1" },
+    "polars_version": { "type": "string" },
+    "polars_telemetry_version": { "type": "string" },
+    "query_id": { "type": "string" },
+    "label": { "type": ["string", "null"] },
+    "fingerprint": { "type": ["string", "null"] },
+    "started_unix_ns": { "type": "integer" },
+    "wall_ms": { "type": "number", "minimum": 0 },
+    "planning_ms": { "type": ["number", "null"] },
+    "telemetry_ms": { "type": ["number", "null"] },
+    "cpu_ms": { "type": "number", "minimum": 0 },
+    "result_rows": { "type": ["integer", "null"] },
+    "call_site": {
+      "type": ["object", "null"],
+      "required": ["filepath", "lineno", "function"],
+      "properties": {
+        "filepath": { "type": "string" },
+        "lineno": { "type": "integer" },
+        "function": { "type": "string" }
+      }
+    },
+    "failed": { "type": ["string", "null"] },
+    "redacted": { "type": ["array", "null"], "items": { "type": "string" } },
+    "diagnostics": { "type": "object" },
+    "plan": {
+      "type": "object",
+      "required": ["physical", "logical"],
+      "properties": {
+        "physical": { "type": "array", "items": { "$ref": "#/$defs/node" } },
+        "logical": { "type": "array", "items": { "$ref": "#/$defs/node" } }
+      }
+    },
+    "insights": {
+      "type": "object",
+      "required": ["schema", "findings"],
+      "properties": {
+        "schema": { "type": "string" },
+        "findings": { "type": "array", "items": { "$ref": "#/$defs/finding" } }
+      }
+    },
+    "trace_id": { "type": "string", "pattern": "^[0-9a-f]{32}$" },
+    "span_id": { "type": "string", "pattern": "^[0-9a-f]{16}$" }
+  },
+  "$defs": {
+    "node": {
+      "type": "object",
+      "required": ["id", "kind", "inputs"],
+      "properties": {
+        "id": { "type": "integer", "minimum": 0 },
+        "kind": { "type": "string" },
+        "role": {
+          "type": "string",
+          "description": "scan, dataframe, selection, projection, map, rename, function, join, theta_join, cross_join, semi_anti_join, aggregation, sort, top_k, distinct, union, sink, engine or unknown; readers treat a role they do not know as unknown."
+        },
+        "inputs": { "type": "array", "items": { "type": "integer", "minimum": 0 } },
+        "properties": { "type": "object" },
+        "metrics": { "$ref": "#/$defs/counters" }
+      }
+    },
+    "counters": {
+      "description": "A node's counters. Every counter is a non-negative integer; Polars may add counters.",
+      "type": "object",
+      "properties": {
+        "done": { "type": "boolean" },
+        "custom": { "type": "array", "items": { "$ref": "#/$defs/custom" } }
+      },
+      "additionalProperties": { "type": "integer", "minimum": 0 }
+    },
+    "custom": {
+      "type": "object",
+      "required": ["key", "unit"],
+      "properties": {
+        "key": { "type": "string" },
+        "unit": { "type": "string" },
+        "value": { "type": ["number", "null"] }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "required": ["rule", "kind", "level", "node_id", "title"],
+      "properties": {
+        "rule": { "type": "string" },
+        "kind": { "type": "string" },
+        "level": { "type": "string" },
+        "node_id": { "type": ["integer", "null"] },
+        "node_kind": { "type": ["string", "null"] },
+        "cpu_share": { "type": "number" },
+        "blocked_share": { "type": "number" },
+        "title": { "type": "string" },
+        "fix": { "type": ["string", "null"] },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "value"],
+            "properties": {
+              "name": { "type": "string" },
+              "value": { "type": ["number", "string", "null"] },
+              "unit": { "type": ["string", "null"] }
+            }
+          }
+        }
+      }
+    }
+  }
+}

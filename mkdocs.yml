@@ -36,6 +36,7 @@ nav:
       - DogStatsD: exporters/dogstatsd.md
       - JSONL: exporters/jsonl.md
       - Events: exporters/events.md
+      - Events over HTTP: exporters/http-events.md
       - Console: exporters/console.md
       - Write your own: exporters/custom.md
   - Label and scope queries: labels.md

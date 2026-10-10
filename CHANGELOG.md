@@ -14,6 +14,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   queries; nothing is sampled while no such exporter is installed.
   Its `service` and `environment` arguments name where the events come from,
   and every event is numbered, so a receiver can drop one sent twice.
+- `HttpEventExporter` sends the same events to a server while each query runs:
+  gzip-compressed batches posted to `{url}/v1/events` with a bearer token, from
+  one background thread, retried when the server is busy or away.
+- JSON Schemas for `polars-telemetry/events@1` and `polars-telemetry/profile@1`,
+  published with the docs, and two example recordings.
 - `Config.progress_interval`, the seconds between those samples, 1 by default.
 - Exporters can follow running queries with optional `started(query)` and
   `progress(progress)` methods next to `export(query)`.
