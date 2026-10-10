@@ -20,7 +20,6 @@ const nodeTypes = { plan: PlanNode };
 const edgeTypes = { flow: FlowEdge };
 const MINI = { width: 112, height: 172 };
 const READABLE = 0.7;
-const FIT = { minZoom: 0.4 };
 const miniClass = (n: Node): string => n.className ?? "";
 
 type Reveal = { id: number } | null;
@@ -138,7 +137,6 @@ function PlanView({ plan, positions, logical, selectedId, onSelect, thresholdMs,
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
           fitView
-          fitViewOptions={FIT}
           minZoom={0.01}
           nodesDraggable={false}
           nodesConnectable={false}
@@ -228,7 +226,7 @@ function Refit({ when }: { when: boolean }) {
     size.current = { width, height };
     if (!resized || !pending.current) return;
     pending.current = false;
-    fitView({ ...FIT, duration: 200 });
+    fitView({ duration: 200 });
   }, [width, height, fitView]);
   return null;
 }
