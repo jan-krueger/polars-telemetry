@@ -80,13 +80,14 @@ def test_a_query_is_written_as_its_life(tmp_path, name):
     }
 
 
-def test_progress_waits_for_a_batch_but_a_finished_query_is_written_at_once(tmp_path):
+def test_progress_waits_for_a_batch_but_a_start_or_end_is_written_at_once(tmp_path):
     path = tmp_path / "events.jsonl.gz"
     exporter = FileEventExporter(path)
     query = _query()
     exporter.started(query)
+    assert len(_events(path)) == 2
     exporter.progress(_progress(query, 2))
-    assert not path.exists()
+    assert len(_events(path)) == 2
     exporter.export(query)
     assert len(_events(path)) == 4
 
@@ -94,9 +95,21 @@ def test_progress_waits_for_a_batch_but_a_finished_query_is_written_at_once(tmp_
 def test_close_writes_what_is_buffered(tmp_path):
     path = tmp_path / "events.jsonl.gz"
     exporter = FileEventExporter(path)
-    exporter.started(_query())
+    query = _query()
+    exporter.started(query)
+    exporter.progress(_progress(query, 2))
     exporter.close()
-    assert [e["type"] for e in _events(path)] == ["process", "query.started"]
+    assert [e["type"] for e in _events(path)] == ["process", "query.started", "query.progress"]
+
+
+def test_a_sample_arriving_after_close_is_still_written(tmp_path):
+    path = tmp_path / "events.jsonl.gz"
+    exporter = FileEventExporter(path)
+    query = _query()
+    exporter.started(query)
+    exporter.close()
+    exporter.progress(_progress(query, 2))
+    assert _events(path)[-1]["type"] == "query.progress"
 
 
 def test_each_batch_is_a_gzip_member_so_a_file_reads_up_to_its_last_batch(tmp_path):
@@ -129,6 +142,7 @@ def test_the_file_rotates_past_max_bytes(tmp_path):
         exporter.export(_query())
     assert (tmp_path / "events.jsonl.1").exists()
     assert path.stat().st_size <= 2_000 + 10_000
+    assert _events(path)[0]["type"] == "process"
 
 
 def test_max_bytes_must_be_positive(tmp_path):

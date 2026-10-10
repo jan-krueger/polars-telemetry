@@ -20,7 +20,7 @@ class Exporter(Protocol):
 
     To follow queries while they run, an exporter may also have
     `started(query)`, called with the plan at a query's first sample, and
-    `progress(progress)`, called at every sample after it. Both run on a
+    `progress(progress)`, called at every sample from that one on. Both run on a
     background thread, and never after the query's `export()`.
     """
 

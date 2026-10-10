@@ -78,7 +78,16 @@ class FileEventExporter:
             starts.
     """
 
-    __slots__ = ("_buffer", "_buffered", "_buffered_at", "_file", "_gzip", "_lock", "_opened")
+    __slots__ = (
+        "_buffer",
+        "_buffered",
+        "_buffered_at",
+        "_closed",
+        "_file",
+        "_gzip",
+        "_lock",
+        "_opened",
+    )
 
     def __init__(self, path: str | Path, *, max_bytes: int = DEFAULT_MAX_BYTES) -> None:
         self._file = RotatingFile(path, max_bytes, "event")
@@ -88,6 +97,7 @@ class FileEventExporter:
         self._buffered = 0
         self._buffered_at = 0.0
         self._opened = False
+        self._closed = False
 
     @property
     def path(self) -> Path:
@@ -105,7 +115,8 @@ class FileEventExporter:
                 "type": "query.started",
                 "query_id": str(query.query_id),
                 "profile": build_profile(query),
-            }
+            },
+            urgent=True,
         )
 
     def progress(self, progress: Progress) -> None:
@@ -132,6 +143,7 @@ class FileEventExporter:
         """Write what is buffered. `uninstall()` calls it, and so does exit."""
         with self._lock:
             self._flush()
+            self._closed = True
 
     def _write(self, event: dict[str, Any], *, urgent: bool = False) -> None:
         try:
@@ -148,6 +160,7 @@ class FileEventExporter:
             self._append(line)
             if (
                 urgent
+                or self._closed
                 or self._buffered >= _BATCH_BYTES
                 or time.monotonic() - self._buffered_at >= _BATCH_SECONDS
             ):
@@ -164,13 +177,16 @@ class FileEventExporter:
         self._buffer = []
         self._buffered = 0
         try:
-            if self._gzip:
-                data = gzip.compress(data, compresslevel=6)
-            self._file.rotate_if_needed(len(data))
+            data = self._encode(data)
+            if self._file.rotate_if_needed(len(data)):
+                data = self._encode((_line(_process()) + "\n").encode("utf-8")) + data
             with self._file.path.open("ab") as handle:
                 handle.write(data)
         except Exception as exc:
             self._file.record(exc, f"writing to {self._file.path}")
+
+    def _encode(self, data: bytes) -> bytes:
+        return gzip.compress(data, compresslevel=6) if self._gzip else data
 
 
 def _process() -> dict[str, Any]:

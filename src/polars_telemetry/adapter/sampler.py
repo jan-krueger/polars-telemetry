@@ -2,13 +2,15 @@
 
 polars hands each query a metrics handle when it is planned; the counters
 behind it grow while the query runs. Sampling it every so often is all a live
-view needs. One thread serves every query in the process, and it only runs
-while some exporter follows running queries.
+view needs. One thread serves every query in the process; it starts with the
+first query some exporter follows.
 """
 
 from __future__ import annotations
 
 import logging
+import os
+import sys
 import threading
 import time
 from dataclasses import dataclass, field
@@ -24,6 +26,8 @@ if TYPE_CHECKING:
     from polars_telemetry.adapter.handle import MetricsHandle
 
 _log = logging.getLogger("polars_telemetry")
+
+_UNWATCH_WAIT = 5.0
 
 
 @dataclass(slots=True)
@@ -48,6 +52,9 @@ class Sampler:
 
     def __init__(self, clock: Callable[[], float] = time.perf_counter) -> None:
         self._clock = clock
+        self._reset()
+
+    def _reset(self) -> None:
         self._cond = threading.Condition()
         self._watches: dict[UUID, _Watch] = {}
         self._busy: UUID | None = None
@@ -76,10 +83,14 @@ class Sampler:
             self._cond.notify_all()
 
     def unwatch(self, query_id: UUID) -> None:
+        deadline = time.monotonic() + _UNWATCH_WAIT
         with self._cond:
             self._watches.pop(query_id, None)
-            while self._busy == query_id:
-                self._cond.wait()
+            while self._busy == query_id and not sys.is_finalizing():
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    return
+                self._cond.wait(remaining)
 
     def _next(self) -> _Watch:
         with self._cond:
@@ -130,3 +141,6 @@ class Sampler:
 
 SAMPLER = Sampler()
 """The process's one sampler."""
+
+if hasattr(os, "register_at_fork"):
+    os.register_at_fork(after_in_child=SAMPLER._reset)

@@ -138,3 +138,18 @@ def test_a_failing_snapshot_is_skipped_and_sampling_goes_on():
     _until(lambda: len(samples) >= 2)
     sampler.unwatch(query_id)
     assert announced == [0]
+
+
+def test_unwatch_gives_up_waiting_on_a_sample_that_never_returns(monkeypatch):
+    from polars_telemetry.adapter import sampler as module
+
+    monkeypatch.setattr(module, "_UNWATCH_WAIT", 0.05)
+    sampler = Sampler()
+    raw = Growing()
+    raw.release.clear()
+    query_id, _, _ = _watch(sampler, raw)
+    assert raw.inside.wait(2)
+    began = time.perf_counter()
+    sampler.unwatch(query_id)
+    assert time.perf_counter() - began < 1
+    raw.release.set()

@@ -82,6 +82,9 @@ class _ProbeRecorder:
     def failed(self, message: str) -> None:
         return
 
+    def release(self) -> None:
+        return
+
     def closed(self) -> None:
         self._result.closed = True
         try:

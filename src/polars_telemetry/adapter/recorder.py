@@ -180,6 +180,12 @@ class QueryRecorder:
     def closed(self) -> None:
         self._finish(failure=None)
 
+    def release(self) -> None:
+        """Stop following the query without exporting it, once recording has been switched off."""
+        run = self._current(finishing=True)
+        if run is not None and run.handle is not None:
+            SAMPLER.unwatch(run.query_id)
+
     def _plan_from(
         self,
         what: str,

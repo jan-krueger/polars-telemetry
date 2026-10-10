@@ -43,14 +43,16 @@ class RotatingFile:
         self.errors = 0
         self.path.parent.mkdir(parents=True, exist_ok=True)
 
-    def rotate_if_needed(self, incoming: int) -> None:
+    def rotate_if_needed(self, incoming: int) -> bool:
+        """Whether the file moved to `<name>.1` to make room."""
         try:
             current = self.path.stat().st_size
         except FileNotFoundError:
-            return
+            return False
         if current + incoming <= self.max_bytes:
-            return
+            return False
         os.replace(self.path, self.path.with_name(self.path.name + ".1"))
+        return True
 
     def record(self, exc: Exception, doing: str) -> None:
         self.errors += 1
