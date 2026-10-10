@@ -104,7 +104,7 @@ export default function NodeDetails({ node, plan = [], findings, recorded }: Pro
     <>
       <div className="card">
         <div className="hd">
-          <Tip content={<TipText term={info.name} note={`Polars: ${node.kind}`} />}>
+          <Tip content={<TipText term={`${info.symbol} ${info.name}`.trim()} />}>
             <span className="nm-wrap" tabIndex={0}>
               {info.symbol ? <span className={`ra${info.muted ? " ra--muted" : ""}`}>{info.symbol}</span> : null}
               <span className="nm">{node.kind}</span>

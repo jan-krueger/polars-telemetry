@@ -1,6 +1,6 @@
 // Storage keeps raw documents and reads them on every load: no migrations, and a newer reader improves old sessions.
 
-import { nodeLabel, roleOf, type RawNode } from "../lib/polars";
+import { nodeSubject, roleOf, type RawNode } from "../lib/polars";
 import type { CustomMetric, Finding, FindingLevel, Measure, Metrics, PlanNode, Profile, Replay, Series, SessionInfo } from "./profile";
 import { isEvent, profilesFromEvents } from "./events";
 import { SCHEMA_PREFIX, isObject } from "./schema";
@@ -53,7 +53,7 @@ function readNodes(value: unknown, side: string): PlanNode[] | string {
     nodes.push({
       ...node,
       role: roleOf(node),
-      label: nodeLabel(node),
+      label: nodeSubject(node),
       properties: node.properties ?? {},
       metrics: isObject(entry.metrics) ? (scalars(entry.metrics) as Metrics) : null,
       custom: isObject(entry.metrics) && Array.isArray(entry.metrics.custom) ? entry.metrics.custom.flatMap(readCustom) : [],

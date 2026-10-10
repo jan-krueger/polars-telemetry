@@ -143,10 +143,18 @@ h2{font:600 10.5px/1 ui-monospace,monospace;letter-spacing:.1em;text-transform:u
 .replay-at{flex:none;width:19ch;text-align:right;font-size:12px;color:var(--ink-2);font-variant-numeric:tabular-nums;white-space:nowrap}
 .replay-at b{color:var(--ink)}
 .pnode--waiting{opacity:.4;filter:grayscale(1)}
-.pnode .t1{font:600 11px ui-monospace,monospace;display:flex;align-items:center;gap:5px}
-.pnode .t2{font:9.5px system-ui;opacity:.76;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pnode .phead{display:flex;align-items:center;gap:6px}
+.pnode .t1{font:600 11px ui-monospace,monospace;display:flex;align-items:center;gap:5px;flex:1;min-width:0;white-space:nowrap}
+.pnode .t1-kind{overflow:hidden;text-overflow:ellipsis}
+.pnode .t1-var{font-weight:400;opacity:.75;flex:none}
+.pnode .pmarks{display:flex;align-items:center;gap:3px;flex:none}
+.pnode .pmark{width:15px;height:15px;border-radius:4px;display:grid;place-items:center;cursor:help;
+  background:color-mix(in srgb,currentColor 18%,transparent)}
+.pnode .pmark--warn{background:var(--warn);color:#0b0b0b}
+.pnode .t2{font:9.5px system-ui;opacity:.76;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-height:13px}
+.pnode .t2--code{font-family:ui-monospace,monospace}
 .pnode .t3{font:9.5px system-ui;opacity:.92;font-variant-numeric:tabular-nums}
-.pflag{position:absolute;top:5px;right:20px;display:inline-flex}
+.pflag{display:inline-flex}
 .pflag--warn{color:var(--warn)}
 .pflag--info{opacity:.6}
 .react-flow__node.flag-warn .pnode{box-shadow:0 0 0 3px var(--warn)}
@@ -168,8 +176,6 @@ h2{font:600 10.5px/1 ui-monospace,monospace;letter-spacing:.1em;text-transform:u
 .warn-nav{display:flex;align-items:center;font-size:10.5px;color:var(--warn)}
 .warn-nav .pane-btn{color:var(--warn)}
 .warn-count{display:inline-flex;align-items:center;gap:3px;font-variant-numeric:tabular-nums;white-space:nowrap}
-.pnode .status{position:absolute;top:7px;right:8px;width:8px;height:8px;border-radius:50%}
-.pnode .status--done{background:var(--good)} .pnode .status--open{background:var(--warn)}
 
 .card{border:1px solid var(--border);border-radius:8px;background:var(--surface);
   padding:12px 13px;margin-bottom:12px}
