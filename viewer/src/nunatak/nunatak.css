@@ -59,3 +59,32 @@
 .nchange{margin:0;color:var(--ink-2);font-size:12.5px}
 .nchange .nslower{color:var(--crit)}
 .nchange .nfaster{color:var(--good)}
+.nstat{display:flex;gap:22px;flex-wrap:wrap;color:var(--ink-2);margin:0 0 6px}
+.nstat b{color:var(--ink)}
+.nstat .nslower,.nvs .nslower,.nentry .nslower{color:var(--crit)}
+.nentry .nfaster{color:var(--good)}
+.nh{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;margin:14px 0 8px}
+.ncards{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.ncard{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px;color:var(--ink);text-decoration:none;min-width:0;font-size:12.5px}
+.ncard:hover{border-color:var(--accent)}
+.ncard-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.ncard .dim,.nrecent .dim,.nwaiting .dim,main > .dim{color:var(--muted)}
+.ncard .ink,.nvs .ink{color:var(--ink)}
+.nbars{display:block;width:100%;height:44px}
+.nbars-ground{fill:var(--surface-2)}
+.nbars-bar{fill:var(--accent);opacity:.85}
+.nvs{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.nvs-track{position:relative;width:130px;height:6px;border-radius:3px;background:var(--surface-2);flex:none}
+.nvs-fill{position:absolute;left:0;top:0;bottom:0;border-radius:3px;background:var(--accent)}
+.nvs-tick{position:absolute;top:-3px;width:1.5px;height:12px;background:var(--ink-2)}
+.nvs-tick--slow{opacity:.5}
+.nrecent{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:4px 14px}
+.nentry{border-left:2px solid var(--border);padding:4px 9px;display:flex;flex-direction:column;color:var(--ink);text-decoration:none;font-size:12.5px}
+.nentry:hover{border-left-color:var(--accent)}
+.nentry--failed{border-left-color:var(--crit)}
+.nentry-line{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.nentry small{color:var(--muted);font-size:11px}
+.nwaiting{max-width:640px;margin:40px auto;display:flex;flex-direction:column;gap:12px;align-items:flex-start}
+.nwaiting h2{margin:0;font-size:18px}
+.nwaiting p{margin:0}
+.ncode{font:12.5px/1.6 ui-monospace,monospace;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin:0;width:100%;overflow-x:auto}

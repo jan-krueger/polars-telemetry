@@ -35,6 +35,15 @@ export interface GroupSummary {
   recent_wall_ms: number[];
 }
 
+export interface Pulse {
+  query_id: string;
+  elapsed_ms: number;
+  threads: number[];
+  busiest: { id: number; kind: string; threads: number } | null;
+  done: number;
+  nodes: number;
+}
+
 export interface Count {
   value: string | null;
   runs: number;

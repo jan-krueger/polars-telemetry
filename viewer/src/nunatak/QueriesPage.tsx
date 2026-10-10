@@ -1,42 +1,15 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { span } from "../lib/format";
 import { clock } from "../lib/time";
-import { facets, groups, queries, type Count, type Facets, type Filter, type GroupSummary, type QuerySummary } from "./api";
+import { facets, groups, queries, type Filter, type GroupSummary, type QuerySummary } from "./api";
+import { FacetList, useLoad, useSearch } from "./shared";
 import { follow, go } from "./App";
 
 type Sort = "total" | "name" | "last";
 const RANGES: [string, number | null][] = [["last 24 hours", 1], ["last 7 days", 7], ["last 30 days", 30], ["all time", null]];
-const FIELDS = ["service", "environment", "host", "status"] as const;
 const SHAPE_COLORS = ["var(--accent)", "var(--shape-2)", "var(--shape-3)", "var(--shape-4)"];
 
-function useLoad<T>(load: () => Promise<T>, key: string): T | null {
-  const [value, setValue] = useState<T | null>(null);
-  useEffect(() => {
-    let current = true;
-    load().then((loaded) => current && setValue(loaded)).catch(() => current && setValue(null));
-    return () => {
-      current = false;
-    };
-  }, [key]);
-  return value;
-}
 
-function useSearch(): [URLSearchParams, (changes: Record<string, string | null>) => void] {
-  const [text, setText] = useState(location.search);
-  useEffect(() => {
-    const changed = () => setText(location.search);
-    addEventListener("popstate", changed);
-    return () => removeEventListener("popstate", changed);
-  }, []);
-  const params = useMemo(() => new URLSearchParams(text), [text]);
-  const update = (changes: Record<string, string | null>) => {
-    const next = new URLSearchParams(text);
-    for (const [key, value] of Object.entries(changes)) if (value === null) next.delete(key); else next.set(key, value);
-    const query = next.toString();
-    go(`/queries${query ? `?${query}` : ""}`);
-  };
-  return [params, update];
-}
 
 export default function QueriesPage() {
   const [params, update] = useSearch();
@@ -112,29 +85,6 @@ function sortGroups(list: GroupSummary[], sort: Sort): GroupSummary[] {
   return copy;
 }
 
-function FacetList({ counts, params, update }: { counts: Facets | null; params: URLSearchParams; update: (changes: Record<string, string | null>) => void }) {
-  return (
-    <div className="nfacets">
-      {FIELDS.map((field) => {
-        const chosen = params.get(field);
-        const values: Count[] = counts?.[field] ?? [];
-        return (
-          <section key={field}>
-            <h3>{field}</h3>
-            <button aria-pressed={chosen === null} onClick={() => update({ [field]: null })}><span>All</span></button>
-            {values.map((count) => (
-              <button key={count.value ?? ""} aria-pressed={chosen === count.value}
-                      disabled={count.value === null || (count.runs === 0 && chosen !== count.value)}
-                      onClick={() => update({ [field]: chosen === count.value ? null : count.value })}>
-                <span>{count.value ?? "none"}</span><span className="dim">{count.runs}</span>
-              </button>
-            ))}
-          </section>
-        );
-      })}
-    </div>
-  );
-}
 
 function Spark({ values }: { values: number[] }) {
   if (values.length < 2) return <span className="dim">–</span>;

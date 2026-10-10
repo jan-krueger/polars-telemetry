@@ -1,4 +1,5 @@
 import { useEffect, useState, type MouseEvent } from "react";
+import NowPage from "./NowPage";
 import QueriesPage from "./QueriesPage";
 import RunPage from "./RunPage";
 
@@ -38,7 +39,8 @@ export default function App() {
       </header>
       {run ? <RunPage id={decodeURIComponent(run[1]!)} />
         : path === "/queries" ? <QueriesPage />
-        : <div className="nsoon">This page comes next.</div>}
+        : path === "/" ? <NowPage />
+        : <div className="nsoon">No such page.</div>}
     </>
   );
 }
