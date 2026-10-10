@@ -3,7 +3,8 @@ import { describe, expect, it } from "vitest";
 import { flowSeconds, toFlow } from "../src/lib/graph";
 import { gunzipText, isGzip } from "../src/lib/gzip";
 import { busy, finishes, history, momentAt, nodeAt } from "../src/lib/replay";
-import { readJsonl, toJsonl } from "../src/model/read";
+import { EventLog } from "../src/model/events";
+import { readJsonl, readProfile, toJsonl } from "../src/model/read";
 import { EVENTS_SCHEMA } from "../src/model/schema";
 import { openShareFragment, shareFragment } from "../src/share/link";
 import { initialState, reducer } from "../src/state/viewer";
@@ -57,6 +58,25 @@ describe("events files", () => {
     expect(cut!.plan.physical.find((n) => n.id === 1)!.metrics).toMatchObject({ rows_sent: 500 });
   });
 
+  it("can be followed one event at a time, as a live stream would arrive", () => {
+    const log = new EventLog();
+    expect(log.apply(progress1)).toBe("q1");
+    expect(log.document("q1")).toBeNull();
+    log.apply(started);
+    const read = readProfile(log.document("q1"));
+    expect("profile" in read && read.profile.unfinished).toBe(true);
+    log.apply(progress2);
+    log.apply(finished);
+    expect(log.documents()).toHaveLength(1);
+    expect(log.document("q1")).toMatchObject({ wall_ms: 3200 });
+    expect(log.apply({ schema: EVENTS_SCHEMA, type: "process" })).toBeNull();
+  });
+
+  it("show a running query every counter it has reported so far", () => {
+    const [cut] = readJsonl(toJsonl([started, progress1, event("query.progress", { elapsed_ms: 1500, nodes: { 1: { rows_sent: 600, total_time_ns: 5e8, morsels_sent: 3 } } })])).profiles;
+    expect(Object.keys(cut!.plan.physical[0]!.metrics!)).toEqual(expect.arrayContaining(["rows_sent", "total_time_ns", "morsels_sent"]));
+  });
+
   it("leave a query without samples as it was", () => {
     const [plain] = readJsonl(toJsonl([finished])).profiles;
     expect(plain!.replay).toBeNull();
@@ -97,6 +117,12 @@ describe("a replayed moment", () => {
     expect(momentAt(replay, 500).flow.get(1)).toBe(500);
     expect(momentAt(replay, 1500).flow.get(1)).toBe(400);
     expect(momentAt(replay, 1500).flow.get(2) ?? 0).toBe(0);
+  });
+
+  it("keeps the rows moving at the latest sample, from the interval before it", () => {
+    const [cut] = readJsonl(toJsonl([started, progress1, event("query.progress", { elapsed_ms: 1500, nodes: { 1: { rows_sent: 600, total_time_ns: 5e8 } } })])).profiles;
+    expect(momentAt(cut!.replay!, 1500).flow.get(1)).toBeCloseTo(200);
+    expect(momentAt(cut!.replay!, 1500).flow.get(2) ?? 0).toBe(0);
   });
 
   it("gives an unsampled node zero counters", () => {

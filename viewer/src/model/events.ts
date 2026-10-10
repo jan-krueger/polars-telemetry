@@ -8,31 +8,45 @@ export const isEvent = (value: unknown): value is Doc => isObject(value) && valu
 
 interface Life {
   started?: Doc;
-  progress: Doc[];
+  samples: { t: unknown; nodes: unknown }[];
   finished?: Doc;
+}
+
+/** Each query's life so far, one event at a time: a whole file, or a stream as it arrives. */
+export class EventLog {
+  private readonly lives = new Map<string, Life>();
+
+  /** Takes in one event; returns the query it belongs to, if any. */
+  apply(event: Doc): string | null {
+    if (typeof event.query_id !== "string") return null;
+    let life = this.lives.get(event.query_id);
+    if (!life) this.lives.set(event.query_id, (life = { samples: [] }));
+    if (event.type === "query.started") life.started = event;
+    else if (event.type === "query.progress") life.samples.push({ t: event.elapsed_ms, nodes: event.nodes });
+    else if (event.type === "query.finished") life.finished = event;
+    return event.query_id;
+  }
+
+  /** The query as a profile document with its samples, or null before anything describes it. */
+  document(queryId: string): Doc | null {
+    const life = this.lives.get(queryId);
+    if (!life) return null;
+    const replay = life.samples.length ? { replay: { samples: life.samples } } : {};
+    if (isObject(life.finished?.profile)) return { ...life.finished.profile, ...replay };
+    if (!isObject(life.started?.profile)) return null;
+    const last = life.samples.at(-1)?.t;
+    return { ...life.started.profile, unfinished: true, wall_ms: typeof last === "number" ? last : 0, ...replay };
+  }
+
+  /** Every query, in the order each first appeared. */
+  documents(): Doc[] {
+    return [...this.lives.keys()].map((id) => this.document(id)).filter((doc): doc is Doc => doc !== null);
+  }
 }
 
 /** One profile document per query, in the order queries first appear, each with its samples. */
 export function profilesFromEvents(events: Doc[]): Doc[] {
-  const lives = new Map<string, Life>();
-  for (const event of events) {
-    if (typeof event.query_id !== "string") continue;
-    let life = lives.get(event.query_id);
-    if (!life) lives.set(event.query_id, (life = { progress: [] }));
-    if (event.type === "query.started") life.started = event;
-    else if (event.type === "query.progress") life.progress.push(event);
-    else if (event.type === "query.finished") life.finished = event;
-  }
-  const docs: Doc[] = [];
-  for (const life of lives.values()) {
-    const replay = life.progress.length
-      ? { replay: { samples: life.progress.map((p) => ({ t: p.elapsed_ms, nodes: p.nodes })) } }
-      : {};
-    const last = life.progress.at(-1)?.elapsed_ms;
-    if (isObject(life.finished?.profile)) docs.push({ ...life.finished.profile, ...replay });
-    else if (isObject(life.started?.profile)) {
-      docs.push({ ...life.started.profile, unfinished: true, wall_ms: typeof last === "number" ? last : 0, ...replay });
-    }
-  }
-  return docs;
+  const log = new EventLog();
+  for (const event of events) log.apply(event);
+  return log.documents();
 }

@@ -8,7 +8,7 @@ export interface Moment {
   t: number;
   metrics: Map<number, Metrics>;
   state: Map<number, NodeState>;
-  /** Rows each node sends per second in the interval around `t`. */
+  /** Rows each node sends per second in the interval around `t`, or the last one once past every sample. */
   flow: Map<number, number>;
   cpu_ms: number;
 }
@@ -67,7 +67,8 @@ export function momentAt(replay: Replay, t: number): Moment {
   const from = i < 0 ? 0 : replay.times[i]!;
   const to = j < 0 ? from : replay.times[j]!;
   const f = j < 0 ? 0 : (t - from) / (to - from);
-  const seconds = (to - from) / 1000;
+  const [p, q] = j < 0 ? [i - 1, i] : [i, j];
+  const seconds = ((replay.times[q] ?? 0) - (p < 0 ? 0 : replay.times[p]!)) / 1000;
   const moment: Moment = { t, metrics: new Map(), state: new Map(), flow: new Map(), cpu_ms: 0 };
   for (const [id, series] of replay.nodes) {
     const a = asOf(series, i);
@@ -76,7 +77,10 @@ export function momentAt(replay: Replay, t: number): Moment {
     const state = stateOf(metrics);
     moment.metrics.set(id, metrics);
     moment.state.set(id, state);
-    if (state === "running" && seconds > 0) moment.flow.set(id, Math.max(0, count(b, "rows_sent") - count(a, "rows_sent")) / seconds);
+    if (state === "running" && seconds > 0) {
+      const sent = count(asOf(series, q), "rows_sent") - count(asOf(series, p), "rows_sent");
+      moment.flow.set(id, Math.max(0, sent) / seconds);
+    }
     moment.cpu_ms += count(metrics, "total_time_ns") / 1e6;
   }
   return moment;
