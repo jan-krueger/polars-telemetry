@@ -20,6 +20,7 @@ const nodeTypes = { plan: PlanNode };
 const edgeTypes = { flow: FlowEdge };
 const MINI = { width: 112, height: 172 };
 const READABLE = 0.7;
+const UNREADABLE = 0.4;
 const miniClass = (n: Node): string => n.className ?? "";
 
 type Reveal = { id: number } | null;
@@ -232,7 +233,7 @@ function Home({ when, box, target }: { when: boolean; box: Box; target: { x: num
     placed.current = true;
     pending.current = false;
     const fit = Math.min(width / box.width, height / box.height) * 0.9;
-    if (fit >= READABLE || !target) fitView({ duration });
+    if (fit >= UNREADABLE || !target) fitView({ duration });
     else setCenter(target.x, target.y, { zoom: READABLE, duration });
   }, [width, height, box, target, fitView, setCenter]);
   return null;
