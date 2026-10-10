@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import threading
 import time
+from itertools import pairwise
 from typing import Any
 from uuid import uuid4
 
 import msgpack
 
+from polars_telemetry.adapter import sampler as sampling
 from polars_telemetry.adapter.handle import MetricsHandle
 from polars_telemetry.adapter.sampler import Sampler
 from polars_telemetry.model.types import COUNTER_NAMES, Progress
@@ -37,6 +39,14 @@ class Growing:
         self.inside.set()
         self.release.wait()
         return msgpack.packb([_row(1, self.calls), _row(2, 7)])
+
+
+class Still(Growing):
+    """A metrics handle whose counters never change after the first sample."""
+
+    def snapshot_query_metrics(self) -> bytes:
+        self.calls += 1
+        return msgpack.packb([_row(1, 5)])
 
 
 def _watch(sampler: Sampler, raw: Growing, interval: float = 0.01):
@@ -78,6 +88,20 @@ def test_the_first_sample_has_every_node_and_later_ones_only_what_changed():
     assert all(set(s.nodes) == {1} for s in samples[1:])
     assert [s.nodes[1].rows_sent for s in samples[:3]] == [1, 2, 3]
     assert all(s.query_id == query_id for s in samples)
+
+
+def test_a_query_whose_counters_stand_still_still_sends_an_empty_sample_now_and_then(monkeypatch):
+    monkeypatch.setattr(sampling, "_HEARTBEAT", 0.1)
+    sampler = Sampler()
+    raw = Still()
+    query_id, _, samples = _watch(sampler, raw)
+    _until(lambda: len(samples) >= 3)
+    sampler.unwatch(query_id)
+    assert set(samples[0].nodes) == {1}
+    assert all(s.nodes == {} for s in samples[1:])
+    assert raw.calls > len(samples) * 3
+    gaps = [b.elapsed_ms - a.elapsed_ms for a, b in pairwise(samples)]
+    assert min(gaps) >= 100
 
 
 def test_a_query_that_ends_before_its_first_sample_is_never_announced():

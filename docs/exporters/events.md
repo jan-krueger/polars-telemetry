@@ -44,7 +44,7 @@ the events in it, so a receiver can tell an event sent twice from a new one.
 | --- | --- | --- |
 | `process` | When a process first writes to the file, and again at the top of a rotated file | The stream's id, the service and environment it was given, host, process id, polars-telemetry version |
 | `query.started` | At a query's first sample, one second in | Its [profile](jsonl.md#what-you-get) so far: plans, label, call site, fingerprint and the wall time until then, with no counters yet. A query that finishes sooner has no `started` or `progress` events, only `finished` |
-| `query.progress` | At every sample while it runs | The counters of each node that changed since the previous sample. Counters are cumulative: a node's latest entry is its state at that moment, and one dropped sample loses nothing. A counter that is zero is left out |
+| `query.progress` | At every sample while it runs | The counters of each node that changed since the previous sample. Counters are cumulative: a node's latest entry is its state at that moment, and one dropped sample loses nothing. A counter that is zero is left out. While nothing changes, a sample with no nodes still comes every 5 seconds, so a reader can tell a quiet query from a dead process |
 | `query.finished` | When it ends | The complete [profile](jsonl.md#what-you-get), as the JSONL exporter writes it |
 
 Every event is described by a JSON Schema,
