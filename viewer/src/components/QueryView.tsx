@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type Dispatch, type ReactNode } from "react";
 import type { Finding, Profile } from "../model/profile";
 import type { Panes } from "../hooks/usePanes";
-import { busy, inputs, num, span } from "../lib/format";
+import { inputs, num, span } from "../lib/format";
 import { warned } from "../lib/insights";
 import { basename } from "../lib/polars";
 import { clock, iso } from "../lib/time";
@@ -106,7 +106,6 @@ export default function QueryView({ profile, moment, findings, panes, node, focu
               {profile.telemetry_ms != null ? ` and ${num(profile.telemetry_ms, 1)} ms polars-telemetry` : ""}.</TipText>}>
               <span tabIndex={0}><b className="qwall">{span(now.wall_ms)}</b> wall</span>
             </Tip>
-            <Busy profile={now} />
             {profile.diagnostics?.incomplete_nodes ? (
               <Tip content={<TipText term="Counters incomplete">{String(profile.diagnostics.incomplete_nodes)} nodes had not finished reporting when the query ended, so their figures are a floor, not a total.</TipText>}>
                 <span className="masked" tabIndex={0}>· incomplete</span>
@@ -132,9 +131,7 @@ export default function QueryView({ profile, moment, findings, panes, node, focu
                        onDownload={() => { sharer.download.run(); setSharing(null); }}
                        onClose={() => setSharing(null)} />
         )}
-        {profile.failed && (
-          <div className="qfail" role="alert"><b>Failed</b> {profile.failed}</div>
-        )}
+        {profile.failed && <Failure message={profile.failed} />}
         {profile.unfinished && !live && (
           <div className="qnote">Still running when the recording ended; its counters are from the last sample.</div>
         )}
@@ -142,6 +139,10 @@ export default function QueryView({ profile, moment, findings, panes, node, focu
 
       {profile.replay && replayEnd(profile) > 0 && <ReplayBar key={profile.query_id} profile={profile} at={replayAt} dispatch={dispatch} live={live} />}
 
+      {!profile.plan.logical.length && !profile.plan.physical.length ? (
+        <div className="noplan">{profile.failed ? "Polars failed before it built a plan, so there is nothing to draw."
+          : live ? "Waiting for the plan…" : "This recording has no plan."}</div>
+      ) : (
       <div className={alone ? `plans alone-${alone}` : "plans"}>
         <PlanPane key={`logical-${profile.query_id}`} title="Logical plan" switcher={switcher("logical")}
                   plan={profile.plan.logical} logical
@@ -158,7 +159,19 @@ export default function QueryView({ profile, moment, findings, panes, node, focu
                   selectedId={node?.plan === "physical" ? node.id : null}
                   onSelect={(id) => dispatch({ type: "nodePicked", node: { plan: "physical", id } })} />
       </div>
+      )}
     </>
+  );
+}
+
+function Failure({ message }: { message: string }) {
+  const [head, ...rest] = message.trim().split("\n");
+  const details = rest.join("\n").trim();
+  return (
+    <div className="qfail" role="alert">
+      <b>Failed</b> {head}
+      {details && <pre>{details}</pre>}
+    </div>
   );
 }
 
@@ -179,18 +192,3 @@ function Facts({ profile, withDates }: { profile: Profile; withDates: boolean })
   );
 }
 
-function Busy({ profile }: { profile: Profile }) {
-  const b = busy(profile);
-  if (!b) return null;
-  const note = `${num(profile.cpu_ms, 1)} ms of node CPU over ${num(profile.wall_ms, 1)} ms of wall time: `
-    + (b.of && b.share != null ? `on average ${num(b.threads, 1)} of the ${b.of} threads Polars had were busy, ${num(b.share * 100, 0)}% parallel efficiency.`
-      : `on average ${num(b.threads, 1)} threads were busy.`)
-    + " Node CPU counts only time Polars charges to nodes.";
-  return (
-    <Tip content={<TipText term="Threads busy">{note}</TipText>}>
-      <span className="busy" tabIndex={0}>
-        ·        <span><b>{num(b.threads, 1)}</b>{b.of ? `/${b.of}` : ""} threads</span>
-      </span>
-    </Tip>
-  );
-}

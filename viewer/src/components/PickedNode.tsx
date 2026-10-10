@@ -19,6 +19,7 @@ interface Props {
 export default function PickedNode({ profile, node, moment, physical, findings, onPick }: Props) {
   const picked = findNode(profile, node);
   const onPhysical = node?.plan === "physical";
+  if (profile && !profile.plan.physical.length && !profile.plan.logical.length) return null;
   if (!picked && physical.length) return <Overview physical={physical} findings={findings} onPick={onPick} />;
   return (
     <NodeDetails node={onPhysical && moment ? (physical.find((n) => n.id === picked?.id) ?? picked) : picked}
@@ -44,6 +45,7 @@ function Overview({ physical, findings, onPick }: { physical: PlanNode[]; findin
   return (
     <div className="overview">
       <h3>Most CPU</h3>
+      <p className="overview-hint">As Polars charged it to nodes. Most time in scans, sinks and Python functions is not counted.</p>
       {top.length ? (
         <ul>
           {top.map((n) => (

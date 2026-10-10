@@ -36,20 +36,6 @@ export function compact(v: number): string {
   return num(v);
 }
 
-export interface Busy {
-  threads: number;
-  of: number | null;
-  share: number | null;
-}
-
-export function busy(p: Profile): Busy | null {
-  if (!(p.wall_ms > 0) || !(p.cpu_ms > 0)) return null;
-  const threads = p.cpu_ms / p.wall_ms;
-  const of = (p.diagnostics?.cpu_count as number | undefined) ?? null;
-  const share = of ? Math.min(1, threads / of) : null;
-  return { threads, of, share };
-}
-
 const JOINS = new Set(["join", "theta_join", "cross_join", "semi_anti_join"]);
 
 /** Rows out over the larger input; a shared input counts once per consumer. */

@@ -89,7 +89,6 @@ h2{font:600 10.5px/1 ui-monospace,monospace;letter-spacing:.1em;text-transform:u
   font-variant-numeric:tabular-nums}
 .qstats b{color:var(--ink);font-weight:600}
 .qstats .qwall{font-size:15px}
-.busy{display:inline-flex;align-items:center;gap:6px}
 .picker{background:var(--surface-2);border:1px solid var(--border);border-radius:6px;
   padding:4px 8px;font-size:12px;max-width:100%}
 
@@ -279,6 +278,8 @@ h2{font:600 10.5px/1 ui-monospace,monospace;letter-spacing:.1em;text-transform:u
   border:1px solid color-mix(in srgb,var(--crit) 40%,transparent)}
 .qnote{margin:6px 0 2px;padding:6px 10px;border-radius:6px;font-size:12px;background:var(--surface-2);color:var(--ink-2)}
 .qfail b{color:var(--crit);margin-right:6px}
+.qfail pre{margin:6px 0 0;max-height:240px;overflow:auto;font:11.5px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--ink-2);white-space:pre-wrap;overflow-wrap:anywhere}
+.noplan{flex:1;min-height:200px;display:grid;place-items:center;border:1px dashed var(--border);border-radius:8px;color:var(--muted);font-size:13px}
 .share{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;font-size:12px}
 .share[aria-expanded="true"]{border-color:var(--accent);color:var(--accent)}
 .share-box{position:relative}

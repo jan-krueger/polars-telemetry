@@ -1,5 +1,5 @@
 import type { PlanNode, Profile } from "../model/profile";
-import { busy, compact, inputs, num, span } from "./format";
+import { compact, inputs, num, span } from "./format";
 import { cpuMs } from "./graph";
 import { impact, measured, ruleDocs } from "./insights";
 import { basename } from "./polars";
@@ -21,8 +21,6 @@ function rowsOut(node: PlanNode): number | undefined {
 function summary(profile: Profile): string[] {
   const cells: [string, string][] = [["Wall time", span(profile.wall_ms)]];
   if (profile.cpu_ms > 0) cells.push(["Node CPU", span(profile.cpu_ms)]);
-  const b = busy(profile);
-  if (b) cells.push(["Threads busy", `${num(b.threads, 1)}${b.of ? ` of ${b.of}` : ""}`]);
   if (profile.result_rows != null) cells.push(["Rows out", compact(profile.result_rows)]);
   return [
     `| ${cells.map(([name]) => name).join(" | ")} |`,
