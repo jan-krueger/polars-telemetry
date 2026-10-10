@@ -83,8 +83,7 @@ describe("join growth", () => {
     const plan = [node(1, "MultiScan", [], 2_000), node(2, "MultiScan", [], 1_000), node(3, "EquiJoin", [1, 2], 10_000),
       { id: 4, kind: "Filter", inputs: [3], metrics: { rows_received: 10_000, rows_sent: 2_500, morsels_received: 10, largest_morsel_received: 3_000 } } as unknown as PlanNode];
     expect(nodeFacts(plan[2]!, plan).map((f) => [f.key, f.value])).toEqual([["join_growth", "5.00×"]]);
-    expect(nodeFacts(plan[3]!, plan).map((f) => [f.key, f.value, f.note])).toEqual([
-      ["rows_kept", "25.0%", "7,500 dropped"], ["morsel_skew", "3.00×", "largest batch above the mean"]]);
+    expect(nodeFacts(plan[3]!, plan).map((f) => [f.key, f.value])).toEqual([["rows_kept", "25.0%"], ["morsel_skew", "3.00×"]]);
     expect(nodeFacts(plan[0]!, plan)).toEqual([]);
   });
 });

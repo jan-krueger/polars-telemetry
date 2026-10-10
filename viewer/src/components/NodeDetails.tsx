@@ -151,10 +151,9 @@ export default function NodeDetails({ node, plan = [], findings, recorded }: Pro
             </Tip>
           </div>
           {nodeFacts(node, plan).map((f) => (
-            <div className="mrow mrow--fact" key={f.key}>
+            <div className="mrow" key={f.key}>
               <span className="k">{f.label}<Help term={f.key} /></span>
               <span className="v">{f.value}</span>
-              <span className="fact-note">{f.note}</span>
             </div>
           ))}
           {node.custom?.map((c) => {
