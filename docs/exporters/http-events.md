@@ -13,15 +13,12 @@ Use it when:
 ## Set up
 
 ```python
-import os
-
 import polars_telemetry
 from polars_telemetry.export.http_events import HttpEventExporter
 
 polars_telemetry.install(
     exporter=HttpEventExporter(
         "http://localhost:7766",
-        token=os.environ["EVENTS_TOKEN"],
         service="orders-etl",
         environment="prod",
     )
@@ -31,7 +28,7 @@ polars_telemetry.install(
 | Option | Default | Effect |
 | --- | --- | --- |
 | `url` | required | The server. Events are posted to `{url}/v1/events` |
-| `token` | required | Sent as `Authorization: Bearer <token>` |
+| `token` | `NUNATAK_TOKEN` | Sent as `Authorization: Bearer <token>`. Without one, the exporter reads the `NUNATAK_TOKEN` environment variable and refuses to start if it is unset |
 | `service` | `None` | What the process is, such as `"orders-etl"` |
 | `environment` | `None` | Where it runs, such as `"prod"` |
 | `max_queue_bytes` | 16 MiB | Events waiting to be sent beyond this are dropped, progress samples first |

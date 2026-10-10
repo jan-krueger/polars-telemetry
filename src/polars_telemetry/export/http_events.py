@@ -11,6 +11,7 @@ from __future__ import annotations
 import gzip
 import http.client
 import logging
+import os
 import threading
 import time
 from collections import deque
@@ -49,7 +50,8 @@ class HttpEventExporter:
     Args:
         url: The server, such as `"http://localhost:7766"`. Events go to
             `{url}/v1/events`.
-        token: Sent as `Authorization: Bearer <token>`.
+        token: Sent as `Authorization: Bearer <token>`. Read from the
+            `NUNATAK_TOKEN` environment variable when not given.
         service: What the process is, such as `"orders-etl"`.
         environment: Where it runs, such as `"prod"`.
         max_queue_bytes: 16 MiB by default. Events waiting to be sent beyond this
@@ -61,7 +63,7 @@ class HttpEventExporter:
         self,
         url: str,
         *,
-        token: str,
+        token: str | None = None,
         service: str | None = None,
         environment: str | None = None,
         max_queue_bytes: int = DEFAULT_MAX_QUEUE_BYTES,
@@ -70,6 +72,10 @@ class HttpEventExporter:
         parts = urlsplit(url)
         if parts.scheme not in {"http", "https"} or not parts.hostname:
             msg = f"url must be http:// or https:// with a host, got {url!r}"
+            raise ValueError(msg)
+        token = token or os.environ.get("NUNATAK_TOKEN")
+        if not token:
+            msg = "token is required: pass token= or set NUNATAK_TOKEN"
             raise ValueError(msg)
         if max_queue_bytes <= 0:
             msg = f"max_queue_bytes must be positive, got {max_queue_bytes}"
