@@ -506,3 +506,38 @@ async fn old_runs_are_forgotten_with_their_recordings_but_running_ones_are_kept(
     );
     assert_eq!(recordings(data.path()).len(), 0);
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn many_processes_sending_at_once_all_get_their_queries_recorded() {
+    let data = tempfile::tempdir().unwrap();
+    let app = app(data.path());
+    let finished = example("finished.jsonl");
+    let started: Value = serde_json::from_str(finished.lines().nth(1).unwrap()).unwrap();
+    let process: Value = serde_json::from_str(finished.lines().next().unwrap()).unwrap();
+    let query = started["query_id"].as_str().unwrap().to_owned();
+    let stream = process["id"].as_str().unwrap().to_owned();
+    let mut senders = tokio::task::JoinSet::new();
+    for n in 0..16 {
+        let text = finished
+            .replace(&query, &format!("01a12532-0000-7000-8000-{n:012}"))
+            .replace(&stream, &format!("5f0c2a1e-0000-4000-8000-{n:012}"));
+        let lines: Vec<&str> = text.lines().collect();
+        let (head, events) = lines.split_first().unwrap();
+        let (last, rest) = events.split_last().unwrap();
+        let first = format!("{head}\n{}\n", rest.join("\n"));
+        let second = format!("{head}\n{last}\n");
+        let app = app.clone();
+        senders.spawn(async move {
+            for batch in [first, second] {
+                let (status, _) = post(&app, TOKEN, gzip(&batch)).await;
+                assert_eq!(status, StatusCode::ACCEPTED);
+            }
+        });
+    }
+    senders.join_all().await;
+    let (_, rows) = get_json(&app, "/api/queries?limit=100").await;
+    let rows = rows.as_array().unwrap();
+    assert_eq!(rows.len(), 16);
+    assert!(rows.iter().all(|row| row["status"] == "finished"));
+    assert_eq!(recordings(data.path()).len(), 16);
+}

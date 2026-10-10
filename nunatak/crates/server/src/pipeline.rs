@@ -20,7 +20,7 @@ pub struct Pipeline {
     log: Arc<dyn Log>,
     recordings: Arc<dyn Recordings>,
     index: Arc<dyn Index>,
-    streams: Mutex<HashMap<String, Seen>>,
+    streams: std::sync::Mutex<HashMap<String, Arc<Mutex<Option<Seen>>>>>,
     heard: std::sync::Mutex<HashMap<String, Instant>>,
     live: Live,
 }
@@ -52,7 +52,7 @@ impl Pipeline {
             log,
             recordings,
             index,
-            streams: Mutex::new(HashMap::new()),
+            streams: std::sync::Mutex::new(HashMap::new()),
             heard: std::sync::Mutex::new(HashMap::new()),
             live: Live::default(),
         }
@@ -79,12 +79,12 @@ impl Pipeline {
     }
 
     pub async fn accept(&self, batch: &Batch) -> Result<Accepted> {
-        let mut streams = self.streams.lock().await;
-        if !streams.contains_key(&batch.stream.id) {
-            let seen = self.index.seen(&batch.stream.id).await?;
-            streams.insert(batch.stream.id.clone(), seen);
+        let stream = self.stream(&batch.stream.id);
+        let mut held = stream.lock().await;
+        if held.is_none() {
+            *held = Some(self.index.seen(&batch.stream.id).await?);
         }
-        let mut seen = streams[&batch.stream.id].clone();
+        let mut seen = held.clone().unwrap_or_default();
         let mut fresh: Vec<&Event> = Vec::new();
         let mut in_batch = HashSet::new();
         for event in &batch.events {
@@ -143,7 +143,7 @@ impl Pipeline {
             seen.add(event.seq);
         }
         self.index.set_seen(&batch.stream.id, &seen).await?;
-        streams.insert(batch.stream.id.clone(), seen);
+        *held = Some(seen);
         Ok(Accepted {
             accepted: fresh.len(),
             duplicates: batch.events.len() - fresh.len(),
@@ -171,7 +171,6 @@ impl Pipeline {
     }
 
     pub async fn close_silent(&self, quiet: Duration) -> Result<Vec<String>> {
-        let _streams = self.streams.lock().await;
         let filter = Filter {
             project: Some(self.project.clone()),
             status: Some(Status::Running),
@@ -188,7 +187,7 @@ impl Pipeline {
             )
             .await?;
         let now = Instant::now();
-        let silent: Vec<String> = {
+        let candidates: Vec<QuerySummary> = {
             let mut heard = self.heard();
             running
                 .into_iter()
@@ -196,16 +195,27 @@ impl Pipeline {
                     let at = *heard.entry(row.query_id.clone()).or_insert(now);
                     now.duration_since(at) >= quiet
                 })
-                .map(|row| row.query_id)
                 .collect()
         };
-        for query in &silent {
+        let mut silent = Vec::new();
+        for row in candidates {
+            let query = &row.query_id;
+            let stream = self.stream(&row.stream_id);
+            let _held = stream.lock().await;
+            let still = self
+                .heard()
+                .get(query)
+                .is_some_and(|at| at.elapsed() >= quiet);
+            if !still {
+                continue;
+            }
             self.close_unfinished(query).await?;
             self.heard().remove(query);
             self.live.finished(query);
             if let Some(row) = self.index.query(query).await? {
                 self.live.publish(Change::Query(Box::new(row)));
             }
+            silent.push(row.query_id);
         }
         Ok(silent)
     }
@@ -241,6 +251,11 @@ impl Pipeline {
             self.index.delete(&ids).await?;
             forgotten += ids.len();
         }
+    }
+
+    fn stream(&self, id: &str) -> Arc<Mutex<Option<Seen>>> {
+        let mut streams = self.streams.lock().unwrap_or_else(PoisonError::into_inner);
+        Arc::clone(streams.entry(id.to_owned()).or_default())
     }
 
     fn heard(&self) -> std::sync::MutexGuard<'_, HashMap<String, Instant>> {
