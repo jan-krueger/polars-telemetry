@@ -172,6 +172,7 @@ pub(crate) async fn overview(
     match pipeline.index().runs(&filter).await {
         Ok(runs) => Json(serde_json::json!({
             "now_unix_ns": window.now_unix_ns,
+            "since_unix_ns": window.since_unix_ns,
             "days": window.days,
             "queries": overview::overview(&runs, &window),
         }))

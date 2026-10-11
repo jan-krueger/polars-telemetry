@@ -622,7 +622,15 @@ async fn the_overview_covers_the_days_asked_for_and_versions_need_a_label() {
     post(&app, TOKEN, gzip(&example("finished.jsonl"))).await;
     let (status, overview) = get_json(&app, "/api/overview?days=3&utc_offset=120").await;
     assert_eq!(status, StatusCode::OK);
-    assert_eq!(overview["days"].as_array().unwrap().len(), 3);
+    let day = 86_400_000_000_000_i64;
+    let (now, since) = (
+        overview["now_unix_ns"].as_i64().unwrap(),
+        overview["since_unix_ns"].as_i64().unwrap(),
+    );
+    assert_eq!(now - since, 3 * day);
+    let days = overview["days"].as_array().unwrap();
+    assert!((3..=4).contains(&days.len()));
+    assert!(days[0].as_i64().unwrap() <= since);
     assert!(overview["queries"].is_array());
     let (_, versions) = get_json(&app, "/api/versions?label=clickbench/regex_domains").await;
     assert_eq!(versions[0]["fingerprint"], "0d3b2b857073");

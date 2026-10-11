@@ -16,23 +16,31 @@ const NEW_DAYS: i64 = 7;
 #[derive(Debug, Clone)]
 pub struct Window {
     pub now_unix_ns: i64,
-    /// Where each day starts, oldest first; the range runs from the first to now.
+    /// Where the range starts: exactly so many days before now.
+    pub since_unix_ns: i64,
+    /// Where each local day the range touches starts, oldest first; the first may begin before the range.
     pub days: Vec<i64>,
     pub bins: usize,
 }
 
 impl Window {
-    /// `days` local days ending today, for a clock `utc_offset_min` minutes ahead of UTC.
+    /// The last `days` days up to now, cut into local days for a clock `utc_offset_min` minutes ahead of UTC.
     #[must_use]
     pub fn local(now_unix_ns: i64, days: u32, utc_offset_min: i32, bins: usize) -> Self {
         let offset = i64::from(utc_offset_min) * 60_000_000_000;
-        let today = (now_unix_ns + offset).div_euclid(DAY_NS) * DAY_NS - offset;
-        let days = (0..i64::from(days.max(1)))
-            .rev()
+        let since = now_unix_ns - i64::from(days.max(1)) * DAY_NS;
+        let midnight = |at: i64| (at + offset).div_euclid(DAY_NS) * DAY_NS - offset;
+        let today = midnight(now_unix_ns);
+        let days = (0..=i64::from(days.max(1)) + 1)
             .map(|back| today - back * DAY_NS)
+            .take_while(|start| *start + DAY_NS > since)
+            .collect::<Vec<_>>()
+            .into_iter()
+            .rev()
             .collect();
         Self {
             now_unix_ns,
+            since_unix_ns: since,
             days,
             bins,
         }
@@ -40,7 +48,7 @@ impl Window {
 
     #[must_use]
     pub fn since_unix_ns(&self) -> i64 {
-        self.days[0]
+        self.since_unix_ns
     }
 
     /// The earliest run an overview needs: the range, or the usual time of a query's recent runs.
@@ -533,7 +541,7 @@ mod tests {
         assert_eq!(seen.verdict, None);
         assert!((seen.usual_wall_ms.unwrap() - 300.0).abs() < 30.0);
         assert_eq!(seen.plan_changed_unix_ns, None);
-        assert_eq!(seen.days.len(), 14);
+        assert_eq!(seen.days.len(), 15);
         assert_eq!(seen.bins.len(), 56);
     }
 
@@ -624,9 +632,11 @@ mod tests {
     #[test]
     fn days_follow_the_local_clock() {
         let window = Window::local(NOW + 2 * HOUR, 3, 120, 6);
+        assert_eq!(window.since_unix_ns, NOW + 2 * HOUR - 3 * DAY_NS);
         assert_eq!(
             window.days,
             [
+                NOW - 3 * DAY_NS - 2 * HOUR,
                 NOW - 2 * DAY_NS - 2 * HOUR,
                 NOW - DAY_NS - 2 * HOUR,
                 NOW - 2 * HOUR
