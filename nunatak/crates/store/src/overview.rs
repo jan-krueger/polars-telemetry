@@ -190,7 +190,7 @@ fn one(label: Option<&str>, runs: &[&Run], window: &Window) -> Option<QueryOverv
         rules: rules.into_iter().map(str::to_owned).collect(),
         new_rules,
         new_rules_since_unix_ns,
-        plan_changed_unix_ns: plan_changed(runs, &before),
+        plan_changed_unix_ns: plan_changed(&done, now),
         bins: bins(&done, window),
         days: days(runs, window),
     })
@@ -269,18 +269,26 @@ fn fresh(runs: &[&Run], rules: &BTreeSet<&str>, now: i64) -> (Vec<String>, Optio
     (found.into_iter().map(|(rule, _)| rule).collect(), since)
 }
 
-/// When the plan the query runs now first ran, if it is not the plan it usually ran.
-fn plan_changed(runs: &[&Run], before: &[&Run]) -> Option<i64> {
-    let current = runs
+/// When the plan the query runs now first ran, if it is not the plan it usually ran. Failed runs do not count.
+fn plan_changed(done: &[&Run], now: i64) -> Option<i64> {
+    let day_ago = now - DAY_NS;
+    let current = done
         .iter()
         .rev()
         .find_map(|run| run.fingerprint.as_deref())?;
-    let usual = most_common(before.iter().filter_map(|run| run.fingerprint.as_deref()))?;
+    let before: Vec<&str> = done
+        .iter()
+        .filter(|run| {
+            run.started_unix_ns >= day_ago - USUAL_DAYS * DAY_NS && run.started_unix_ns < day_ago
+        })
+        .filter_map(|run| run.fingerprint.as_deref())
+        .collect();
+    let usual = most_common(before.iter().copied())?;
     if before.len() < USUAL_AT_LEAST || usual == current {
         return None;
     }
     let mut since = None;
-    for run in runs.iter().rev() {
+    for run in done.iter().rev() {
         match run.fingerprint.as_deref() {
             Some(fingerprint) if fingerprint != current => break,
             _ => since = Some(run.started_unix_ns),
@@ -594,6 +602,20 @@ mod tests {
         assert_eq!((seen.recent_failed, seen.failed_before), (5, 0));
         assert_eq!(seen.recent_runs, 24);
         assert_eq!(seen.first_recent_failure_unix_ns, Some(NOW - 9 * HOUR));
+    }
+
+    #[test]
+    fn failed_runs_with_another_plan_are_not_a_plan_change() {
+        let mut runs = hourly("stats", |_| 24.0);
+        for run in runs
+            .iter_mut()
+            .filter(|run| run.started_unix_ns >= NOW - 10 * HOUR)
+            .step_by(2)
+        {
+            run.status = Status::Failed;
+            run.fingerprint = Some("broken".into());
+        }
+        assert_eq!(of(&runs).plan_changed_unix_ns, None);
     }
 
     #[test]
