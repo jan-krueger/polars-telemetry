@@ -1,7 +1,8 @@
+import { useRef } from "react";
 import { span } from "../lib/format";
 import { overview, queries, type QueryOverview, type QuerySummary } from "./api";
 import { Spark, type Range } from "./charts";
-import { elapsed, useLive, useNow, type Live } from "./live";
+import { elapsed, shown, useLive, useNow, type Live } from "./live";
 import { Link, daysOf, filterOf, labelPath, runPath, useLoad, useSearch } from "./shared";
 import { cadence, kinds, reason, type Kind } from "./words";
 
@@ -17,18 +18,20 @@ export default function HomePage() {
   const now = useNow(1000);
   const data = useLoad(() => overview(filter, days), `${JSON.stringify(filter)}${days}${Math.floor(now / REFRESH_MS)}`);
   const anything = useLoad(() => queries({ limit: 1 }), "anything");
+  const seen = useRef(false);
   if (anything?.length === 0 && !live.running.length) return <main className="npage"><Waiting /></main>;
   const range: Range = data ? [data.days[0]!, data.now_unix_ns] : [0, 1];
   const all = data?.queries ?? [];
   const changed = all.filter((q) => kinds(q).length).sort((a, b) => order(a) - order(b) || b.total_wall_ms - a.total_wall_ms);
   const usual = new Map(all.map((q) => [q.label, q.usual_wall_ms]));
   const matches = (q: QuerySummary) => (["service", "environment", "host"] as const).every((f) => !filter[f] || q[f] === filter[f]);
-  const running = live.running.filter(matches);
+  const rows = shown(live, now, matches);
+  if (rows.length) seen.current = true;
   return (
     <main className="npage">
       <div className="ncols">
         <div className="nstack">
-          {running.length > 0 && <Running live={live} running={running} usual={usual} now={now} />}
+          {seen.current && <Running live={live} rows={rows} usual={usual} now={now} />}
           <section className="nstack-tight">
             <h3 className="nh">Last 24 hours</h3>
             <div className="npanel-box">
@@ -54,23 +57,26 @@ export default function HomePage() {
 
 const order = (q: QueryOverview) => ["slower", "failing", "warning", "faster"].indexOf(kinds(q)[0]!);
 
-function Running({ live, running, usual, now }: { live: Live; running: QuerySummary[]; usual: Map<string | null, number | null>; now: number }) {
+function Running({ live, rows, usual, now }: { live: Live; rows: { query: QuerySummary; ended: boolean }[]; usual: Map<string | null, number | null>; now: number }) {
+  const running = rows.filter((r) => !r.ended).length;
   return (
     <section className="nstack-tight">
-      <h3 className="nh">Running now <em>· {running.length}</em></h3>
+      <h3 className="nh">Running now <em>· {running}</em></h3>
       <div className="npanel-box">
-        {running.map((q) => {
+        {!rows.length && <p className="nnothing">Nothing running</p>}
+        {rows.map(({ query: q, ended }) => {
           const pulse = live.pulses.get(q.query_id);
-          const took = elapsed(q, pulse, now);
+          const took = ended ? q.wall_ms ?? elapsed(q, undefined, now) : elapsed(q, pulse, now);
           const typical = usual.get(q.label) ?? null;
           const share = typical ? took / typical : null;
           const over = share !== null && share > 1.5;
-          const busiest = pulse?.pulse.busiest?.kind;
+          const busiest = !ended && pulse?.pulse.busiest?.kind;
+          const status = q.status === "failed" ? "failed" : q.status === "unfinished" ? "unfinished" : "finished";
           return (
-            <Link key={q.query_id} to={runPath(q.query_id)} className="nrunning">
+            <Link key={q.query_id} to={runPath(q.query_id)} className={ended ? `nrunning nrunning--ended nrunning--${status}` : "nrunning"}>
               <span className="nrunning-what">
                 <b>{q.label ?? "Query without a label"}</b>
-                <span className="dim">{[q.service, q.host, busiest && `busiest: ${busiest}`].filter(Boolean).join(" · ")}</span>
+                <span className="dim">{[q.service, q.host, busiest && `busiest: ${busiest}`, ended && status].filter(Boolean).join(" · ")}</span>
               </span>
               <span className="nrunning-time">
                 <span>

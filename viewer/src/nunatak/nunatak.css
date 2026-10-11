@@ -38,6 +38,14 @@ main.npage{height:calc(100vh - 53px);overflow-y:auto;padding:16px;gap:16px}
 .nprog{height:4px;border-radius:2px;background:var(--surface-2);overflow:hidden}
 .nprog i{display:block;height:4px;border-radius:2px;background:var(--accent)}
 .nprog i.over{background:var(--crit)}
+.nrunning--ended{opacity:.6;transition:opacity .4s}
+.nrunning--ended .nrunning-what::before{animation:none;background:var(--muted)}
+.nrunning--failed .nrunning-what::before{background:var(--crit)}
+.nrunning--ended:hover{opacity:1}
+.nnothing{margin:0;padding:10px 12px;color:var(--muted)}
+.ntable tr.npinned--ended td{opacity:.6}
+.nended{font-size:11.5px;color:var(--muted)}
+.nended--failed{color:var(--crit)}
 @keyframes npulse{50%{opacity:.35}}
 @media (prefers-reduced-motion:reduce){.nrunning-what::before{animation:none}}
 .nlive{display:inline-flex;align-items:center;gap:5px;color:var(--accent);font-size:11.5px;font-weight:600}

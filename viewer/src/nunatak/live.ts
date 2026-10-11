@@ -6,11 +6,15 @@ export interface Live {
   running: QuerySummary[];
   pulses: Map<string, { pulse: Pulse; at: number }>;
   finished: number;
+  ended: { query: QuerySummary; at: number }[];
 }
+
+/** How long a query that just ended stays where it ran. */
+export const LINGER_MS = 8_000;
 
 /** The running queries and their latest samples, kept current over server-sent events. */
 export function useLive(): Live {
-  const [live, setLive] = useState<Live>({ connected: false, running: [], pulses: new Map(), finished: 0 });
+  const [live, setLive] = useState<Live>({ connected: false, running: [], pulses: new Map(), finished: 0, ended: [] });
   useEffect(() => {
     const source = new EventSource("/api/live");
     source.addEventListener("snapshot", (e) => {
@@ -25,7 +29,11 @@ export function useLive(): Live {
         if (row.status === "running") return { ...before, running: [row, ...others] };
         const pulses = new Map(before.pulses);
         pulses.delete(row.query_id);
-        return { ...before, running: others, pulses, finished: before.finished + 1 };
+        const at = Date.now();
+        const wasRunning = before.running.some((q) => q.query_id === row.query_id);
+        const kept = before.ended.filter((e) => at - e.at < LINGER_MS && e.query.query_id !== row.query_id);
+        const ended = wasRunning ? [...kept, { query: row, at }] : kept;
+        return { ...before, running: others, pulses, finished: before.finished + 1, ended };
       });
     });
     source.addEventListener("pulse", (e) => {
@@ -51,4 +59,12 @@ export function useNow(every: number): number {
 export function elapsed(query: QuerySummary, pulse: { pulse: Pulse; at: number } | undefined, now: number): number {
   if (pulse) return pulse.pulse.elapsed_ms + Math.max(0, now - pulse.at);
   return Math.max(0, now - query.started_unix_ns / 1e6);
+}
+
+/** The running queries and those that ended moments ago, in the order they started. */
+export function shown(live: Live, now: number, keep: (q: QuerySummary) => boolean): { query: QuerySummary; ended: boolean }[] {
+  const running = live.running.filter(keep).map((query) => ({ query, ended: false }));
+  const ended = live.ended.filter((e) => now - e.at < LINGER_MS && keep(e.query) && !live.running.some((q) => q.query_id === e.query.query_id))
+    .map((e) => ({ query: e.query, ended: true }));
+  return [...running, ...ended].sort((a, b) => a.query.started_unix_ns - b.query.started_unix_ns || a.query.query_id.localeCompare(b.query.query_id));
 }

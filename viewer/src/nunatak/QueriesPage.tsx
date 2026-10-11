@@ -2,7 +2,7 @@ import { span } from "../lib/format";
 import { overview, queries, type QueryOverview, type QuerySummary } from "./api";
 import { go } from "./App";
 import { Spark, cellStyle, type Range } from "./charts";
-import { elapsed, useLive, useNow } from "./live";
+import { elapsed, shown, useLive, useNow } from "./live";
 import { Link, daysOf, filterOf, labelPath, link, runPath, useLoad, useSearch } from "./shared";
 import { ago, byAttention, cadence, needsLook, ruleName, times, type Kind } from "./words";
 
@@ -38,7 +38,7 @@ export default function QueriesPage() {
   const usual = new Map(all.map((q) => [q.label, q.usual_wall_ms]));
   const matches = (q: QuerySummary) => (["service", "environment", "host"] as const).every((f) => !filter[f] || q[f] === filter[f])
     && (!needle || (q.label ?? "").toLowerCase().includes(needle));
-  const running = only ? [] : live.running.filter(matches);
+  const running = only ? [] : shown(live, now, matches);
 
   if (anything?.length === 0) return <main className="npage"><p className="nquiet">No queries yet. <Link to="/" className="ninline">Home</Link> shows how to send them from Python.</p></main>;
   return (
@@ -78,17 +78,17 @@ export default function QueriesPage() {
               </tr>
             </thead>
             <tbody>
-              {running.map((q) => {
+              {running.map(({ query: q, ended }) => {
                 const typical = usual.get(q.label) ?? null;
-                const took = elapsed(q, live.pulses.get(q.query_id), now);
+                const took = ended ? q.wall_ms ?? 0 : elapsed(q, live.pulses.get(q.query_id), now);
                 const share = typical ? took / typical : null;
                 return (
-                  <tr key={q.query_id} className="npinned" onClick={() => go(link(runPath(q.query_id)))}>
+                  <tr key={q.query_id} className={ended ? "npinned npinned--ended" : "npinned"} onClick={() => go(link(runPath(q.query_id)))}>
                     <td><Link to={runPath(q.query_id)} className="nlabel">{q.label ?? "Query without a label"}</Link><span className="sub">{[q.service, q.host].filter(Boolean).join(" · ")}</span></td>
-                    <td><span className="nlive">running</span></td>
+                    <td>{ended ? <span className={q.status === "failed" ? "nended nended--failed" : "nended"}>{q.status}</span> : <span className="nlive">running</span>}</td>
                     <td className="num">{span(took)}{typical !== null && <span className="sub">usually {span(typical)}</span>}</td>
                     <td>{share === null ? null : share > 1.5 ? <span className="npill2 npill2--slow">{share.toFixed(share < 10 ? 1 : 0)}× slower</span> : <span className="dim">{Math.round(share * 100)}%</span>}</td>
-                    <td colSpan={4} className="dim nwide">{live.pulses.get(q.query_id)?.pulse.busiest ? `busiest: ${live.pulses.get(q.query_id)!.pulse.busiest!.kind}` : ""}</td>
+                    <td colSpan={4} className="dim nwide">{!ended && live.pulses.get(q.query_id)?.pulse.busiest ? `busiest: ${live.pulses.get(q.query_id)!.pulse.busiest!.kind}` : ""}</td>
                   </tr>
                 );
               })}
