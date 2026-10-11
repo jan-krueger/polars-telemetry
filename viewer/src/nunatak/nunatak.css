@@ -111,6 +111,8 @@ main.npage{height:calc(100vh - 53px);overflow-y:auto;padding:16px;gap:16px}
 .ntable tr.nnone td{color:var(--muted);cursor:default}
 .ntable tr.npinned td{background:var(--accent-soft)}
 .ntable .sub{display:block;color:var(--muted);font-size:11.5px}
+.ntable--fixed{table-layout:fixed}
+.ntable--fixed td,.ntable--fixed th{overflow:hidden;text-overflow:ellipsis}
 .nlabel{font-weight:600}
 .nsort{background:none;border:0;padding:0;font:inherit;color:inherit;letter-spacing:inherit;text-transform:inherit;cursor:pointer}
 .nsort:hover,.ntable th[aria-sort] .nsort{color:var(--ink)}
@@ -233,6 +235,8 @@ main.npage{height:calc(100vh - 53px);overflow-y:auto;padding:16px;gap:16px}
   .shell > main{overflow:visible}
   .rail.right{border-left:0;border-top:1px solid var(--border)}
   .ntable .nwide{display:none}
+  .ntable--fixed{table-layout:auto}
+  .ntable--fixed col{width:auto !important}
   .react-flow__minimap{display:none}
   .nchange svg{display:none}
 }

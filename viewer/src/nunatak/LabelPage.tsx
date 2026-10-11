@@ -144,7 +144,8 @@ function Runs({ runs, named, plans, selected, onClear }: { runs: QuerySummary[];
           </span>
         )}
       </div>
-      <table className="ntable">
+      <table className="ntable ntable--fixed">
+        <colgroup><col style={{ width: "17%" }} /><col style={{ width: "13%" }} /><col style={{ width: "10%" }} /><col style={{ width: "27%" }} /><col style={{ width: "10%" }} /><col /></colgroup>
         <thead><tr><th>Started</th><th>Host</th><th className="num">Took</th><th>vs its plan</th><th>Plan</th><th className="nwide">Warnings</th></tr></thead>
         <tbody>
           {shown.map((r) => {

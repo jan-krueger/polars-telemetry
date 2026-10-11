@@ -65,7 +65,11 @@ export default function QueriesPage() {
         : !all.length ? <p className="nquiet">No queries ran in this range with these filters.</p>
         : byDay ? <Days rows={rows} days={data.days} />
         : (
-          <table className="ntable nqueries">
+          <table className="ntable ntable--fixed nqueries">
+            <colgroup>
+              <col style={{ width: "22%" }} /><col style={{ width: "9%" }} /><col style={{ width: "9%" }} /><col style={{ width: "11%" }} />
+              <col style={{ width: "172px" }} /><col style={{ width: "11%" }} /><col /><col style={{ width: "8%" }} />
+            </colgroup>
             <thead>
               <tr>
                 {SORTS.slice(0, 2).map(([key, name]) => <Head key={key} sort={sort} column={key} name={name} update={update} />)}
