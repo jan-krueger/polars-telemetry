@@ -81,7 +81,13 @@ async fn main() -> std::process::ExitCode {
 
 fn pipeline(data: &Path) -> std::io::Result<Arc<Pipeline>> {
     std::fs::create_dir_all(data)?;
-    let index = SqliteIndex::open(&data.join("index.db")).map_err(std::io::Error::other)?;
+    let path = data.join("index.db");
+    let index = SqliteIndex::open(&path).map_err(|error| {
+        std::io::Error::other(format!(
+            "could not open the index {}: {error}",
+            path.display()
+        ))
+    })?;
     Ok(Arc::new(Pipeline::new(
         "default",
         Arc::new(FsLog::new(data)),
