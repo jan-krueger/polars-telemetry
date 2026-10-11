@@ -37,6 +37,7 @@ pub(crate) async fn running(State(pipeline): State<Arc<Pipeline>>) -> Response {
     let page = Page {
         limit: 1000,
         offset: 0,
+        oldest_first: false,
     };
     let queries = match pipeline.index().list(&filter, page).await {
         Ok(queries) => queries,

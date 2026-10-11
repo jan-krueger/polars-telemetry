@@ -106,6 +106,7 @@ pub struct Filter {
 pub struct Page {
     pub limit: u32,
     pub offset: u32,
+    pub oldest_first: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -5,6 +5,7 @@ use crate::{Combination, Filter, Index, Page, QuerySummary, RecordingKey, Run, S
 const PAGE: Page = Page {
     limit: 100,
     offset: 0,
+    oldest_first: false,
 };
 
 #[must_use]
@@ -109,10 +110,20 @@ pub async fn a_list_is_newest_first_filtered_and_paged(index: &dyn Index) {
     let second_page = Page {
         limit: 2,
         offset: 2,
+        oldest_first: false,
     };
     assert_eq!(
         started(index.list(&all, second_page).await.unwrap()),
         [2_000, 1_000]
+    );
+    let oldest = Page {
+        limit: 2,
+        offset: 0,
+        oldest_first: true,
+    };
+    assert_eq!(
+        started(index.list(&all, oldest).await.unwrap()),
+        [1_000, 2_000]
     );
 }
 
@@ -228,6 +239,7 @@ pub async fn deleted_queries_are_gone(index: &dyn Index) {
             Page {
                 limit: 10,
                 offset: 0,
+                oldest_first: false,
             },
         )
         .await

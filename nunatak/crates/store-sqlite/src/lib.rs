@@ -233,9 +233,10 @@ impl Index for SqliteIndex {
         let (clause, mut values) = conditions(filter);
         values.push(Value::Integer(i64::from(page.limit)));
         values.push(Value::Integer(i64::from(page.offset)));
+        let order = if page.oldest_first { "ASC" } else { "DESC" };
         self.run(move |c| {
             let sql = format!(
-                "SELECT {COLUMNS} FROM queries {clause} ORDER BY started_unix_ns DESC, query_id LIMIT ? OFFSET ?"
+                "SELECT {COLUMNS} FROM queries {clause} ORDER BY started_unix_ns {order}, query_id {order} LIMIT ? OFFSET ?"
             );
             c.prepare(&sql)?.query_map(params_from_iter(values), summary)?.collect()
         })

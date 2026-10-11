@@ -183,6 +183,7 @@ impl Pipeline {
                 Page {
                     limit: u32::MAX,
                     offset: 0,
+                    oldest_first: false,
                 },
             )
             .await?;
@@ -231,6 +232,7 @@ impl Pipeline {
             let page = Page {
                 limit: FORGET_BATCH,
                 offset: 0,
+                oldest_first: false,
             };
             let old: Vec<QuerySummary> = self
                 .index

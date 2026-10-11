@@ -28,6 +28,7 @@ pub(crate) struct Params {
     by: Option<String>,
     days: Option<u32>,
     utc_offset: Option<i32>,
+    order: Option<String>,
 }
 
 impl Params {
@@ -60,9 +61,21 @@ pub(crate) async fn queries(
         Ok(filter) => filter,
         Err(reason) => return problem(StatusCode::BAD_REQUEST, &reason, None),
     };
+    let oldest_first = match params.order.as_deref() {
+        None | Some("newest") => false,
+        Some("oldest") => true,
+        Some(other) => {
+            return problem(
+                StatusCode::BAD_REQUEST,
+                &format!("cannot order by {other}"),
+                None,
+            );
+        }
+    };
     let page = Page {
         limit: params.limit.unwrap_or(100).min(MAX_LIMIT),
         offset: params.offset.unwrap_or(0),
+        oldest_first,
     };
     match pipeline.index().list(&filter, page).await {
         Ok(list) => Json(list).into_response(),

@@ -494,6 +494,7 @@ async fn old_runs_are_forgotten_with_their_recordings_but_running_ones_are_kept(
             nunatak_store::Page {
                 limit: 10,
                 offset: 0,
+                oldest_first: false,
             },
         )
         .await
