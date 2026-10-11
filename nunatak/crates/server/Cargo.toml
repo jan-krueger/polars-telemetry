@@ -25,6 +25,7 @@ tower-http.workspace = true
 tracing.workspace = true
 
 [dev-dependencies]
+async-trait.workspace = true
 http-body-util.workspace = true
 nunatak-store-fs.workspace = true
 nunatak-store-sqlite.workspace = true

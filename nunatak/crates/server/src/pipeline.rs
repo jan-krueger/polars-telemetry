@@ -273,7 +273,8 @@ impl Pipeline {
             .record(query, row.started_unix_ns, row.recording.as_ref())
             .await?;
         row.status = Status::Unfinished;
-        self.index.put_query(&row).await
+        self.index.put_query(&row).await?;
+        self.log.remove(query).await
     }
 
     async fn start(
@@ -328,6 +329,7 @@ impl Pipeline {
             existing.as_ref(),
         );
         self.index.put_query(&row).await?;
+        self.log.remove(query).await?;
         Ok(row)
     }
 
@@ -337,25 +339,36 @@ impl Pipeline {
         started_unix_ns: i64,
         earlier: Option<&RecordingKey>,
     ) -> Result<Option<RecordingKey>> {
-        let Some(text) = self.log.take(query).await? else {
+        let Some(text) = self.log.read(query).await? else {
             return Ok(earlier.cloned());
         };
-        let mut gzip = GzEncoder::new(Vec::new(), Compression::default());
         let before = match earlier {
             Some(key) => self.recordings.get(key).await?,
             None => None,
         };
-        if let Some(before) = before {
-            let mut kept = Vec::new();
+        let mut kept = Vec::new();
+        let new = if let Some(before) = before {
             MultiGzDecoder::new(before.as_ref()).read_to_end(&mut kept)?;
-            gzip.write_all(&kept)?;
             let process = text
                 .iter()
                 .position(|&b| b == b'\n')
                 .map_or(text.len(), |at| at + 1);
-            gzip.write_all(&text[process..])?;
+            &text[process..]
         } else {
-            gzip.write_all(&text)?;
+            &text[..]
+        };
+        let mut gzip = GzEncoder::new(Vec::new(), Compression::default());
+        let mut written = HashSet::new();
+        for line in kept
+            .split_inclusive(|&b| b == b'\n')
+            .chain(new.split_inclusive(|&b| b == b'\n'))
+        {
+            if written.insert(line.strip_suffix(b"\n").unwrap_or(line)) {
+                gzip.write_all(line)?;
+                if !line.ends_with(b"\n") {
+                    gzip.write_all(b"\n")?;
+                }
+            }
         }
         let key = RecordingKey(format!("{}/{query}.jsonl.gz", date(started_unix_ns)));
         self.recordings

@@ -541,3 +541,75 @@ async fn many_processes_sending_at_once_all_get_their_queries_recorded() {
     assert!(rows.iter().all(|row| row["status"] == "finished"));
     assert_eq!(recordings(data.path()).len(), 16);
 }
+
+struct FailOnce {
+    inner: FsRecordings,
+    failed: std::sync::atomic::AtomicBool,
+}
+
+#[async_trait::async_trait]
+impl nunatak_store::Recordings for FailOnce {
+    async fn put(
+        &self,
+        key: &nunatak_store::RecordingKey,
+        gzip: bytes::Bytes,
+    ) -> nunatak_store::Result<()> {
+        if !self.failed.swap(true, std::sync::atomic::Ordering::SeqCst) {
+            return Err(nunatak_store::Error::Backend("disk full".into()));
+        }
+        self.inner.put(key, gzip).await
+    }
+
+    async fn get(
+        &self,
+        key: &nunatak_store::RecordingKey,
+    ) -> nunatak_store::Result<Option<bytes::Bytes>> {
+        self.inner.get(key).await
+    }
+
+    async fn delete(&self, key: &nunatak_store::RecordingKey) -> nunatak_store::Result<()> {
+        self.inner.delete(key).await
+    }
+}
+
+#[tokio::test]
+async fn a_batch_sent_again_after_a_failed_write_keeps_every_event_once() {
+    let data = tempfile::tempdir().unwrap();
+    let pipeline = Arc::new(Pipeline::new(
+        "default",
+        Arc::new(FsLog::new(data.path())),
+        Arc::new(FailOnce {
+            inner: FsRecordings::new(data.path()),
+            failed: false.into(),
+        }),
+        Arc::new(SqliteIndex::in_memory().unwrap()),
+    ));
+    let app = ingest_router(Arc::clone(&pipeline), TOKEN.into(), Limits::default())
+        .merge(app_router(pipeline));
+    let sent = example("finished.jsonl");
+    let parts: Vec<&str> = sent.lines().collect();
+    let (head, events) = parts.split_first().unwrap();
+    let (last, rest) = events.split_last().unwrap();
+    let first = format!("{head}\n{}\n", rest.join("\n"));
+    let finish = format!("{head}\n{last}\n");
+
+    assert_eq!(
+        post(&app, TOKEN, gzip(&first)).await.0,
+        StatusCode::ACCEPTED
+    );
+    assert_eq!(
+        post(&app, TOKEN, gzip(&finish)).await.0,
+        StatusCode::SERVICE_UNAVAILABLE
+    );
+    assert_eq!(
+        post(&app, TOKEN, gzip(&finish)).await.0,
+        StatusCode::ACCEPTED
+    );
+
+    let stored = recordings(data.path());
+    assert_eq!(stored.len(), 1);
+    assert_eq!(
+        lines(&stored[0]),
+        sent.lines().map(str::to_owned).collect::<Vec<_>>()
+    );
+}

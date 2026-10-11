@@ -114,15 +114,11 @@ impl Log for FsLog {
         }
     }
 
-    async fn take(&self, query_id: &str) -> Result<Option<Bytes>> {
-        let path = self.path(query_id)?;
-        let bytes = match fs::read(&path).await {
-            Ok(bytes) => bytes,
-            Err(e) if e.kind() == ErrorKind::NotFound => return Ok(None),
-            Err(e) => return Err(e.into()),
-        };
-        fs::remove_file(&path).await?;
-        Ok(Some(Bytes::from(bytes)))
+    async fn remove(&self, query_id: &str) -> Result<()> {
+        match fs::remove_file(self.path(query_id)?).await {
+            Err(e) if e.kind() != ErrorKind::NotFound => Err(e.into()),
+            _ => Ok(()),
+        }
     }
 
     async fn open(&self) -> Result<Vec<String>> {
@@ -180,7 +176,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_log_opens_with_its_process_line_once_and_is_taken_whole() {
+    async fn a_log_opens_with_its_process_line_once_and_is_removed_whole() {
         let data = tempfile::tempdir().unwrap();
         let log = FsLog::new(data.path());
         log.append(QUERY, "process", &["a", "b"]).await.unwrap();
@@ -190,9 +186,9 @@ mod tests {
             &log.read(QUERY).await.unwrap().unwrap()[..],
             b"process\na\nb\nc\n"
         );
-        let text = log.take(QUERY).await.unwrap().unwrap();
-        assert_eq!(&text[..], b"process\na\nb\nc\n");
-        assert!(log.take(QUERY).await.unwrap().is_none());
+        log.remove(QUERY).await.unwrap();
+        log.remove(QUERY).await.unwrap();
+        assert!(log.read(QUERY).await.unwrap().is_none());
         assert_eq!(log.open().await.unwrap(), [] as [std::string::String; 0]);
     }
 

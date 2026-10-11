@@ -30,7 +30,7 @@ pub trait Recordings: Send + Sync {
 #[async_trait]
 pub trait Log: Send + Sync {
     async fn append(&self, query_id: &str, process: &str, lines: &[&str]) -> Result<()>;
-    async fn take(&self, query_id: &str) -> Result<Option<Bytes>>;
+    async fn remove(&self, query_id: &str) -> Result<()>;
     async fn read(&self, query_id: &str) -> Result<Option<Bytes>>;
     async fn open(&self) -> Result<Vec<String>>;
 }
