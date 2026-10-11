@@ -350,7 +350,7 @@ fn days(runs: &[&Run], window: &Window) -> Vec<Day> {
         .collect()
 }
 
-/// Each plan a label ran with, the one run last first.
+/// Each plan a label finished with at least once, the one run last first.
 #[must_use]
 pub fn versions(runs: &[Run]) -> Vec<Version> {
     let mut by_plan: BTreeMap<Option<&str>, Vec<&Run>> = BTreeMap::new();
@@ -369,6 +369,9 @@ pub fn versions(runs: &[Run]) -> Vec<Version> {
                 .filter(|run| run.status == Status::Finished)
                 .filter_map(|run| run.wall_ms)
                 .collect();
+            if walls.is_empty() {
+                return None;
+            }
             let (first, last) = (runs.first()?, runs.last()?);
             Some(Version {
                 fingerprint: fingerprint.map(str::to_owned),
@@ -379,7 +382,7 @@ pub fn versions(runs: &[Run]) -> Vec<Version> {
                     .count() as u64,
                 first_started_unix_ns: first.started_unix_ns,
                 last_started_unix_ns: last.started_unix_ns,
-                usual_wall_ms: (!walls.is_empty()).then(|| median(&walls)),
+                usual_wall_ms: Some(median(&walls)),
                 rules: runs
                     .iter()
                     .flat_map(|run| run.rules.iter().cloned())
@@ -640,6 +643,11 @@ mod tests {
         {
             run.fingerprint = Some("b".into());
         }
+        runs.push(Run {
+            status: Status::Failed,
+            fingerprint: Some("never-built".into()),
+            ..run("mix", 0, 1.0)
+        });
         let found = versions(&runs);
         assert_eq!(found.len(), 2);
         assert_eq!(found[0].fingerprint.as_deref(), Some("b"));
