@@ -6,6 +6,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-11
+
 ### Added
 - `FileEventExporter` writes what happens to each query while it runs to a
   `.jsonl` or `.jsonl.gz` file: the query and its plan once it has run for a
@@ -677,6 +679,7 @@ All three are removed in 0.4.0.
   and collapsed most nodes onto identical windows. The same counters read once
   at query end are exact and cost nothing measurable.
 
+[0.9.0]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.9.0
 [0.8.3]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.8.3
 [0.8.2]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.8.2
 [0.8.1]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.8.1
