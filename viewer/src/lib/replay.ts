@@ -160,3 +160,16 @@ export function busy(replay: Replay, plan: PlanNode[], end: number): Stretch[] {
   }
   return [...total.values()].sort((a, b) => a.from - b.from);
 }
+
+const SPEEDS = [0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000];
+const SHORTEST_MS = 1_000;
+const LONGEST_MS = 300_000;
+const FITTED_MS = 12_000;
+
+/** The playback speeds worth offering for a run of `end` ms: those that replay it in 1 s to 5 min, and the one closest to 12 s. */
+export function speedChoices(end: number): { speeds: number[]; fitted: number } {
+  const lasts = (s: number) => end / s;
+  const fit = SPEEDS.reduce((best, s) => (Math.abs(Math.log(lasts(s) / FITTED_MS)) < Math.abs(Math.log(lasts(best) / FITTED_MS)) ? s : best));
+  const speeds = SPEEDS.filter((s) => lasts(s) >= SHORTEST_MS && lasts(s) <= LONGEST_MS);
+  return { speeds: speeds.length ? speeds : [fit], fitted: fit };
+}

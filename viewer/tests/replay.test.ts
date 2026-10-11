@@ -2,7 +2,7 @@ import { gzipSync, strToU8 } from "fflate";
 import { describe, expect, it } from "vitest";
 import { flowSeconds, liveFlow } from "../src/lib/graph";
 import { gunzipText, isGzip } from "../src/lib/gzip";
-import { busy, history, momentAt, nodeAt } from "../src/lib/replay";
+import { busy, history, momentAt, nodeAt, speedChoices } from "../src/lib/replay";
 import { EventLog } from "../src/model/events";
 import { readJsonl, readProfile, toJsonl } from "../src/model/read";
 import { EVENTS_SCHEMA } from "../src/model/schema";
@@ -197,5 +197,17 @@ describe("a replayed moment", () => {
     const state = { ...initialState, queryId: "q1", replayAt: 1000 };
     expect(reducer(state, { type: "replayed", at: 0 }).replayAt).toBe(0);
     expect(reducer(state, { type: "queryPicked", queryId: "q2" }).replayAt).toBeNull();
+  });
+});
+
+describe("speedChoices", () => {
+  it("offers speeds that replay a run in a second to five minutes, fitted to about 12 s", () => {
+    const minute = speedChoices(60_000);
+    expect(minute.fitted).toBe(5);
+    expect(minute.speeds).toEqual([0.25, 0.5, 1, 2, 5, 10, 20, 50]);
+    const blink = speedChoices(20);
+    expect(blink.fitted).toBe(0.002);
+    expect(blink.speeds.every((s) => 20 / s >= 1_000 && 20 / s <= 300_000)).toBe(true);
+    expect(speedChoices(3_600_000).speeds).not.toContain(1);
   });
 });
