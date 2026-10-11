@@ -13,7 +13,6 @@ import { replayEnd } from "../lib/replay";
 import { NotFound, queries, query, recording, versions, type QuerySummary, type Version } from "./api";
 import { Link, labelPath, runPath, useLoad } from "./shared";
 import { times, when } from "./words";
-import { cpuMs } from "../lib/graph";
 
 type Loaded =
   | { state: "loading" }
@@ -127,8 +126,6 @@ function Run({ summary, recorded, onFinished }: RunProps) {
         )}
       </main>
       <aside className="rail right">
-        {profile && !live && mine >= 0 && <NodeCompare profile={profile} summary={summary} reference={named[mine === named.length - 1 && mine > 0 ? mine - 1 : mine]!}
-                                                       name={`Plan ${(mine === named.length - 1 && mine > 0 ? mine - 1 : mine) + 1}`} />}
         {profile && <PickedNode profile={profile} node={state.node} moment={moment} physical={physical} findings={findings}
                     onPick={(id) => dispatch({ type: "nodePicked", node: { plan: "physical", id } })} />}
       </aside>
@@ -174,40 +171,5 @@ function Against({ summary, plans, mine }: { summary: QuerySummary; plans: Versi
       )}
       {before?.usual_wall_ms != null && <span className="nagainst">· {span(before.usual_wall_ms)} on Plan {mine}, before</span>}
     </>
-  );
-}
-
-const NODES_SHOWN = 6;
-
-/** Each busy node's CPU here and in a typical run of `reference`. */
-function NodeCompare({ profile, summary, reference, name }: { profile: Profile; summary: QuerySummary; reference: Version; name: string }) {
-  const typical = useLoad(async () => {
-    if (!summary.label || reference.usual_wall_ms === null) return null;
-    const candidates = await queries({ label: summary.label, fingerprint: reference.fingerprint ?? undefined, status: "finished", limit: 200 });
-    const usual = reference.usual_wall_ms;
-    const pick = candidates.filter((c) => c.query_id !== summary.query_id && c.wall_ms !== null)
-      .sort((a, b) => Math.abs(a.wall_ms! - usual) - Math.abs(b.wall_ms! - usual))[0];
-    return pick ? recording(pick.query_id) : null;
-  }, `${summary.query_id}${reference.fingerprint}`);
-  if (!typical) return null;
-  const same = (a: Profile["plan"]["physical"][number], b: Profile["plan"]["physical"][number]) => a.kind === b.kind && a.label === b.label;
-  const rows = [...profile.plan.physical].sort((a, b) => cpuMs(b) - cpuMs(a)).slice(0, NODES_SHOWN).map((node) => {
-    const match = typical.plan.physical.find((t) => t.id === node.id && same(t, node)) ?? typical.plan.physical.find((t) => same(t, node));
-    return { node, then: match ? cpuMs(match) : null };
-  });
-  const total = (p: Profile) => p.plan.physical.reduce((sum, n) => sum + cpuMs(n), 0);
-  return (
-    <section className="ncompare">
-      <h3>CPU by node <span className="dim">· against a typical run of {name}</span></h3>
-      <div className="ncompare-row head"><span>node</span><span>this run</span><span>typical</span></div>
-      {rows.map(({ node, then }) => (
-        <div key={node.id} className={then === null ? "ncompare-row new" : "ncompare-row"}>
-          <span title={node.label}>{node.kind}{node.label ? <span className="dim"> {node.label}</span> : null}</span>
-          <span>{span(cpuMs(node))}</span>
-          <span className="dim">{then === null ? "new" : span(then)}</span>
-        </div>
-      ))}
-      <p className="ncompare-note">All nodes: {span(total(profile))} here, {span(total(typical))} then. Wall time: {span(summary.wall_ms ?? 0)} here, {span(typical.wall_ms)} then.</p>
-    </section>
   );
 }
