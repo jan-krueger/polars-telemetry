@@ -25,8 +25,8 @@ main.npage{height:calc(100vh - 53px);overflow-y:auto;padding:16px;gap:16px}
 .ninline{color:var(--accent);text-decoration:none}
 .ninline:hover{text-decoration:underline}
 
-.nrunning{position:relative;display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;align-items:center;padding:10px 12px;border-bottom:1px solid var(--grid);color:var(--ink);text-decoration:none}
-.nrunning:last-child{border-bottom:0}
+.nlanding{height:calc(4 * var(--row) + 2px);overflow-y:auto;overscroll-behavior:contain;--row:58px}
+.nrunning{position:relative;display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;align-items:center;height:var(--row);padding:0 12px;border-bottom:1px solid var(--grid);color:var(--ink);text-decoration:none}
 .nrunning:hover{background:var(--surface-2)}
 .nrunning-what{display:flex;flex-direction:column;min-width:0;padding-left:16px;position:relative}
 .nrunning-what::before{content:"";position:absolute;left:0;top:6px;width:7px;height:7px;border-radius:50%;background:var(--accent);animation:npulse 1.6s ease-in-out infinite}
@@ -42,7 +42,7 @@ main.npage{height:calc(100vh - 53px);overflow-y:auto;padding:16px;gap:16px}
 .nrunning--ended .nrunning-what::before{animation:none;background:var(--muted)}
 .nrunning--failed .nrunning-what::before{background:var(--crit)}
 .nrunning--ended:hover{opacity:1}
-.nnothing{margin:0;padding:10px 12px;color:var(--muted)}
+.nnothing{margin:0;height:100%;display:grid;place-items:center;color:var(--muted)}
 .ntable tr.npinned--ended td{opacity:.6}
 .nended{font-size:11.5px;color:var(--muted)}
 .nended--failed{color:var(--crit)}

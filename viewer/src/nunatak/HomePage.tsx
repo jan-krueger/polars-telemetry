@@ -1,4 +1,3 @@
-import { useRef } from "react";
 import { span } from "../lib/format";
 import { overview, queries, type QueryOverview, type QuerySummary } from "./api";
 import { Spark, type Range } from "./charts";
@@ -18,7 +17,6 @@ export default function HomePage() {
   const now = useNow(1000);
   const data = useLoad(() => overview(filter, days), `${JSON.stringify(filter)}${days}${Math.floor(now / REFRESH_MS)}`);
   const anything = useLoad(() => queries({ limit: 1 }), "anything");
-  const seen = useRef(false);
   if (anything?.length === 0 && !live.running.length) return <main className="npage"><Waiting /></main>;
   const range: Range = data ? [data.days[0]!, data.now_unix_ns] : [0, 1];
   const all = data?.queries ?? [];
@@ -26,12 +24,11 @@ export default function HomePage() {
   const usual = new Map(all.map((q) => [q.label, q.usual_wall_ms]));
   const matches = (q: QuerySummary) => (["service", "environment", "host"] as const).every((f) => !filter[f] || q[f] === filter[f]);
   const rows = shown(live, matches);
-  if (rows.length) seen.current = true;
   return (
     <main className="npage">
       <div className="ncols">
         <div className="nstack">
-          {seen.current && <Running live={live} rows={rows} usual={usual} now={now} />}
+          <Running live={live} rows={rows} usual={usual} now={now} />
           <section className="nstack-tight">
             <h3 className="nh">Last 24 hours</h3>
             <div className="npanel-box">
@@ -62,7 +59,7 @@ function Running({ live, rows, usual, now }: { live: Live; rows: { query: QueryS
   return (
     <section className="nstack-tight">
       <h3 className="nh">Running now <em>· {running}</em></h3>
-      <div className="npanel-box">
+      <div className="npanel-box nlanding">
         {!rows.length && <p className="nnothing">Nothing running</p>}
         {rows.map(({ query: q, ended }) => {
           const pulse = live.pulses.get(q.query_id);
