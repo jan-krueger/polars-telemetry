@@ -3,7 +3,8 @@
 `HttpEventExporter` sends the same events the [events exporter](events.md)
 writes to a file, while each query runs, to a server: the query and its plan
 once it has run for a second, a sample of every changed node's counters after
-that, and its full profile when it finishes.
+that, and its full profile when it finishes. [Nunatak](../nunatak/index.md) is
+that server: a dashboard of the queries running now and of every one before.
 
 Use it when:
 
@@ -13,15 +14,12 @@ Use it when:
 ## Set up
 
 ```python
-import os
-
 import polars_telemetry
 from polars_telemetry.export.http_events import HttpEventExporter
 
 polars_telemetry.install(
     exporter=HttpEventExporter(
         "http://localhost:7766",
-        token=os.environ["EVENTS_TOKEN"],
         service="orders-etl",
         environment="prod",
     )
@@ -31,7 +29,7 @@ polars_telemetry.install(
 | Option | Default | Effect |
 | --- | --- | --- |
 | `url` | required | The server. Events are posted to `{url}/v1/events` |
-| `token` | required | Sent as `Authorization: Bearer <token>` |
+| `token` | `NUNATAK_TOKEN` | Sent as `Authorization: Bearer <token>`. Without one, the exporter reads the `NUNATAK_TOKEN` environment variable and refuses to start if it is unset |
 | `service` | `None` | What the process is, such as `"orders-etl"` |
 | `environment` | `None` | Where it runs, such as `"prod"` |
 | `max_queue_bytes` | 16 MiB | Events waiting to be sent beyond this are dropped, progress samples first |
@@ -50,9 +48,9 @@ Content-Type: application/x-ndjson
 Content-Encoding: gzip
 ```
 
-A batch goes out when a query starts or ends, and about every two seconds in
-between. Every event keeps its `seq` when sent again, so a server can drop an
-event it already has.
+A batch goes out when a query starts or ends, and about every half second in
+between, so a server sees each sample soon after it is taken. Every event keeps
+its `seq` when sent again, so a server can drop an event it already has.
 
 ## When the server is slow or away
 

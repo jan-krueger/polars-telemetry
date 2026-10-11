@@ -135,6 +135,9 @@ def audit(session: nox.Session) -> None:
         session.run("node", "scripts/check-lock-age.mjs", external=True)
     finally:
         session.chdir(root)
+    session.run(
+        "uv", "run", "--no-sync", "python", "nunatak/scripts/crate_age.py", "check", external=True
+    )
 
 
 @nox.session(venv_backend="none", name="viewer-lock")
@@ -169,6 +172,21 @@ def viewer(session: nox.Session) -> None:
     examples.mkdir(parents=True, exist_ok=True)
     for session_file in sorted((root / "examples").glob("*.jsonl")):
         shutil.copy2(session_file, examples / session_file.name)
+
+
+@nox.session(venv_backend="none")
+def nunatak(session: nox.Session) -> None:
+    """Nunatak's format, lints and tests, then HttpEventExporter against its binary."""
+    root = Path.cwd()
+    session.chdir("nunatak")
+    try:
+        session.run("cargo", "fmt", "--all", "--check", external=True)
+        session.run("cargo", "clippy", "--all-targets", "--", "-D", "warnings", external=True)
+        session.run("cargo", "test", external=True)
+        session.run("cargo", "build", external=True)
+    finally:
+        session.chdir(root)
+    session.run("uv", "run", "--no-sync", "pytest", "tests/e2e/test_nunatak.py", external=True)
 
 
 @nox.session(venv_backend="none", name="viewer-test")

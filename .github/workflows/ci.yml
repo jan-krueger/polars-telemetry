@@ -6,6 +6,10 @@ on:
     branches: [main]
   # release.yml re-runs the full suite before publishing.
   workflow_call:
+    inputs:
+      scope:
+        type: string
+        default: all
 
 permissions:
   contents: read
@@ -19,6 +23,7 @@ env:
 
 jobs:
   lint:
+    if: inputs.scope != 'nunatak'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -29,6 +34,7 @@ jobs:
       - run: uv run nox -s lint
 
   typecheck:
+    if: inputs.scope != 'nunatak'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -39,6 +45,7 @@ jobs:
       - run: uv run nox -s typecheck
 
   test:
+    if: inputs.scope != 'nunatak'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -85,6 +92,7 @@ jobs:
           path: coverage.xml
 
   integration:
+    if: inputs.scope != 'nunatak'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -116,7 +124,19 @@ jobs:
           enable-cache: true
       - run: uv run nox -s viewer-test
 
+  nunatak:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: "0.12.19"
+          enable-cache: true
+      - run: uv sync --locked
+      - run: uv run --no-sync nox -s nunatak
+
   docs:
+    if: inputs.scope != 'nunatak'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -150,4 +170,4 @@ jobs:
       - run: uv run nox -s audit
       - uses: google/osv-scanner-action/osv-scanner-action@a345acffa64b0eaede81a3d9aae6141214d9c8fc # v2.6.0
         with:
-          scan-args: --lockfile=uv.lock
+          scan-args: --lockfile=uv.lock --lockfile=nunatak/Cargo.lock

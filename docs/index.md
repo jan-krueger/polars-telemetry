@@ -27,6 +27,7 @@ pip install polars-telemetry
 | Profile a query in two minutes | [Getting started](getting-started.md) |
 | Look inside a plan | [Profile viewer](profile-viewer.md) |
 | Find what slows a query | [Insights](insights.md) |
+| See the queries of many processes in one dashboard | [Nunatak](nunatak/index.md) |
 | Name queries and profile a block of code | [Labels](labels.md) |
 | Send queries to your observability stack | [Exporters](exporters/index.md) |
 | Know what leaves your process | [Data and privacy](privacy.md) |

@@ -195,3 +195,19 @@ def test_closing_against_a_server_that_is_down_gives_up_quickly():
 def test_the_url_must_be_http_with_a_host(url):
     with pytest.raises(ValueError, match="http"):
         HttpEventExporter(url, token="t")
+
+
+def test_the_token_comes_from_the_environment_when_not_given(stub, monkeypatch):
+    server = stub()
+    monkeypatch.setenv("NUNATAK_TOKEN", "from-env")
+    exporter = HttpEventExporter(server.url)
+    exporter.export(_query())
+    exporter.close()
+    assert server.requests[0]["headers"]["Authorization"] == "Bearer from-env"
+
+
+@pytest.mark.parametrize("token", [None, ""])
+def test_without_a_token_the_exporter_says_how_to_give_one(token, monkeypatch):
+    monkeypatch.delenv("NUNATAK_TOKEN", raising=False)
+    with pytest.raises(ValueError, match="NUNATAK_TOKEN"):
+        HttpEventExporter("http://localhost:7766", token=token)

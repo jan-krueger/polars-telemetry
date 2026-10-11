@@ -1,0 +1,20 @@
+[package]
+name = "nunatak-store"
+description = "The storage Nunatak needs, as traits each backend implements"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+async-trait.workspace = true
+bytes.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+
+[features]
+conformance = []
+
+[lints]
+workspace = true

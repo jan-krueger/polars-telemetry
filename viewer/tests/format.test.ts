@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import type { PlanNode, Profile } from "../src/model/profile";
-import { busy, compact, inputs, customLabel, customValue, joinGrowth, nodeFacts, shapeName, span } from "../src/lib/format";
+import { compact, inputs, customLabel, customValue, joinGrowth, nodeFacts, shapeName, span } from "../src/lib/format";
 
 const asProfile = (p: object) => p as unknown as Profile;
 const profile = (over = {}) => asProfile({
@@ -13,20 +13,6 @@ const profile = (over = {}) => asProfile({
 describe("shapeName", () => {
   it("never throws on a profile that passed validation", () => {
     expect(() => shapeName(profile())).not.toThrow();
-  });
-});
-
-describe("busy", () => {
-  it("reads CPU over wall as threads busy, judged against the threads polars had", () => {
-    const b = busy(asProfile({ wall_ms: 100, cpu_ms: 570, diagnostics: { cpu_count: 48 } }))!;
-    expect(b.threads).toBeCloseTo(5.7);
-    expect(b.verdict).toBe("crit");
-    expect(busy(asProfile({ wall_ms: 100, cpu_ms: 760, diagnostics: { cpu_count: 8 } }))!.verdict).toBe("good");
-  });
-
-  it("still counts threads when the profile does not say how many there were", () => {
-    expect(busy(asProfile({ wall_ms: 10, cpu_ms: 30, diagnostics: {} }))).toMatchObject({ of: null, share: null });
-    expect(busy(asProfile({ wall_ms: 10, cpu_ms: 0 }))).toBeNull();
   });
 });
 

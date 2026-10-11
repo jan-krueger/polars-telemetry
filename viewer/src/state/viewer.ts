@@ -53,6 +53,8 @@ export type Action =
   | { type: "replayed"; at: number | null }
   | { type: "navigated"; route: Route };
 
+export type QueryAction = Extract<Action, { type: "nodePicked" | "focused" | "replayed" }>;
+
 export const initialState: ViewerState = {
   booted: false,
   sessions: [],

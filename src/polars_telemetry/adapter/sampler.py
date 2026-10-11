@@ -28,6 +28,7 @@ if TYPE_CHECKING:
 _log = logging.getLogger("polars_telemetry")
 
 _UNWATCH_WAIT = 5.0
+_HEARTBEAT = 5.0
 
 
 @dataclass(slots=True)
@@ -39,6 +40,7 @@ class _Watch:
     announce: Callable[[], None] | None
     deliver: Callable[[Progress], None]
     due: float
+    delivered: float
     previous: dict[Any, dict[str, Any]] = field(default_factory=dict)
 
 
@@ -73,7 +75,14 @@ class Sampler:
     ) -> None:
         with self._cond:
             self._watches[query_id] = _Watch(
-                query_id, handle, started, interval, announce, deliver, due=started + interval
+                query_id,
+                handle,
+                started,
+                interval,
+                announce,
+                deliver,
+                due=started + interval,
+                delivered=started,
             )
             if self._thread is None or not self._thread.is_alive():
                 self._thread = threading.Thread(
@@ -134,8 +143,10 @@ class Sampler:
             announce()
         changed = [r for r in records if watch.previous.get(r.get("phys_node_key")) != r]
         watch.previous = {r.get("phys_node_key"): r for r in records}
-        if changed:
-            elapsed_ms = (self._clock() - watch.started) * 1000
+        now = self._clock()
+        if changed or now - watch.delivered >= _HEARTBEAT:
+            watch.delivered = now
+            elapsed_ms = (now - watch.started) * 1000
             watch.deliver(Progress(watch.query_id, elapsed_ms, build_metrics(changed)))
 
 

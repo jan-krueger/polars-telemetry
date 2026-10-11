@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   ReactFlow, Background, BackgroundVariant, MiniMap, Controls, useReactFlow, useStore, type Node, type NodeChange, type NodeSelectionChange, type Viewport,
 } from "@xyflow/react";
@@ -19,6 +19,7 @@ import Tip from "./Tip";
 const nodeTypes = { plan: PlanNode };
 const edgeTypes = { flow: FlowEdge };
 const MINI = { width: 112, height: 172 };
+const READABLE = 0.7;
 const miniClass = (n: Node): string => n.className ?? "";
 
 type Reveal = { id: number } | null;
@@ -40,6 +41,7 @@ interface Shared {
 
 interface Props extends Shared {
   title: string;
+  switcher?: ReactNode;
   focus?: number | null;
   onFocus?: (focus: number | null) => void;
   onAlone: () => void;
@@ -48,7 +50,7 @@ interface Props extends Shared {
   onWarning?: (id: number) => void;
 }
 
-export default function PlanPane({ title, plan, logical, selectedId, onSelect, focus = null, onFocus,
+export default function PlanPane({ title, switcher, plan, logical, selectedId, onSelect, focus = null, onFocus,
                                    alone, onAlone, linked, leads, onLink, channel, findings, reveal, moment,
                                    warnings = [], onWarning }: Props) {
   const positions = useLayout(plan);
@@ -60,7 +62,7 @@ export default function PlanPane({ title, plan, logical, selectedId, onSelect, f
   return (
     <div className={logical ? "planbox logical" : "planbox"}>
       <div className="ph">
-        <span className="nm">{title}</span>
+        {switcher ?? <span className="nm">{title}</span>}
         {warnings.length && onWarning ? <Warnings ids={warnings} selectedId={selectedId} onPick={onWarning} /> : null}
         {onFocus && steps.length > 1 ? <Focus steps={steps} step={step} onFocus={onFocus} /> : null}
         {!alone && (
@@ -146,6 +148,7 @@ function PlanView({ plan, positions, logical, selectedId, onSelect, thresholdMs,
           <MiniMap pannable zoomable nodeClassName={miniClass} style={MINI} />
           <Controls showInteractive={false} />
           <Refit when={alone} />
+          <InView id={selectedId} positions={positions} />
           <Distance onChange={setFar} onFitted={setFitted} />
           <Reveal request={reveal} positions={positions} />
           <Follow linked={linked} leads={leads} channel={channel} pane={pane} box={box} size={size} following={following} />
@@ -228,6 +231,22 @@ function Refit({ when }: { when: boolean }) {
   return null;
 }
 
+function InView({ id, positions }: { id: number | null; positions: Positions }) {
+  const { getViewport, setCenter } = useReactFlow();
+  const width = useStore((s) => s.width);
+  const height = useStore((s) => s.height);
+  useEffect(() => {
+    const at = id === null ? undefined : positions[String(id)];
+    if (!at || !width) return;
+    const { x, y, zoom } = getViewport();
+    const left = at.x * zoom + x, top = at.y * zoom + y;
+    if (left >= 0 && top >= 0 && left + NODE_W * zoom <= width && top + NODE_H * zoom <= height) return;
+    const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    setCenter(at.x + NODE_W / 2, at.y + NODE_H / 2, { zoom: Math.max(zoom, READABLE), duration: still ? 0 : 400 });
+  }, [id]);
+  return null;
+}
+
 interface FollowProps {
   linked: boolean;
   leads: boolean;
@@ -282,7 +301,7 @@ function Reveal({ request, positions }: { request: Reveal; positions: Positions 
     const at = request && positions[String(request.id)];
     if (!at) return;
     const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
-    setCenter(at.x + NODE_W / 2, at.y + NODE_H / 2, { zoom: Math.max(getZoom(), 0.7), duration: still ? 0 : 400 });
+    setCenter(at.x + NODE_W / 2, at.y + NODE_H / 2, { zoom: Math.max(getZoom(), READABLE), duration: still ? 0 : 400 });
   }, [request]);
   return null;
 }

@@ -6,17 +6,21 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-11
+
 ### Added
 - `FileEventExporter` writes what happens to each query while it runs to a
   `.jsonl` or `.jsonl.gz` file: the query and its plan once it has run for a
-  second, a sample of every changed node's counters each second after that, and
-  its full profile when it finishes. One background thread samples the running
+  second, a sample of every changed node's counters each second after that (an
+  empty one every 5 seconds while nothing changes, so a quiet query is told
+  apart from a dead process), and its full profile when it finishes. One background thread samples the running
   queries; nothing is sampled while no such exporter is installed.
   Its `service` and `environment` arguments name where the events come from,
   and every event is numbered, so a receiver can drop one sent twice.
 - `HttpEventExporter` sends the same events to a server while each query runs:
-  gzip-compressed batches posted to `{url}/v1/events` with a bearer token, from
-  one background thread, retried when the server is busy or away.
+  gzip-compressed batches posted to `{url}/v1/events` with a bearer token, taken
+  from `NUNATAK_TOKEN` unless given, from one background thread, retried when
+  the server is busy or away.
 - JSON Schemas for `polars-telemetry/events@1` and `polars-telemetry/profile@1`,
   published with the docs, and two example recordings.
 - `Config.progress_interval`, the seconds between those samples, 1 by default.
@@ -675,6 +679,7 @@ All three are removed in 0.4.0.
   and collapsed most nodes onto identical windows. The same counters read once
   at query end are exact and cost nothing measurable.
 
+[0.9.0]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.9.0
 [0.8.3]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.8.3
 [0.8.2]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.8.2
 [0.8.1]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.8.1

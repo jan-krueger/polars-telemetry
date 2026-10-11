@@ -41,6 +41,10 @@ nav:
       - Write your own: exporters/custom.md
   - Label and scope queries: labels.md
   - Profile viewer: profile-viewer.md
+  - Nunatak:
+      - nunatak/index.md
+      - Running Nunatak: nunatak/running.md
+      - HTTP API: nunatak/api.md
   - Insights: insights.md
   - Polars Cloud: polars-cloud.md
   - Reference:

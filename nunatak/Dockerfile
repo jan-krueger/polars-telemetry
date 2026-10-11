@@ -1,0 +1,9 @@
+FROM scratch
+ARG TARGETARCH
+COPY --chmod=755 ${TARGETARCH}/nunatak /nunatak
+COPY --chown=65532:65532 data /data
+USER 65532:65532
+ENV NUNATAK_BIND=0.0.0.0:7766 NUNATAK_DATA=/data
+VOLUME /data
+EXPOSE 7766
+ENTRYPOINT ["/nunatak"]
