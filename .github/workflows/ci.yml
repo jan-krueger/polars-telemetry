@@ -6,6 +6,10 @@ on:
     branches: [main]
   # release.yml re-runs the full suite before publishing.
   workflow_call:
+    inputs:
+      scope:
+        type: string
+        default: all
 
 permissions:
   contents: read
@@ -19,6 +23,7 @@ env:
 
 jobs:
   lint:
+    if: inputs.scope != 'nunatak'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -29,6 +34,7 @@ jobs:
       - run: uv run nox -s lint
 
   typecheck:
+    if: inputs.scope != 'nunatak'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -39,6 +45,7 @@ jobs:
       - run: uv run nox -s typecheck
 
   test:
+    if: inputs.scope != 'nunatak'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -85,6 +92,7 @@ jobs:
           path: coverage.xml
 
   integration:
+    if: inputs.scope != 'nunatak'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -128,6 +136,7 @@ jobs:
       - run: uv run --no-sync nox -s nunatak
 
   docs:
+    if: inputs.scope != 'nunatak'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
