@@ -18,7 +18,7 @@ export default function HomePage() {
   const data = useLoad(() => overview(filter, days), `${JSON.stringify(filter)}${days}${Math.floor(now / REFRESH_MS)}`);
   const anything = useLoad(() => queries({ limit: 1 }), "anything");
   if (anything?.length === 0 && !live.running.length) return <main className="npage"><Waiting /></main>;
-  const range: Range = data ? [data.days[0]!, data.now_unix_ns] : [0, 1];
+  const range: Range = data ? [data.since_unix_ns, data.now_unix_ns] : [0, 1];
   const all = data?.queries ?? [];
   const changed = all.filter((q) => kinds(q).length).sort((a, b) => order(a) - order(b) || b.total_wall_ms - a.total_wall_ms);
   const usual = new Map(all.map((q) => [q.label, q.usual_wall_ms]));

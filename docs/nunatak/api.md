@@ -101,14 +101,16 @@ first.
 
 ### `GET /api/overview`
 
-Each label that ran in the last `days` days (14 unless given, up to 90), with
-its time lately against its usual time. `utc_offset`, minutes ahead of UTC,
-sets where days start. Takes `service`, `environment`, `host` and `label`.
+Each label that ran in the last `days` × 24 hours (14 days unless given, up to
+90), with its time lately against its usual time. `days` lists where each local
+day the range touches starts, the first possibly before `since_unix_ns`;
+`utc_offset`, minutes ahead of UTC, sets where days start. Takes `service`, `environment`, `host` and `label`.
 
 ```json
 {
   "now_unix_ns": 1791712345000000000,
-  "days": [1790589600000000000, ...],
+  "since_unix_ns": 1790502745000000000,
+  "days": [1790460000000000000, ...],
   "queries": [{
     "label": "orders/country_mix",
     "service": "orders-etl",

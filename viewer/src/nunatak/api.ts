@@ -88,6 +88,7 @@ export interface QueryOverview {
 
 export interface Overview {
   now_unix_ns: number;
+  since_unix_ns: number;
   days: number[];
   queries: QueryOverview[];
 }
@@ -107,6 +108,7 @@ export type Filter = Partial<Record<"label" | "fingerprint" | "service" | "envir
   since?: number;
   until?: number;
   limit?: number;
+  offset?: number;
   order?: "oldest";
 };
 

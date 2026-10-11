@@ -34,7 +34,7 @@ export default function QueriesPage() {
   const needle = text.trim().toLowerCase();
   const keep = CHIPS.find(([key]) => key === only)?.[2] ?? (() => true);
   const rows = all.filter((q) => (!needle || (q.label ?? "").toLowerCase().includes(needle)) && keep(q)).sort(sorter(sort));
-  const range: Range = data ? [data.days[0]!, data.now_unix_ns] : [0, 1];
+  const range: Range = data ? [data.since_unix_ns, data.now_unix_ns] : [0, 1];
   const usual = new Map(all.map((q) => [q.label, q.usual_wall_ms]));
   const matches = (q: QuerySummary) => (["service", "environment", "host"] as const).every((f) => !filter[f] || q[f] === filter[f])
     && (!needle || (q.label ?? "").toLowerCase().includes(needle));
