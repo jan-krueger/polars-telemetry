@@ -37,9 +37,11 @@ interface Props {
   heading?: ReactNode;
   extra?: ReactNode;
   live?: boolean;
+  /** Replaces the note shown when the recording ends before the query did. */
+  cutOff?: string;
 }
 
-export default function QueryView({ profile, moment, findings, panes, node, focus, replayAt, dispatch, withDates, share: sharer, heading, extra, live = false }: Props) {
+export default function QueryView({ profile, moment, findings, panes, node, focus, replayAt, dispatch, withDates, share: sharer, heading, extra, live = false, cutOff }: Props) {
   const now = moment ? { ...profile, wall_ms: moment.t, cpu_ms: moment.cpu_ms } : profile;
   const warnings = useMemo(() => warned(profile), [profile]);
   const [reveal, setReveal] = useState<{ id: number } | null>(null);
@@ -133,7 +135,7 @@ export default function QueryView({ profile, moment, findings, panes, node, focu
         )}
         {profile.failed && <Failure message={profile.failed} />}
         {profile.unfinished && !live && (
-          <div className="qnote">Still running when the recording ended; its counters are from the last sample.</div>
+          <div className="qnote">{cutOff ?? "Still running when the recording ended; its counters are from the last sample."}</div>
         )}
       </div>
 

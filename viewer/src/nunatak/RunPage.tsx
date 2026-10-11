@@ -93,7 +93,6 @@ function Run({ summary, recorded, onFinished }: RunProps) {
   const findings = useMemo(() => byNode(profile), [profile]);
   const head = live && profile?.replay ? replayEnd(profile) : null;
   const { moment, physical } = useMoment(profile, state.replayAt ?? head);
-  const where = [summary.service, summary.host, summary.environment].filter(Boolean).join(" · ");
   return (
     <div className="shell shell--run">
       <main>
@@ -101,6 +100,8 @@ function Run({ summary, recorded, onFinished }: RunProps) {
           <QueryView profile={profile} moment={moment} findings={findings} panes={panes}
                      node={state.node} focus={state.focus} replayAt={state.replayAt} dispatch={dispatch}
                      withDates live={live} heading={<Heading summary={summary} />}
+                     cutOff={summary.status === "finished" || summary.status === "failed"
+                       ? "The recording is cut off; it shows the query up to its last readable event." : undefined}
                      share={{
                        link: () => ({ url: location.href, chars: 0 }),
                        linkNote: "Opens this run in Nunatak",
@@ -113,13 +114,15 @@ function Run({ summary, recorded, onFinished }: RunProps) {
         ) : (
           <>
             <div className="qline"><Heading summary={summary} /></div>
-            <div className="nsoon">{live ? "Waiting for the query's first sample…" : "No recording kept for this run."}</div>
+            <div className="nsoon">{live ? "Waiting for the query's first sample…"
+              : summary.recording ? "This run's recording is missing from Nunatak's data folder."
+              : "No recording kept for this run."}</div>
           </>
         )}
       </main>
       <aside className="rail right">
-        <PickedNode profile={profile} node={state.node} moment={moment} physical={physical} findings={findings}
-                    onPick={(id) => dispatch({ type: "nodePicked", node: { plan: "physical", id } })} />
+        {profile && <PickedNode profile={profile} node={state.node} moment={moment} physical={physical} findings={findings}
+                    onPick={(id) => dispatch({ type: "nodePicked", node: { plan: "physical", id } })} />}
       </aside>
     </div>
   );
