@@ -99,6 +99,7 @@ jobs:
         with:
           name: Nunatak ${{ github.ref_name }}
           make_latest: "false"
+          prerelease: ${{ contains(github.ref_name, '-') }}
           files: dist/*
 
   image:
@@ -125,10 +126,12 @@ jobs:
         run: |
           image="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/nunatak"
           version="${GITHUB_REF_NAME#nunatak-v}"
+          tags=(-t "$image:$version")
+          [[ "$version" == *-* ]] || tags+=(-t "$image:latest")
           echo "$TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
           docker buildx create --use
           docker buildx build --push --platform linux/amd64,linux/arm64 \
             --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
             --label "org.opencontainers.image.version=$version" \
-            -t "$image:$version" -t "$image:latest" \
+            "${tags[@]}" \
             -f nunatak/Dockerfile context
