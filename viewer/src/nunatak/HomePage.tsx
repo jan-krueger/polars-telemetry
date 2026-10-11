@@ -3,7 +3,7 @@ import { overview, queries, type QueryOverview, type QuerySummary } from "./api"
 import { Spark, type Range } from "./charts";
 import { LINGER_MS, elapsed, shown, useLive, useNow, type Live } from "./live";
 import { Link, daysOf, filterOf, labelPath, runPath, useLoad, useSearch } from "./shared";
-import { cadence, kinds, reason, type Kind } from "./words";
+import { kinds, reason, type Kind } from "./words";
 
 const REFRESH_MS = 30_000;
 const TOP = 8;
@@ -34,7 +34,7 @@ export default function HomePage() {
             <div className="npanel-box">
               {data === null ? <p className="nquiet">Loading…</p> : (
                 <>
-                  {changed.map((q) => <Change key={q.label ?? ""} q={q} range={range} days={data.days.length} now={now} />)}
+                  {changed.map((q) => <Change key={q.label ?? ""} q={q} range={range} now={now} />)}
                   <div className="ncalm">
                     {changed.length
                       ? <span><b>{all.length - changed.length}</b> as usual</span>
@@ -91,10 +91,10 @@ function Running({ live, rows, usual, now }: { live: Live; rows: { query: QueryS
   );
 }
 
-function Change({ q, range, days, now }: { q: QueryOverview; range: Range; days: number; now: number }) {
+function Change({ q, range, now }: { q: QueryOverview; range: Range; now: number }) {
   const all = kinds(q);
   const shown = all.filter((k) => !(k === "warning" && all.includes("slower") && q.plan_changed_unix_ns !== null));
-  const title = <>{q.label ?? "Queries without a label"}<small>{[q.service, cadence(q.runs, days)].filter(Boolean).join(" · ")}</small></>;
+  const title = <>{q.label ?? "Queries without a label"}{q.service && <small>{q.service}</small>}</>;
   return (
     <div className="nchange">
       <span className="nkinds">{all.map((k) => <span key={k} className={`nkind nkind--${k}`}>{KIND_NAMES[k]}</span>)}</span>

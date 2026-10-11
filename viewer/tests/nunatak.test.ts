@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { PlanNode } from "../src/model/profile";
 import type { QueryOverview } from "../src/nunatak/api";
 import { planDiff } from "../src/nunatak/plans";
-import { byAttention, cadence, kinds, needsLook, reason, ruleName, times, when } from "../src/nunatak/words";
+import { byAttention, kinds, needsLook, reason, ruleName, times, when } from "../src/nunatak/words";
 
 const NOW = new Date(2026, 9, 11, 9, 40).getTime();
 const at = (day: number, hour: number, minute = 0) => new Date(2026, 9, day, hour, minute).getTime() * 1e6;
@@ -21,12 +21,6 @@ describe("Nunatak's words", () => {
     expect(times(6.1)).toBe("6.1× slower");
     expect(times(1 / 2.1)).toBe("2.1× faster");
     expect(times(14)).toBe("14× slower");
-  });
-
-  it("says how often a query runs", () => {
-    expect(cadence(336, 14)).toBe("24 runs a day");
-    expect(cadence(4, 14)).toBe("2 runs a week");
-    expect(cadence(1, 14)).toBe("1 run");
   });
 
   it("says when, relative to today", () => {

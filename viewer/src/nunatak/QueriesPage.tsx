@@ -4,7 +4,7 @@ import { go } from "./App";
 import { Spark, cellStyle, type Range } from "./charts";
 import { LINGER_MS, elapsed, shown, useLive, useNow } from "./live";
 import { Link, daysOf, filterOf, labelPath, link, runPath, useLoad, useSearch } from "./shared";
-import { ago, byAttention, cadence, needsLook, ruleName, times, type Kind } from "./words";
+import { ago, byAttention, needsLook, ruleName, times, type Kind } from "./words";
 
 const REFRESH_MS = 30_000;
 type Only = Kind | "look";
@@ -95,7 +95,7 @@ export default function QueriesPage() {
                   </tr>
                 );
               })}
-              {rows.map((q) => <Row key={q.label ?? ""} q={q} range={range} days={days} />)}
+              {rows.map((q) => <Row key={q.label ?? ""} q={q} range={range} />)}
               {!rows.length && <tr className="nnone"><td colSpan={8}>{needle ? <>No query matches &ldquo;{text}&rdquo;.</> : "No query fits this filter."}</td></tr>}
             </tbody>
           </table>
@@ -119,13 +119,13 @@ function Head({ sort, column, name, update, numeric = false }: { sort: Sort | nu
   );
 }
 
-function Row({ q, range, days }: { q: QueryOverview; range: Range; days: number }) {
+function Row({ q, range }: { q: QueryOverview; range: Range }) {
   const open = () => q.label && go(link(labelPath(q.label)));
   return (
     <tr onClick={open} className={q.label ? "" : "nplain"}>
       <td>
         {q.label ? <Link to={labelPath(q.label)} className="nlabel">{q.label}</Link> : <span className="nlabel dim">Queries without a label</span>}
-        <span className="sub">{[q.service, cadence(q.runs, days)].filter(Boolean).join(" · ")}</span>
+        {q.service && <span className="sub">{q.service}</span>}
       </td>
       <td className="dim">{ago(q.last_started_unix_ns)}</td>
       <td className="num">{q.recent_wall_ms === null ? "–" : span(q.recent_wall_ms)}{q.usual_wall_ms !== null && <span className="sub">usually {span(q.usual_wall_ms)}</span>}</td>

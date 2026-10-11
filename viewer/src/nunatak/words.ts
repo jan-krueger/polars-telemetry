@@ -63,14 +63,6 @@ export function ago(at: number, now = Date.now()): string {
   return `${Math.floor(s / 86_400)} d ago`;
 }
 
-/** 24 runs a day, 6 runs a week */
-export function cadence(runs: number, days: number): string {
-  const perDay = runs / Math.max(days, 1);
-  if (perDay >= 1.5) return `${Math.round(perDay)} runs a day`;
-  const perWeek = perDay * 7;
-  return perWeek >= 1.5 ? `${Math.round(perWeek)} runs a week` : runs === 1 ? "1 run" : `${runs} runs`;
-}
-
 /** One sentence on why a query shows up as `kind`. */
 export function reason(q: QueryOverview, kind: Kind, now = Date.now()): string {
   const usual = q.usual_wall_ms === null ? null : span(q.usual_wall_ms);

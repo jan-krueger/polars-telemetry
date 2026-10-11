@@ -5,7 +5,7 @@ import { go } from "./App";
 import { RunsChart, type Plan, type Range } from "./charts";
 import { planDiff } from "./plans";
 import { DAY_MS, Link, daysOf, filterOf, link, runPath, useLoad, useSearch } from "./shared";
-import { cadence, kinds, reason, ruleName, times, when } from "./words";
+import { kinds, reason, ruleName, times, when } from "./words";
 
 const PAGE = 20;
 const VERSIONS_SHOWN = 4;
@@ -29,7 +29,7 @@ export default function LabelPage({ label }: { label: string }) {
     <main className="npage">
       <div className="ntitle">
         <span className="crumb"><Link to="/queries">Queries</Link> / <b>{label}</b></span>
-        {q && <span className="dim">{[q.service, hosts.length > 3 ? `${hosts.length} hosts` : hosts.join(", "), cadence(q.runs, data.days.length)].filter(Boolean).join(" · ")}</span>}
+        {q && <span className="dim">{[q.service, hosts.length > 3 ? `${hosts.length} hosts` : hosts.join(", ")].filter(Boolean).join(" · ")}</span>}
         <span className="grow" />
         {runs[0] && <Link to={runPath(runs[0].query_id)} className="nbutton">Open latest run</Link>}
       </div>
@@ -59,11 +59,9 @@ function name(plans: Version[], slower: boolean): (Plan & Version)[] {
 function Verdict({ q }: { q: QueryOverview }) {
   const found = kinds(q);
   const shown = found.filter((k) => !(k === "warning" && found.includes("slower") && q.plan_changed_unix_ns !== null));
-  const tone = found.includes("slower") || found.includes("failing") ? "bad" : found.includes("warning") ? "warn" : found.includes("faster") ? "good" : "calm";
-  const text = shown.length ? shown.map((k) => reason(q, k)).join(" ")
-    : q.recent_wall_ms !== null && q.usual_wall_ms !== null ? `As usual: ${span(q.recent_wall_ms)}, usually ${span(q.usual_wall_ms)}.`
-    : `${q.runs} ${q.runs === 1 ? "run" : "runs"}.`;
-  return <p className={`nverdict nverdict--${tone}`}>{text}</p>;
+  if (!shown.length) return null;
+  const tone = found.includes("slower") || found.includes("failing") ? "bad" : found.includes("warning") ? "warn" : "good";
+  return <p className={`nverdict nverdict--${tone}`}>{shown.map((k) => reason(q, k)).join(" ")}</p>;
 }
 
 function Versions({ plans, named }: { plans: Version[]; named: (Plan & Version)[] }) {
@@ -80,7 +78,7 @@ function Versions({ plans, named }: { plans: Version[]; named: (Plan & Version)[
               <span><b>{v.runs.toLocaleString()}</b> runs</span>
               {v.usual_wall_ms !== null && <span>usually <b>{span(v.usual_wall_ms)}</b></span>}
               {v.failed > 0 && <span className="bad">{v.failed} failed</span>}
-              <span>{v.rules.length ? v.rules.map((r) => <span key={r} className="nfind">{ruleName(r)}</span>) : "no warnings"}</span>
+              {v.rules.length > 0 && <span>{v.rules.map((r) => <span key={r} className="nfind">{ruleName(r)}</span>)}</span>}
             </div>
             {before && <Diff id={v.latest_query_id} before={before.latest_query_id} name={named.find((p) => p.fingerprint === before.fingerprint)!.name} />}
           </div>
