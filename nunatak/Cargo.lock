@@ -697,7 +697,7 @@ dependencies = [
 
 [[package]]
 name = "nunatak"
-version = "0.1.0"
+version = "0.1.0-rc.1"
 dependencies = [
  "axum",
  "clap",
@@ -714,7 +714,7 @@ dependencies = [
 
 [[package]]
 name = "nunatak-protocol"
-version = "0.1.0"
+version = "0.1.0-rc.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -724,7 +724,7 @@ dependencies = [
 
 [[package]]
 name = "nunatak-server"
-version = "0.1.0"
+version = "0.1.0-rc.1"
 dependencies = [
  "async-trait",
  "axum",
@@ -750,7 +750,7 @@ dependencies = [
 
 [[package]]
 name = "nunatak-store"
-version = "0.1.0"
+version = "0.1.0-rc.1"
 dependencies = [
  "async-trait",
  "bytes",
@@ -760,7 +760,7 @@ dependencies = [
 
 [[package]]
 name = "nunatak-store-fs"
-version = "0.1.0"
+version = "0.1.0-rc.1"
 dependencies = [
  "async-trait",
  "bytes",
@@ -771,7 +771,7 @@ dependencies = [
 
 [[package]]
 name = "nunatak-store-sqlite"
-version = "0.1.0"
+version = "0.1.0-rc.1"
 dependencies = [
  "async-trait",
  "nunatak-store",
