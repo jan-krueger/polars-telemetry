@@ -7,14 +7,16 @@ export interface Live {
   pulses: Map<string, { pulse: Pulse; at: number }>;
   finished: number;
   ended: { query: QuerySummary; at: number }[];
+  dismiss: (id: string) => void;
 }
 
-/** How long a query that just ended stays where it ran. */
-export const LINGER_MS = 8_000;
+/** How long a query that just ended stays below the running ones, unless the reader holds it. */
+export const LINGER_MS = 10_000;
+const ENDED_KEPT = 30;
 
 /** The running queries and their latest samples, kept current over server-sent events. */
 export function useLive(): Live {
-  const [live, setLive] = useState<Live>({ connected: false, running: [], pulses: new Map(), finished: 0, ended: [] });
+  const [live, setLive] = useState<Live>(() => ({ connected: false, running: [], pulses: new Map(), finished: 0, ended: [], dismiss: () => {} }));
   useEffect(() => {
     const source = new EventSource("/api/live");
     source.addEventListener("snapshot", (e) => {
@@ -31,7 +33,7 @@ export function useLive(): Live {
         pulses.delete(row.query_id);
         const at = Date.now();
         const wasRunning = before.running.some((q) => q.query_id === row.query_id);
-        const kept = before.ended.filter((e) => at - e.at < LINGER_MS && e.query.query_id !== row.query_id);
+        const kept = before.ended.filter((e) => e.query.query_id !== row.query_id).slice(-ENDED_KEPT);
         const ended = wasRunning ? [...kept, { query: row, at }] : kept;
         return { ...before, running: others, pulses, finished: before.finished + 1, ended };
       });
@@ -41,6 +43,8 @@ export function useLive(): Live {
       setLive((before) => ({ ...before, pulses: new Map(before.pulses).set(pulse.query_id, { pulse, at: Date.now() }) }));
     });
     source.onerror = () => setLive((before) => ({ ...before, connected: false }));
+    const dismiss = (id: string) => setLive((before) => ({ ...before, ended: before.ended.filter((e) => e.query.query_id !== id) }));
+    setLive((before) => ({ ...before, dismiss }));
     return () => source.close();
   }, []);
   return live;
@@ -61,10 +65,9 @@ export function elapsed(query: QuerySummary, pulse: { pulse: Pulse; at: number }
   return Math.max(0, now - query.started_unix_ns / 1e6);
 }
 
-/** The running queries and those that ended moments ago, in the order they started. */
-export function shown(live: Live, now: number, keep: (q: QuerySummary) => boolean): { query: QuerySummary; ended: boolean }[] {
-  const running = live.running.filter(keep).map((query) => ({ query, ended: false }));
-  const ended = live.ended.filter((e) => now - e.at < LINGER_MS && keep(e.query) && !live.running.some((q) => q.query_id === e.query.query_id))
-    .map((e) => ({ query: e.query, ended: true }));
-  return [...running, ...ended].sort((a, b) => a.query.started_unix_ns - b.query.started_unix_ns || a.query.query_id.localeCompare(b.query.query_id));
+/** The running queries, newest first, then those that ended moments ago, the latest first. */
+export function shown(live: Live, keep: (q: QuerySummary) => boolean): { query: QuerySummary; ended: boolean }[] {
+  const running = live.running.filter(keep).sort((a, b) => b.started_unix_ns - a.started_unix_ns || a.query_id.localeCompare(b.query_id));
+  const ended = live.ended.filter((e) => keep(e.query) && !live.running.some((q) => q.query_id === e.query.query_id)).sort((a, b) => b.at - a.at);
+  return [...running.map((query) => ({ query, ended: false })), ...ended.map((e) => ({ query: e.query, ended: true }))];
 }

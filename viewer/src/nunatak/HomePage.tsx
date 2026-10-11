@@ -2,7 +2,7 @@ import { useRef } from "react";
 import { span } from "../lib/format";
 import { overview, queries, type QueryOverview, type QuerySummary } from "./api";
 import { Spark, type Range } from "./charts";
-import { elapsed, shown, useLive, useNow, type Live } from "./live";
+import { LINGER_MS, elapsed, shown, useLive, useNow, type Live } from "./live";
 import { Link, daysOf, filterOf, labelPath, runPath, useLoad, useSearch } from "./shared";
 import { cadence, kinds, reason, type Kind } from "./words";
 
@@ -25,7 +25,7 @@ export default function HomePage() {
   const changed = all.filter((q) => kinds(q).length).sort((a, b) => order(a) - order(b) || b.total_wall_ms - a.total_wall_ms);
   const usual = new Map(all.map((q) => [q.label, q.usual_wall_ms]));
   const matches = (q: QuerySummary) => (["service", "environment", "host"] as const).every((f) => !filter[f] || q[f] === filter[f]);
-  const rows = shown(live, now, matches);
+  const rows = shown(live, matches);
   if (rows.length) seen.current = true;
   return (
     <main className="npage">
@@ -85,6 +85,7 @@ function Running({ live, rows, usual, now }: { live: Live; rows: { query: QueryS
                 </span>
                 {share !== null && <span className="nprog" aria-hidden="true"><i className={over ? "over" : ""} style={{ width: `${Math.min(1, share) * 100}%` }} /></span>}
               </span>
+              {ended && <span className="nlinger" aria-hidden="true" style={{ animationDuration: `${LINGER_MS}ms` }} onAnimationEnd={() => live.dismiss(q.query_id)} />}
             </Link>
           );
         })}
