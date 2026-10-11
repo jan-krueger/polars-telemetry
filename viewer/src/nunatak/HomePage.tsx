@@ -65,20 +65,23 @@ function Running({ live, running, usual, now }: { live: Live; running: QuerySumm
           const typical = usual.get(q.label) ?? null;
           const share = typical ? took / typical : null;
           const over = share !== null && share > 1.5;
-          const longest = Math.max(took, typical ?? took);
+          const busiest = pulse?.pulse.busiest?.kind;
           return (
             <Link key={q.query_id} to={runPath(q.query_id)} className="nrunning">
-              <span><b>{q.label ?? "Query without a label"}</b><span className="dim">{[q.service, q.host].filter(Boolean).join(" · ")}</span></span>
-              <span><span className="nlive">running</span> <span className="num">{span(took)}</span></span>
-              <span className="nprog" aria-hidden="true">
-                <i className={over ? "over" : ""} style={{ width: `${(took / longest) * 100}%` }} />
-                {typical && <u style={{ left: `calc(${(typical / longest) * 100}% - 1px)` }} />}
+              <span className="nrunning-what">
+                <b>{q.label ?? "Query without a label"}</b>
+                <span className="dim">{[q.service, q.host, busiest && `busiest: ${busiest}`].filter(Boolean).join(" · ")}</span>
               </span>
-              <span className="nsay">
-                {share === null ? "first run in the range"
-                  : over ? <b className="bad">{share.toFixed(share < 10 ? 1 : 0)}× its usual {span(typical!)}</b>
-                  : <><b>{Math.round(share * 100)}%</b> of its usual {span(typical!)}</>}
-                {pulse?.pulse.busiest ? ` · busiest: ${pulse.pulse.busiest.kind}` : ""}
+              <span className="nrunning-time">
+                <span>
+                  <b className={over ? "bad num" : "num"}>{span(took)}</b>
+                  <span className="dim">
+                    {share === null ? " so far, no usual time yet"
+                      : over ? `, ${share.toFixed(share < 10 ? 1 : 0)}× its usual ${span(typical!)}`
+                      : ` of usually ${span(typical!)}`}
+                  </span>
+                </span>
+                {share !== null && <span className="nprog" aria-hidden="true"><i className={over ? "over" : ""} style={{ width: `${Math.min(1, share) * 100}%` }} /></span>}
               </span>
             </Link>
           );
