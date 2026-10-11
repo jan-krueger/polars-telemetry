@@ -3,7 +3,8 @@
 `HttpEventExporter` sends the same events the [events exporter](events.md)
 writes to a file, while each query runs, to a server: the query and its plan
 once it has run for a second, a sample of every changed node's counters after
-that, and its full profile when it finishes.
+that, and its full profile when it finishes. [Nunatak](../nunatak/index.md) is
+that server: a dashboard of the queries running now and of every one before.
 
 Use it when:
 
