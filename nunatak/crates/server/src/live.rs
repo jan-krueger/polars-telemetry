@@ -2,6 +2,7 @@ use nunatak_store::QuerySummary;
 use serde::Serialize;
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 use tokio::sync::broadcast;
 
@@ -32,6 +33,7 @@ pub enum Change {
         query_id: String,
         lines: Vec<(u64, String)>,
     },
+    Stopping,
 }
 
 #[derive(Default)]
@@ -47,6 +49,7 @@ struct Running {
 pub struct Live {
     sender: broadcast::Sender<Arc<Change>>,
     running: Mutex<HashMap<String, Running>>,
+    stopping: AtomicBool,
 }
 
 impl Default for Live {
@@ -54,6 +57,7 @@ impl Default for Live {
         Self {
             sender: broadcast::channel(BACKLOG).0,
             running: Mutex::new(HashMap::new()),
+            stopping: AtomicBool::new(false),
         }
     }
 }
@@ -61,6 +65,15 @@ impl Default for Live {
 impl Live {
     pub fn subscribe(&self) -> broadcast::Receiver<Arc<Change>> {
         self.sender.subscribe()
+    }
+
+    pub fn stop(&self) {
+        self.stopping.store(true, Ordering::SeqCst);
+        self.publish(Change::Stopping);
+    }
+
+    pub fn stopping(&self) -> bool {
+        self.stopping.load(Ordering::SeqCst)
     }
 
     pub fn pulses(&self) -> Vec<Pulse> {

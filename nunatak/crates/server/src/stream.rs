@@ -20,8 +20,15 @@ fn event(name: &str, data: &impl serde::Serialize) -> Event {
         .unwrap_or_else(|_| Event::default().event(name))
 }
 
+fn stopping() -> Response {
+    problem(StatusCode::SERVICE_UNAVAILABLE, "Nunatak is stopping", None)
+}
+
 pub(crate) async fn running(State(pipeline): State<Arc<Pipeline>>) -> Response {
     let receiver = pipeline.live().subscribe();
+    if pipeline.live().stopping() {
+        return stopping();
+    }
     let filter = Filter {
         project: Some(pipeline.project().to_owned()),
         status: Some(Status::Running),
@@ -57,6 +64,7 @@ pub(crate) async fn running(State(pipeline): State<Arc<Pipeline>>) -> Response {
                         Ok::<Event, Infallible>(event("query", row))
                     }
                     Change::Pulse(pulse) => Ok::<Event, Infallible>(event("pulse", pulse)),
+                    Change::Stopping => return None,
                     _ => continue,
                 };
                 return Some((next, receiver));
@@ -75,6 +83,9 @@ pub(crate) async fn query(
     Path(id): Path<String>,
 ) -> Response {
     let receiver = pipeline.live().subscribe();
+    if pipeline.live().stopping() {
+        return stopping();
+    }
     let row = match pipeline.index().query(&id).await {
         Ok(Some(row)) if row.project == pipeline.project() => row,
         Ok(_) => return problem(StatusCode::NOT_FOUND, "no such query", None),
@@ -133,6 +144,7 @@ pub(crate) async fn query(
                     Change::Query(row) if row.query_id == id && row.status != Status::Running => {
                         return Some((Ok::<Event, Infallible>(event("finished", row)), None));
                     }
+                    Change::Stopping => return None,
                     _ => {}
                 }
             }

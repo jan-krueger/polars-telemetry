@@ -23,14 +23,19 @@ fn example(name: &str) -> String {
 }
 
 fn app(data: &std::path::Path) -> axum::Router {
+    served(data).1
+}
+
+fn served(data: &std::path::Path) -> (Arc<Pipeline>, axum::Router) {
     let pipeline = Arc::new(Pipeline::new(
         "default",
         Arc::new(FsLog::new(data)),
         Arc::new(FsRecordings::new(data)),
         Arc::new(SqliteIndex::in_memory().unwrap()),
     ));
-    ingest_router(Arc::clone(&pipeline), TOKEN.into(), Limits::default())
-        .merge(app_router(pipeline))
+    let router = ingest_router(Arc::clone(&pipeline), TOKEN.into(), Limits::default())
+        .merge(app_router(Arc::clone(&pipeline)));
+    (pipeline, router)
 }
 
 async fn post(app: &axum::Router, text: &str) {
@@ -142,4 +147,34 @@ async fn a_followed_query_gets_its_events_so_far_then_new_ones_then_finished() {
 
     let mut done = Feed::open(&app, &format!("/api/live/{id}")).await;
     done.until("finished").await;
+}
+
+#[tokio::test]
+async fn open_feeds_end_when_nunatak_stops_and_new_ones_are_refused() {
+    let data_dir = tempfile::tempdir().unwrap();
+    let (pipeline, app) = served(data_dir.path());
+    let unfinished = example("unfinished.jsonl");
+    post(&app, &unfinished).await;
+    let started: Value = serde_json::from_str(unfinished.lines().nth(1).unwrap()).unwrap();
+    let id = started["query_id"].as_str().unwrap();
+    let mut running = Feed::open(&app, "/api/live").await;
+    running.until("snapshot").await;
+    let mut followed = Feed::open(&app, &format!("/api/live/{id}")).await;
+    followed.until("events").await;
+
+    pipeline.live().stop();
+
+    for feed in [&mut running, &mut followed] {
+        assert!(
+            tokio::time::timeout(Duration::from_secs(5), feed.0.frame())
+                .await
+                .unwrap()
+                .is_none()
+        );
+    }
+    let late = app
+        .oneshot(Request::get("/api/live").body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+    assert_eq!(late.status(), StatusCode::SERVICE_UNAVAILABLE);
 }

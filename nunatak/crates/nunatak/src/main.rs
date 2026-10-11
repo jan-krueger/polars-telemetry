@@ -145,6 +145,21 @@ async fn serve(args: Args) -> std::io::Result<()> {
     if let Some(days) = args.keep_days {
         tokio::spawn(forget_old(Arc::clone(&pipeline), days));
     }
+    let (stop, stopping) = tokio::sync::watch::channel(false);
+    let until_stopped = move || {
+        let mut stopping = stopping.clone();
+        async move {
+            let _ = stopping.wait_for(|stopped| *stopped).await;
+        }
+    };
+    tokio::spawn({
+        let pipeline = Arc::clone(&pipeline);
+        async move {
+            stopped().await;
+            let _ = stop.send(true);
+            pipeline.live().stop();
+        }
+    });
     let ingest = ingest_router(Arc::clone(&pipeline), token, Limits::default());
     let app = app_router(pipeline);
     match events {
@@ -154,17 +169,17 @@ async fn serve(args: Args) -> std::io::Result<()> {
                 app.merge(ingest)
                     .into_make_service_with_connect_info::<SocketAddr>(),
             )
-            .with_graceful_shutdown(stopped())
+            .with_graceful_shutdown(until_stopped())
             .await
         }
         Some(events) => {
             let (a, b) = tokio::join!(
-                axum::serve(main, app).with_graceful_shutdown(stopped()),
+                axum::serve(main, app).with_graceful_shutdown(until_stopped()),
                 axum::serve(
                     events,
                     ingest.into_make_service_with_connect_info::<SocketAddr>()
                 )
-                .with_graceful_shutdown(stopped()),
+                .with_graceful_shutdown(until_stopped()),
             );
             a.and(b)
         }
@@ -249,6 +264,22 @@ async fn import(data: &Path, files: &[PathBuf]) -> std::io::Result<()> {
 }
 
 async fn stopped() {
+    #[cfg(unix)]
+    {
+        use tokio::signal::unix::{SignalKind, signal};
+        match signal(SignalKind::terminate()) {
+            Ok(mut terminate) => {
+                tokio::select! {
+                    _ = tokio::signal::ctrl_c() => {}
+                    _ = terminate.recv() => {}
+                }
+            }
+            Err(_) => {
+                let _ = tokio::signal::ctrl_c().await;
+            }
+        }
+    }
+    #[cfg(not(unix))]
     let _ = tokio::signal::ctrl_c().await;
     tracing::info!("stopping");
 }
