@@ -58,6 +58,8 @@ pub fn app_router(pipeline: Arc<Pipeline>) -> Router {
         .route("/api/queries/{id}/recording", get(api::recording))
         .route("/api/groups", get(api::groups))
         .route("/api/facets", get(api::facets))
+        .route("/api/overview", get(api::overview))
+        .route("/api/versions", get(api::versions))
         .route("/api/live", get(stream::running))
         .route("/api/live/{id}", get(stream::query))
         .route("/api/{*rest}", get(api::unknown))

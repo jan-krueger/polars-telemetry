@@ -5,6 +5,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 #[cfg(feature = "conformance")]
 pub mod conformance;
+pub mod overview;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -124,8 +125,13 @@ pub struct GroupSummary {
     pub recent_wall_ms: Vec<f64>,
 }
 
+/// What lists and overviews need of one query.
 #[derive(Debug, Clone, PartialEq)]
-pub struct GroupRun {
+pub struct Run {
+    pub query_id: String,
+    pub label: Option<String>,
+    pub fingerprint: Option<String>,
+    pub service: Option<String>,
     pub status: Status,
     pub started_unix_ns: i64,
     pub wall_ms: Option<f64>,
@@ -134,9 +140,27 @@ pub struct GroupRun {
 
 pub const RECENT_RUNS: usize = 30;
 
+/// Runs grouped by label or plan fingerprint, the group run most recently first.
 #[must_use]
-pub fn summarize(key: Option<String>, runs: &[GroupRun]) -> GroupSummary {
-    let mut order: Vec<&GroupRun> = runs.iter().collect();
+pub fn groups(runs: &[Run], by: Grouping) -> Vec<GroupSummary> {
+    let mut by_key: BTreeMap<Option<&str>, Vec<&Run>> = BTreeMap::new();
+    for run in runs {
+        let key = match by {
+            Grouping::Label => run.label.as_deref(),
+            Grouping::Fingerprint => run.fingerprint.as_deref(),
+        };
+        by_key.entry(key).or_default().push(run);
+    }
+    let mut groups: Vec<GroupSummary> = by_key
+        .into_iter()
+        .map(|(key, runs)| summarize(key.map(str::to_owned), &runs))
+        .collect();
+    groups.sort_by_key(|group| std::cmp::Reverse(group.last_started_unix_ns));
+    groups
+}
+
+fn summarize(key: Option<String>, runs: &[&Run]) -> GroupSummary {
+    let mut order: Vec<&Run> = runs.to_vec();
     order.sort_by_key(|run| run.started_unix_ns);
     let finished: Vec<f64> = order
         .iter()
@@ -262,7 +286,8 @@ pub trait Index: Send + Sync {
     async fn put_query(&self, query: &QuerySummary) -> Result<()>;
     async fn query(&self, query_id: &str) -> Result<Option<QuerySummary>>;
     async fn list(&self, filter: &Filter, page: Page) -> Result<Vec<QuerySummary>>;
-    async fn groups(&self, filter: &Filter, by: Grouping) -> Result<Vec<GroupSummary>>;
+    /// Every query the filter keeps, oldest first.
+    async fn runs(&self, filter: &Filter) -> Result<Vec<Run>>;
     async fn combinations(&self, filter: &Filter) -> Result<Vec<Combination>>;
     async fn seen(&self, stream_id: &str) -> Result<Seen>;
     async fn set_seen(&self, stream_id: &str, seen: &Seen) -> Result<()>;
@@ -294,6 +319,86 @@ mod tests {
             value: value.map(str::to_owned),
             runs,
         }
+    }
+
+    fn grouped(
+        id: u8,
+        label: Option<&str>,
+        fingerprint: &str,
+        started: i64,
+        wall: Option<f64>,
+        status: Status,
+    ) -> Run {
+        Run {
+            query_id: id.to_string(),
+            label: label.map(str::to_owned),
+            fingerprint: Some(fingerprint.into()),
+            service: Some("orders-etl".into()),
+            status,
+            started_unix_ns: started,
+            wall_ms: wall,
+            rules: vec!["python_udf".into()],
+        }
+    }
+
+    #[test]
+    fn groups_count_runs_failures_and_times() {
+        let runs = [
+            grouped(
+                1,
+                Some("a"),
+                "shape-a",
+                1_000,
+                Some(300.0),
+                Status::Finished,
+            ),
+            grouped(
+                2,
+                Some("a"),
+                "shape-a",
+                2_000,
+                Some(100.0),
+                Status::Finished,
+            ),
+            grouped(
+                5,
+                Some("a"),
+                "shape-a",
+                2_500,
+                Some(200.0),
+                Status::Finished,
+            ),
+            grouped(
+                6,
+                Some("a"),
+                "shape-a2",
+                2_600,
+                Some(400.0),
+                Status::Finished,
+            ),
+            grouped(3, Some("b"), "shape-b", 3_000, None, Status::Failed),
+        ];
+        let by_label = groups(&runs, Grouping::Label);
+        let a = by_label
+            .iter()
+            .find(|g| g.key.as_deref() == Some("a"))
+            .unwrap();
+        assert_eq!((a.runs, a.failed, a.last_started_unix_ns), (4, 0, 2_600));
+        assert!((a.total_wall_ms - 1_000.0).abs() < 1e-9);
+        assert_eq!(a.rules, ["python_udf"]);
+        assert_eq!(a.recent_wall_ms, [300.0, 100.0, 200.0, 400.0]);
+        let b = by_label
+            .iter()
+            .find(|g| g.key.as_deref() == Some("b"))
+            .unwrap();
+        assert_eq!((b.runs, b.failed, b.total_wall_ms), (1, 1, 0.0));
+        assert_eq!(by_label[0].key.as_deref(), Some("b"));
+        let shapes = groups(&runs, Grouping::Fingerprint);
+        assert!(
+            shapes
+                .iter()
+                .any(|g| g.key.as_deref() == Some("shape-a") && g.runs == 3)
+        );
     }
 
     #[test]

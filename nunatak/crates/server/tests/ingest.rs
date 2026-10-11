@@ -613,3 +613,23 @@ async fn a_batch_sent_again_after_a_failed_write_keeps_every_event_once() {
         sent.lines().map(str::to_owned).collect::<Vec<_>>()
     );
 }
+
+#[tokio::test]
+async fn the_overview_covers_the_days_asked_for_and_versions_need_a_label() {
+    let data = tempfile::tempdir().unwrap();
+    let app = app(data.path());
+    post(&app, TOKEN, gzip(&example("finished.jsonl"))).await;
+    let (status, overview) = get_json(&app, "/api/overview?days=3&utc_offset=120").await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(overview["days"].as_array().unwrap().len(), 3);
+    assert!(overview["queries"].is_array());
+    let (_, versions) = get_json(&app, "/api/versions?label=clickbench/regex_domains").await;
+    assert_eq!(versions[0]["fingerprint"], "0d3b2b857073");
+    assert_eq!(versions[0]["runs"], 1);
+    assert!(versions[0]["usual_wall_ms"].as_f64().unwrap() > 0.0);
+    let (status, body) = get_json(&app, "/api/versions").await;
+    assert_eq!(
+        (status, body["error"].as_str()),
+        (StatusCode::BAD_REQUEST, Some("versions need a label"))
+    );
+}

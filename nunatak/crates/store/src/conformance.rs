@@ -1,6 +1,6 @@
 #![allow(clippy::missing_panics_doc)]
 
-use crate::{Combination, Filter, Grouping, Index, Page, QuerySummary, RecordingKey, Seen, Status};
+use crate::{Combination, Filter, Index, Page, QuerySummary, RecordingKey, Run, Seen, Status};
 
 const PAGE: Page = Page {
     limit: 100,
@@ -116,47 +116,54 @@ pub async fn a_list_is_newest_first_filtered_and_paged(index: &dyn Index) {
     );
 }
 
-pub async fn groups_count_runs_failures_and_times(index: &dyn Index) {
-    for (id, wall, started) in [(1, 300.0, 1_000), (2, 100.0, 2_000), (5, 200.0, 2_500)] {
-        let mut run = query(id, "a", started);
-        run.wall_ms = Some(wall);
-        index.put_query(&run).await.unwrap();
+pub async fn runs_come_oldest_first_with_what_overviews_need(index: &dyn Index) {
+    for (id, label, started) in [(1, "a", 2_000), (2, "b", 1_000), (3, "a", 3_000)] {
+        index.put_query(&query(id, label, started)).await.unwrap();
     }
-    let mut reshaped = query(6, "a", 2_600);
-    reshaped.fingerprint = Some("shape-a2".into());
-    reshaped.wall_ms = Some(400.0);
-    index.put_query(&reshaped).await.unwrap();
-    let mut failed = query(3, "b", 3_000);
+    let mut failed = query(4, "a", 4_000);
     failed.status = Status::Failed;
+    failed.wall_ms = None;
+    failed.service = None;
+    failed.label = None;
     index.put_query(&failed).await.unwrap();
 
-    let groups = index
-        .groups(&Filter::default(), Grouping::Label)
-        .await
-        .unwrap();
-    let a = groups
-        .iter()
-        .find(|g| g.key.as_deref() == Some("a"))
-        .unwrap();
-    assert_eq!((a.runs, a.failed, a.last_started_unix_ns), (4, 0, 2_600));
-    assert!((a.total_wall_ms - 1_000.0).abs() < 1e-9);
-    assert_eq!(a.rules, ["python_udf"]);
-    assert_eq!(a.recent_wall_ms, [300.0, 100.0, 200.0, 400.0]);
-    let b = groups
-        .iter()
-        .find(|g| g.key.as_deref() == Some("b"))
-        .unwrap();
-    assert_eq!((b.runs, b.failed, b.total_wall_ms), (1, 1, 0.0));
-    assert_eq!(groups[0].key.as_deref(), Some("b"));
-    let shapes = index
-        .groups(&Filter::default(), Grouping::Fingerprint)
-        .await
-        .unwrap();
-    assert!(
-        shapes
-            .iter()
-            .any(|g| g.key.as_deref() == Some("shape-a") && g.runs == 3)
+    let runs = index.runs(&Filter::default()).await.unwrap();
+    let started: Vec<i64> = runs.iter().map(|run| run.started_unix_ns).collect();
+    assert_eq!(started, [1_000, 2_000, 3_000, 4_000]);
+    assert_eq!(
+        runs[0],
+        Run {
+            query_id: query(2, "b", 1_000).query_id,
+            label: Some("b".into()),
+            fingerprint: Some("shape-b".into()),
+            service: Some("orders-etl".into()),
+            status: Status::Finished,
+            started_unix_ns: 1_000,
+            wall_ms: Some(100.0),
+            rules: vec!["python_udf".into()],
+        }
     );
+    assert_eq!(
+        (
+            runs[3].label.as_deref(),
+            runs[3].service.as_deref(),
+            runs[3].wall_ms
+        ),
+        (None, None, None)
+    );
+    let only_a = Filter {
+        label: Some("a".into()),
+        since_unix_ns: Some(2_500),
+        ..Filter::default()
+    };
+    let kept: Vec<i64> = index
+        .runs(&only_a)
+        .await
+        .unwrap()
+        .iter()
+        .map(|run| run.started_unix_ns)
+        .collect();
+    assert_eq!(kept, [3_000]);
 }
 
 pub async fn combinations_count_runs_per_mix_of_fields(index: &dyn Index) {
@@ -250,8 +257,8 @@ macro_rules! conformance {
             }
 
             #[tokio::test]
-            async fn groups_count_runs_failures_and_times() {
-                $crate::conformance::groups_count_runs_failures_and_times(&$index).await;
+            async fn runs_come_oldest_first_with_what_overviews_need() {
+                $crate::conformance::runs_come_oldest_first_with_what_overviews_need(&$index).await;
             }
 
             #[tokio::test]

@@ -4,11 +4,14 @@ use axum::Json;
 use axum::extract::{Path, Query, State};
 use axum::http::{StatusCode, header};
 use axum::response::{IntoResponse, Response};
+use nunatak_store::overview::{self, Window};
 use nunatak_store::{Facets, Filter, Grouping, Index, Page, Status};
 use serde::Deserialize;
 use std::sync::Arc;
 
 const MAX_LIMIT: u32 = 1000;
+const MAX_DAYS: u32 = 90;
+const BINS_PER_DAY: usize = 4;
 
 #[derive(Deserialize, Default)]
 pub(crate) struct Params {
@@ -23,6 +26,8 @@ pub(crate) struct Params {
     limit: Option<u32>,
     offset: Option<u32>,
     by: Option<String>,
+    days: Option<u32>,
+    utc_offset: Option<i32>,
 }
 
 impl Params {
@@ -125,10 +130,65 @@ pub(crate) async fn groups(
         Ok(filter) => filter,
         Err(reason) => return problem(StatusCode::BAD_REQUEST, &reason, None),
     };
-    match pipeline.index().groups(&filter, by).await {
-        Ok(groups) => Json(groups).into_response(),
+    match pipeline.index().runs(&filter).await {
+        Ok(runs) => Json(nunatak_store::groups(&runs, by)).into_response(),
         Err(error) => failed(&error),
     }
+}
+
+pub(crate) async fn overview(
+    State(pipeline): State<Arc<Pipeline>>,
+    Query(params): Query<Params>,
+) -> Response {
+    let days = params.days.unwrap_or(14).clamp(1, MAX_DAYS);
+    let window = Window::local(
+        now_unix_ns(),
+        days,
+        params.utc_offset.unwrap_or(0).clamp(-14 * 60, 14 * 60),
+        days as usize * BINS_PER_DAY,
+    );
+    let filter = match params.filter(pipeline.project()) {
+        Ok(filter) => Filter {
+            since_unix_ns: Some(window.reads_since_unix_ns()),
+            until_unix_ns: None,
+            status: None,
+            ..filter
+        },
+        Err(reason) => return problem(StatusCode::BAD_REQUEST, &reason, None),
+    };
+    match pipeline.index().runs(&filter).await {
+        Ok(runs) => Json(serde_json::json!({
+            "now_unix_ns": window.now_unix_ns,
+            "days": window.days,
+            "queries": overview::overview(&runs, &window),
+        }))
+        .into_response(),
+        Err(error) => failed(&error),
+    }
+}
+
+pub(crate) async fn versions(
+    State(pipeline): State<Arc<Pipeline>>,
+    Query(params): Query<Params>,
+) -> Response {
+    if params.label.is_none() {
+        return problem(StatusCode::BAD_REQUEST, "versions need a label", None);
+    }
+    let filter = match params.filter(pipeline.project()) {
+        Ok(filter) => filter,
+        Err(reason) => return problem(StatusCode::BAD_REQUEST, &reason, None),
+    };
+    match pipeline.index().runs(&filter).await {
+        Ok(runs) => Json(overview::versions(&runs)).into_response(),
+        Err(error) => failed(&error),
+    }
+}
+
+fn now_unix_ns() -> i64 {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default();
+    i64::try_from(now.as_nanos()).unwrap_or(i64::MAX)
 }
 
 pub(crate) async fn unknown() -> Response {

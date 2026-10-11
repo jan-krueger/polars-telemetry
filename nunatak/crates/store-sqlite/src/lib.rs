@@ -1,12 +1,10 @@
 use async_trait::async_trait;
 use nunatak_store::{
-    Combination, Error, Filter, GroupRun, GroupSummary, Grouping, Index, Page, QuerySummary,
-    RecordingKey, Result, Seen, Status, summarize,
+    Combination, Error, Filter, Index, Page, QuerySummary, RecordingKey, Result, Run, Seen, Status,
 };
 use rusqlite::types::Value;
 use rusqlite::{Connection, OptionalExtension, Row, params, params_from_iter};
 use rusqlite_migration::{M, Migrations, SchemaVersion};
-use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 
@@ -244,43 +242,29 @@ impl Index for SqliteIndex {
         .await
     }
 
-    async fn groups(&self, filter: &Filter, by: Grouping) -> Result<Vec<GroupSummary>> {
-        let column = match by {
-            Grouping::Label => "label",
-            Grouping::Fingerprint => "fingerprint",
-        };
+    async fn runs(&self, filter: &Filter) -> Result<Vec<Run>> {
         let (clause, values) = conditions(filter);
-        let rows = self
-            .run(move |c| {
-                let sql = format!(
-                    "SELECT {column}, status, started_unix_ns, wall_ms, rules FROM queries {clause}"
-                );
-                c.prepare(&sql)?
-                    .query_map(params_from_iter(values), |row| {
-                        let status: String = row.get(1)?;
-                        Ok((
-                            row.get::<_, Option<String>>(0)?,
-                            GroupRun {
-                                status: Status::parse(&status).unwrap_or(Status::Unfinished),
-                                started_unix_ns: row.get(2)?,
-                                wall_ms: row.get(3)?,
-                                rules: split(&row.get::<_, String>(4)?),
-                            },
-                        ))
-                    })?
-                    .collect::<rusqlite::Result<Vec<_>>>()
-            })
-            .await?;
-        let mut by_key: BTreeMap<Option<String>, Vec<GroupRun>> = BTreeMap::new();
-        for (key, run) in rows {
-            by_key.entry(key).or_default().push(run);
-        }
-        let mut groups: Vec<GroupSummary> = by_key
-            .into_iter()
-            .map(|(key, runs)| summarize(key, &runs))
-            .collect();
-        groups.sort_by_key(|group| std::cmp::Reverse(group.last_started_unix_ns));
-        Ok(groups)
+        self.run(move |c| {
+            let sql = format!(
+                "SELECT query_id, label, fingerprint, service, status, started_unix_ns, wall_ms, rules FROM queries {clause} ORDER BY started_unix_ns, query_id"
+            );
+            c.prepare(&sql)?
+                .query_map(params_from_iter(values), |row| {
+                    let status: String = row.get(4)?;
+                    Ok(Run {
+                        query_id: row.get(0)?,
+                        label: row.get(1)?,
+                        fingerprint: row.get(2)?,
+                        service: row.get(3)?,
+                        status: Status::parse(&status).unwrap_or(Status::Unfinished),
+                        started_unix_ns: row.get(5)?,
+                        wall_ms: row.get(6)?,
+                        rules: split(&row.get::<_, String>(7)?),
+                    })
+                })?
+                .collect()
+        })
+        .await
     }
 
     async fn combinations(&self, filter: &Filter) -> Result<Vec<Combination>> {
