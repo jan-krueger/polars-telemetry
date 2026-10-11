@@ -79,18 +79,15 @@ export function reason(q: QueryOverview, kind: Kind, now = Date.now()): string {
   switch (kind) {
     case "slower":
     case "faster": {
-      const head = `${recent} lately, usually ${usual}: ${times(q.ratio ?? 1)}.`;
-      if (plan) return `${head} Its plan changed ${plan}${q.new_rules.length ? `, and it now warns of ${q.new_rules.map(ruleName).join(", ")}` : ""}.`;
-      return kind === "slower" ? `${head} Its plan did not change, so its input or the machine running it probably did.` : `${head} Its plan did not change.`;
+      const head = `${recent}, usually ${usual} (${times(q.ratio ?? 1)}).`;
+      if (!plan) return `${head} Same plan.`;
+      return `${head} Plan changed ${plan}.${q.new_rules.length ? ` New: ${q.new_rules.map(ruleName).join(", ")}.` : ""}`;
     }
-    case "failing": {
-      const before = q.failed_before === 0 ? "none in the two weeks before" : `${q.failed_before} in the two weeks before`;
-      return `${q.recent_failed} of ${q.recent_runs} runs failed in the last 24 hours, ${before}.`;
-    }
+    case "failing":
+      return `${q.recent_failed} of ${q.recent_runs} runs failed${q.failed_before ? `, ${q.failed_before} in the two weeks before` : ", none before"}.`;
     case "warning": {
       const since = q.new_rules_since_unix_ns === null ? "" : ` since ${when(q.new_rules_since_unix_ns, now)}`;
-      const timing = q.verdict ? "" : recent && usual ? ` Its time is as usual: ${recent}, usually ${usual}.` : "";
-      return `New warning${q.new_rules.length > 1 ? "s" : ""}${since}: ${q.new_rules.map(ruleName).join(", ")}.${plan ? ` Its plan changed ${plan}.` : ""}${timing}`;
+      return `${q.new_rules.map(ruleName).join(", ")}${since}.${plan ? ` Plan changed ${plan}.` : ""}${!q.verdict && recent && usual ? ` ${recent}, usually ${usual}.` : ""}`;
     }
   }
 }

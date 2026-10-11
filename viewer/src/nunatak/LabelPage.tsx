@@ -61,8 +61,8 @@ function Verdict({ q }: { q: QueryOverview }) {
   const shown = found.filter((k) => !(k === "warning" && found.includes("slower") && q.plan_changed_unix_ns !== null));
   const tone = found.includes("slower") || found.includes("failing") ? "bad" : found.includes("warning") ? "warn" : found.includes("faster") ? "good" : "calm";
   const text = shown.length ? shown.map((k) => reason(q, k)).join(" ")
-    : q.recent_wall_ms !== null && q.usual_wall_ms !== null ? `Runs as usual: ${span(q.recent_wall_ms)} lately, usually ${span(q.usual_wall_ms)}.`
-    : "Too few runs yet to say what is usual for it.";
+    : q.recent_wall_ms !== null && q.usual_wall_ms !== null ? `As usual: ${span(q.recent_wall_ms)}, usually ${span(q.usual_wall_ms)}.`
+    : `${q.runs} ${q.runs === 1 ? "run" : "runs"}.`;
   return <p className={`nverdict nverdict--${tone}`}>{text}</p>;
 }
 
@@ -100,7 +100,7 @@ function Diff({ id, before, name }: { id: string; before: string; name: string }
     <div className="ndiff">
       {found.added.map((text, i) => <div key={`a${i}`} className="add">+ {text}</div>)}
       {found.dropped.map((text, i) => <div key={`d${i}`} className="drop">− {text}</div>)}
-      <div className="dim">{!found.added.length && !found.dropped.length ? `Same nodes as ${name}, set up differently` : `${found.same} nodes as in ${name}`}</div>
+      <div className="dim">{!found.added.length && !found.dropped.length ? `same nodes as ${name}` : `${found.same} more as in ${name}`}</div>
     </div>
   );
 }
@@ -110,9 +110,9 @@ function Runs({ runs, named, plans }: { runs: QuerySummary[]; named: (Plan & Ver
   const usual = new Map(plans.map((v) => [v.fingerprint, v.usual_wall_ms]));
   return (
     <section className="nstack-tight">
-      <h3 className="nh">Runs <em>· newest first</em></h3>
+      <h3 className="nh">Runs</h3>
       <table className="ntable">
-        <thead><tr><th>Started</th><th>Host</th><th className="num">Took</th><th>Against its plan</th><th>Plan</th><th className="nwide">Warnings</th></tr></thead>
+        <thead><tr><th>Started</th><th>Host</th><th className="num">Took</th><th>vs its plan</th><th>Plan</th><th className="nwide">Warnings</th></tr></thead>
         <tbody>
           {runs.slice(0, shown).map((r) => {
             const plan = named.find((p) => p.fingerprint === r.fingerprint);
@@ -126,7 +126,7 @@ function Runs({ runs, named, plans }: { runs: QuerySummary[]; named: (Plan & Ver
                 <td>
                   {r.status === "failed" ? <span className="nerror" title={r.failed ?? ""}>{r.failed?.split("\n")[0]}</span>
                     : ratio === null ? <span className="dim">–</span>
-                    : ratio >= 1.5 || ratio <= 1 / 1.5 ? <span className={`npill2 npill2--${ratio > 1 ? "slow" : "fast"}`}>{times(ratio)} than its plan&rsquo;s usual</span>
+                    : ratio >= 1.5 || ratio <= 1 / 1.5 ? <span className={`npill2 npill2--${ratio > 1 ? "slow" : "fast"}`}>{times(ratio)}</span>
                     : <span className="dim">as usual</span>}
                 </td>
                 <td>{plan && <><i className="ndot" style={{ background: plan.colour }} />{plan.name}</>}</td>

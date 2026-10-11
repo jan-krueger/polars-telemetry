@@ -165,11 +165,11 @@ function Against({ summary, plans, mine }: { summary: QuerySummary; plans: Versi
     <>
       {plan.usual_wall_ms !== null && (
         <span className="nagainst">
-          · usually {span(plan.usual_wall_ms)} on Plan {mine + 1}
+          · usually {span(plan.usual_wall_ms)}
           {ratio !== null && (ratio >= 1.5 || ratio <= 1 / 1.5) ? <b className={ratio > 1 ? "bad" : "good"}> ({times(ratio)})</b> : null}
         </span>
       )}
-      {before?.usual_wall_ms != null && <span className="nagainst">· {span(before.usual_wall_ms)} on Plan {mine}, before</span>}
+      {before?.usual_wall_ms != null && <span className="nagainst">· Plan {mine}: {span(before.usual_wall_ms)}</span>}
     </>
   );
 }

@@ -30,15 +30,15 @@ export default function HomePage() {
         <div className="nstack">
           {running.length > 0 && <Running live={live} running={running} usual={usual} now={now} />}
           <section className="nstack-tight">
-            <h3 className="nh">What changed <em>· the last 24 hours against the two weeks before</em></h3>
+            <h3 className="nh">Last 24 hours</h3>
             <div className="npanel-box">
               {data === null ? <p className="nquiet">Loading…</p> : (
                 <>
                   {changed.map((q) => <Change key={q.label ?? ""} q={q} range={range} days={data.days.length} now={now} />)}
                   <div className="ncalm">
                     {changed.length
-                      ? <span><b>{all.length - changed.length} {all.length - changed.length === 1 ? "query" : "queries"}</b> ran as usual.</span>
-                      : <span>Nothing changed: {all.length === 1 ? "the one query" : `all ${all.length} queries`} ran as usual.</span>}
+                      ? <span><b>{all.length - changed.length}</b> as usual</span>
+                      : <span>All <b>{all.length}</b> as usual</span>}
                     <Link to="/queries" className="ninline">All queries →</Link>
                   </div>
                 </>
@@ -75,11 +75,7 @@ function Running({ live, running, usual, now }: { live: Live; running: QuerySumm
               <span className="nrunning-time">
                 <span>
                   <b className={over ? "bad num" : "num"}>{span(took)}</b>
-                  <span className="dim">
-                    {share === null ? " so far, no usual time yet"
-                      : over ? `, ${share.toFixed(share < 10 ? 1 : 0)}× its usual ${span(typical!)}`
-                      : ` of usually ${span(typical!)}`}
-                  </span>
+                  {share !== null && <span className="dim"> · usually {span(typical!)}</span>}
                 </span>
                 {share !== null && <span className="nprog" aria-hidden="true"><i className={over ? "over" : ""} style={{ width: `${Math.min(1, share) * 100}%` }} /></span>}
               </span>
@@ -117,7 +113,6 @@ function LastError({ label }: { label: string }) {
 function Side({ all, days }: { all: QueryOverview[]; days: number }) {
   const spent = all.reduce((t, q) => t + q.total_wall_ms, 0);
   const top = [...all].sort((a, b) => b.total_wall_ms - a.total_wall_ms).slice(0, TOP).filter((q) => q.total_wall_ms > 0);
-  const services = new Set(all.map((q) => q.service).filter(Boolean)).size;
   const period = days === 1 ? "the last 24 hours" : `the last ${days} days`;
   return (
     <aside className="nstack">
@@ -125,8 +120,8 @@ function Side({ all, days }: { all: QueryOverview[]; days: number }) {
         <h3 className="nh">In {period}</h3>
         <div className="npanel-box nfacts">
           <div><b>{all.reduce((t, q) => t + q.runs, 0).toLocaleString()}</b><span>runs</span></div>
-          <div><b>{all.length}</b><span>{all.length === 1 ? "query" : "queries"}{services > 1 ? ` in ${services} services` : ""}</span></div>
-          <div><b>{span(spent)}</b><span>spent in queries</span></div>
+          <div><b>{all.length}</b><span>{all.length === 1 ? "query" : "queries"}</span></div>
+          <div><b>{span(spent)}</b><span>wall time</span></div>
           <div><b>{all.reduce((t, q) => t + q.failed, 0).toLocaleString()}</b><span>failed runs</span></div>
         </div>
       </section>
@@ -141,7 +136,6 @@ function Side({ all, days }: { all: QueryOverview[]; days: number }) {
                 <span className="track"><i style={{ width: `${(q.total_wall_ms / top[0]!.total_wall_ms) * 100}%` }} /></span>
               </div>
             ))}
-            <span className="dim">{Math.round((top.reduce((t, q) => t + q.total_wall_ms, 0) / spent) * 100)}% of all query time is in {top.length === 1 ? "this one" : `these ${top.length}`}.</span>
           </div>
         </section>
       )}

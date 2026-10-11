@@ -48,9 +48,9 @@ describe("Nunatak's words", () => {
 
   it("explains a slowdown by the plan change when there was one", () => {
     const changed = query({ verdict: "slower", ratio: 6.1, plan_changed_unix_ns: at(9, 14, 2), new_rules: ["python_udf"] });
-    expect(reason(changed, "slower", NOW)).toMatch(/^1\.9 s lately, usually 310 ms: 6\.1× slower\. Its plan changed .+, and it now warns of Python function\.$/);
-    expect(reason(query({ verdict: "slower", ratio: 2 }), "slower", NOW)).toMatch(/plan did not change, so its input or the machine/);
-    expect(reason(query({ recent_failed: 10, recent_runs: 24 }), "failing", NOW)).toBe("10 of 24 runs failed in the last 24 hours, none in the two weeks before.");
+    expect(reason(changed, "slower", NOW)).toMatch(/^1\.9 s, usually 310 ms \(6\.1× slower\)\. Plan changed .+\. New: Python function\.$/);
+    expect(reason(query({ verdict: "slower", ratio: 2 }), "slower", NOW)).toBe("1.9 s, usually 310 ms (2.0× slower). Same plan.");
+    expect(reason(query({ recent_failed: 10, recent_runs: 24 }), "failing", NOW)).toBe("10 of 24 runs failed, none before.");
   });
 });
 

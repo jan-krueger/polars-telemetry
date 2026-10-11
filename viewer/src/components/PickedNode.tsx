@@ -45,7 +45,6 @@ function Overview({ physical, findings, onPick }: { physical: PlanNode[]; findin
   return (
     <div className="overview">
       <h3>Most CPU</h3>
-      <p className="overview-hint">As Polars charged it to nodes. Most time in scans, sinks and Python functions is not counted.</p>
       {top.length ? (
         <ul>
           {top.map((n) => (
@@ -74,7 +73,6 @@ function Overview({ physical, findings, onPick }: { physical: PlanNode[]; findin
           </ul>
         </>
       ) : null}
-      <p className="overview-hint">Select a node for its details.</p>
     </div>
   );
 }

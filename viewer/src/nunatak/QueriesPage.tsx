@@ -87,7 +87,7 @@ export default function QueriesPage() {
                     <td><Link to={runPath(q.query_id)} className="nlabel">{q.label ?? "Query without a label"}</Link><span className="sub">{[q.service, q.host].filter(Boolean).join(" · ")}</span></td>
                     <td><span className="nlive">running</span></td>
                     <td className="num">{span(took)}{typical !== null && <span className="sub">usually {span(typical)}</span>}</td>
-                    <td>{share === null ? null : share > 1.5 ? <span className="npill2 npill2--slow">{share.toFixed(share < 10 ? 1 : 0)}× usual so far</span> : <span className="dim">{Math.round(share * 100)}% of usual</span>}</td>
+                    <td>{share === null ? null : share > 1.5 ? <span className="npill2 npill2--slow">{share.toFixed(share < 10 ? 1 : 0)}× slower</span> : <span className="dim">{Math.round(share * 100)}%</span>}</td>
                     <td colSpan={4} className="dim nwide">{live.pulses.get(q.query_id)?.pulse.busiest ? `busiest: ${live.pulses.get(q.query_id)!.pulse.busiest!.kind}` : ""}</td>
                   </tr>
                 );
@@ -111,7 +111,7 @@ function sorter(sort: Sort | null): (a: QueryOverview, b: QueryOverview) => numb
 function Head({ sort, column, name, update, numeric = false }: { sort: Sort | null; column: Sort; name: string; update: (c: Record<string, string | null>) => void; numeric?: boolean }) {
   return (
     <th className={numeric ? "num" : ""} aria-sort={sort === column ? (column === "name" ? "ascending" : "descending") : undefined}>
-      <button className="nsort" title="Sort; again for needs-a-look first" onClick={() => update({ sort: sort === column ? null : column })}>{name}</button>
+      <button className="nsort" onClick={() => update({ sort: sort === column ? null : column })}>{name}</button>
     </th>
   );
 }
@@ -128,7 +128,7 @@ function Row({ q, range, days }: { q: QueryOverview; range: Range; days: number 
       <td className="num">{q.recent_wall_ms === null ? "–" : span(q.recent_wall_ms)}{q.usual_wall_ms !== null && <span className="sub">usually {span(q.usual_wall_ms)}</span>}</td>
       <td>
         {q.verdict ? <span className={`npill2 npill2--${q.verdict === "slower" ? "slow" : "fast"}`}>{times(q.ratio!)}</span>
-          : q.usual_wall_ms === null ? <span className="dim">too few runs</span> : <span className="dim">as usual</span>}
+          : q.usual_wall_ms === null ? <span className="dim">–</span> : <span className="dim">as usual</span>}
       </td>
       <td className="nwide"><Spark q={q} range={range} scale /></td>
       <td className="nwide">{q.recent_failed ? <span className="npill2 npill2--fail">{q.recent_failed} of {q.recent_runs} failed</span> : <span className="dim">–</span>}</td>
