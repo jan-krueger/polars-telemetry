@@ -1,7 +1,9 @@
 import { useEffect, useState, type MouseEvent } from "react";
-import NowPage from "./NowPage";
+import HomePage from "./HomePage";
+import LabelPage from "./LabelPage";
 import QueriesPage from "./QueriesPage";
 import RunPage from "./RunPage";
+import { TopBar } from "./shared";
 
 export function go(path: string, replace = false) {
   if (replace) history.replaceState(null, "", path);
@@ -27,21 +29,17 @@ function usePath(): string {
 
 export default function App() {
   const path = usePath();
-  const run = /^\/queries\/([^/]+)$/.exec(path);
-  const tab = path === "/" ? "now" : path.startsWith("/queries") ? "queries" : null;
+  const run = /^\/runs\/([^/]+)$/.exec(path);
+  const label = /^\/queries\/(.+)$/.exec(path);
+  const tab = path === "/" ? "home" : path.startsWith("/queries") || run ? "queries" : null;
   return (
     <>
-      <header className="top">
-        <span className="brand">polars-telemetry <span>· Nunatak</span></span>
-        <nav className="ntabs">
-          <a href="/" onClick={follow} aria-current={tab === "now" ? "page" : undefined}>Now</a>
-          <a href="/queries" onClick={follow} aria-current={tab === "queries" ? "page" : undefined}>Queries</a>
-        </nav>
-      </header>
-      {run ? <RunPage id={decodeURIComponent(run[1]!)} />
+      <TopBar tab={tab} />
+      {run ? <RunPage key={run[1]} id={decodeURIComponent(run[1]!)} />
+        : label ? <LabelPage key={label[1]} label={decodeURIComponent(label[1]!)} />
         : path === "/queries" ? <QueriesPage />
-        : path === "/" ? <NowPage />
-        : <div className="nsoon">No such page.</div>}
+        : path === "/" ? <HomePage />
+        : <main className="npage"><p className="nquiet">No such page.</p></main>}
     </>
   );
 }

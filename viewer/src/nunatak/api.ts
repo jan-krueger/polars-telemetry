@@ -54,7 +54,61 @@ export interface Facets {
   status: Count[];
 }
 
-export type Filter = Partial<Record<"label" | "fingerprint" | "service" | "environment" | "host" | "status", string>> & { since?: number; limit?: number };
+export type Verdict = "slower" | "faster";
+
+export interface Day {
+  runs: number;
+  failed: number;
+  median_wall_ms: number | null;
+}
+
+export interface QueryOverview {
+  label: string | null;
+  service: string | null;
+  runs: number;
+  failed: number;
+  last_started_unix_ns: number;
+  total_wall_ms: number;
+  usual_wall_ms: number | null;
+  usual_band_ms: [number, number] | null;
+  recent_wall_ms: number | null;
+  recent_runs: number;
+  recent_failed: number;
+  failed_before: number;
+  first_recent_failure_unix_ns: number | null;
+  verdict: Verdict | null;
+  ratio: number | null;
+  rules: string[];
+  new_rules: string[];
+  new_rules_since_unix_ns: number | null;
+  plan_changed_unix_ns: number | null;
+  bins: (number | null)[];
+  days: Day[];
+}
+
+export interface Overview {
+  now_unix_ns: number;
+  days: number[];
+  queries: QueryOverview[];
+}
+
+export interface Version {
+  fingerprint: string | null;
+  runs: number;
+  failed: number;
+  first_started_unix_ns: number;
+  last_started_unix_ns: number;
+  usual_wall_ms: number | null;
+  rules: string[];
+  latest_query_id: string;
+}
+
+export type Filter = Partial<Record<"label" | "fingerprint" | "service" | "environment" | "host" | "status", string>> & {
+  since?: number;
+  until?: number;
+  limit?: number;
+  order?: "oldest";
+};
 
 export class NotFound extends Error {}
 
@@ -77,6 +131,9 @@ export const queries = (filter: Filter): Promise<QuerySummary[]> => json(`/api/q
 export const groups = (filter: Filter, by: "label" | "fingerprint" = "label"): Promise<GroupSummary[]> =>
   json(`/api/groups?${search(filter, { by })}`);
 export const facets = (filter: Filter): Promise<Facets> => json(`/api/facets?${search(filter)}`);
+export const overview = (filter: Filter, days: number): Promise<Overview> =>
+  json(`/api/overview?${search(filter, { days: String(days), utc_offset: String(-new Date().getTimezoneOffset()) })}`);
+export const versions = (label: string, since?: number): Promise<Version[]> => json(`/api/versions?${search({ label, since })}`);
 
 export async function recording(id: string): Promise<Profile | null> {
   const response = await fetch(`/api/queries/${encodeURIComponent(id)}/recording`);

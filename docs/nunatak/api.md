@@ -42,8 +42,8 @@ filters, each optional:
 
 ### `GET /api/queries`
 
-The queries, newest first, 100 at a time: `limit` takes up to 1000, `offset`
-skips. Each is a summary:
+The queries, newest first or with `order=oldest` oldest first, 100 at a time:
+`limit` takes up to 1000, `offset` skips. Each is a summary:
 
 ```json
 {
@@ -98,6 +98,45 @@ run most recently first:
 
 `recent_wall_ms` holds the wall times of the last 30 runs that finished, oldest
 first.
+
+### `GET /api/overview`
+
+Each label that ran in the last `days` days (14 unless given, up to 90), with
+its time lately against its usual time. `utc_offset`, minutes ahead of UTC,
+sets where days start. Takes `service`, `environment`, `host` and `label`.
+
+```json
+{
+  "now_unix_ns": 1791712345000000000,
+  "days": [1790589600000000000, ...],
+  "queries": [{
+    "label": "orders/country_mix",
+    "service": "orders-etl",
+    "runs": 336, "failed": 0, "total_wall_ms": 171400.0,
+    "usual_wall_ms": 324.0, "usual_band_ms": [298.0, 351.0],
+    "recent_wall_ms": 1786.0, "ratio": 5.5, "verdict": "slower",
+    "recent_runs": 24, "recent_failed": 0, "failed_before": 0,
+    "rules": [], "new_rules": [], "plan_changed_unix_ns": 1791557160000000000,
+    "bins": [312.0, 330.5, ...],
+    "days": [{"runs": 24, "failed": 0, "median_wall_ms": 318.0}, ...]
+  }]
+}
+```
+
+Lately means the runs of the last 24 hours, or the last three when there were
+fewer; usual means the finished runs of the 14 days before them. `verdict` is
+`slower` or `faster` when the median moved by 1.5× or more and a one-sided
+Mann-Whitney test puts the chance of that by luck under 1%; otherwise `null`.
+`new_rules` are warnings first seen in the last 7 days, and
+`plan_changed_unix_ns` is when the plan the query runs now first ran, if it
+is not the plan it usually ran. `bins` holds the median time of equal slices of
+the range, `days` one entry per day.
+
+### `GET /api/versions`
+
+Each plan a `label` finished with at least once, the one that ran last first: `fingerprint`,
+`runs`, `failed`, `first_started_unix_ns`, `last_started_unix_ns`,
+`usual_wall_ms`, `rules` and `latest_query_id`. Takes `since` and `until`.
 
 ### `GET /api/facets`
 

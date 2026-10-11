@@ -1,204 +1,189 @@
-import { useMemo, useState } from "react";
 import { span } from "../lib/format";
-import { clock } from "../lib/time";
-import { facets, groups, queries, type Filter, type GroupSummary, type QuerySummary } from "./api";
-import { FacetList, FilterRail, useLoad, useSearch } from "./shared";
-import { follow, go } from "./App";
+import { overview, queries, type QueryOverview, type QuerySummary } from "./api";
+import { go } from "./App";
+import { Spark, cellStyle, type Range } from "./charts";
+import { elapsed, useLive, useNow } from "./live";
+import { Link, daysOf, filterOf, labelPath, link, runPath, useLoad, useSearch } from "./shared";
+import { ago, byAttention, cadence, needsLook, ruleName, times, type Kind } from "./words";
 
-type Sort = "name" | "runs" | "total" | "last";
-const RANGES: [string, number | null][] = [["last 24 hours", 1], ["last 7 days", 7], ["last 30 days", 30], ["all time", null]];
-const COLUMNS: [Sort, string, boolean][] = [["name", "Label", false], ["runs", "Runs", true], ["total", "Total", true], ["last", "Last run", true]];
-const RULES_SHOWN = 2;
-const PAGE = 10;
+const REFRESH_MS = 30_000;
+type Only = Kind | "look";
+type Sort = "name" | "last" | "total";
+const CHIPS: [Only, string, (q: QueryOverview) => boolean][] = [
+  ["look", "needs a look", needsLook],
+  ["slower", "slower", (q) => q.verdict === "slower"],
+  ["failing", "failing", (q) => q.recent_failed > 0],
+  ["warning", "new warnings", (q) => q.new_rules.length > 0],
+  ["faster", "faster", (q) => q.verdict === "faster"],
+];
+const SORTS: [Sort, string][] = [["name", "Query"], ["last", "Last run"], ["total", "Total"]];
 
 export default function QueriesPage() {
   const [params, update] = useSearch();
-  const days = params.has("days") ? Number(params.get("days")) || null : 30;
-  const filter: Filter = {
-    service: params.get("service") ?? undefined,
-    environment: params.get("environment") ?? undefined,
-    host: params.get("host") ?? undefined,
-    status: params.get("status") ?? undefined,
-    since: days ? Math.round((Date.now() - days * 86_400_000) * 1e6) : undefined,
-  };
-  const key = JSON.stringify(filter);
-  const found = useLoad(() => groups(filter), key);
-  const counts = useLoad(() => facets(filter), key);
+  const filter = filterOf(params);
+  const days = daysOf(params);
+  const live = useLive();
+  const now = useNow(1000);
+  const data = useLoad(() => overview(filter, days), `${JSON.stringify(filter)}${days}${Math.floor(now / REFRESH_MS)}`);
   const anything = useLoad(() => queries({ limit: 1 }), "anything");
-  const sort = (params.get("sort") as Sort | null) ?? "total";
   const text = params.get("q") ?? "";
-  const label = params.get("label");
-  const sorted = useMemo(() => {
-    const needle = text.trim().toLowerCase();
-    return sortGroups((found ?? []).filter((g) => !needle || (g.key ?? "").toLowerCase().includes(needle)), sort);
-  }, [found, sort, text]);
-  const now = Date.now();
-  const flagged = (found ?? []).some((group) => group.failed || group.rules.length);
-  const active = (["service", "environment", "host", "status"] as const).filter((f) => filter[f]).length;
+  const only = params.get("only") as Only | null;
+  const sort = params.get("sort") as Sort | null;
+  const byDay = params.get("view") === "days";
+  const all = data?.queries ?? [];
+  const needle = text.trim().toLowerCase();
+  const keep = CHIPS.find(([key]) => key === only)?.[2] ?? (() => true);
+  const rows = all.filter((q) => (!needle || (q.label ?? "").toLowerCase().includes(needle)) && keep(q)).sort(sorter(sort));
+  const range: Range = data ? [data.days[0]!, data.now_unix_ns] : [0, 1];
+  const usual = new Map(all.map((q) => [q.label, q.usual_wall_ms]));
+  const matches = (q: QuerySummary) => (["service", "environment", "host"] as const).every((f) => !filter[f] || q[f] === filter[f])
+    && (!needle || (q.label ?? "").toLowerCase().includes(needle));
+  const running = only ? [] : live.running.filter(matches);
 
+  if (anything?.length === 0) return <main className="npage"><p className="nquiet">No queries yet. <Link to="/" className="ninline">Home</Link> shows how to send them from Python.</p></main>;
   return (
-    <div className={anything?.length === 0 ? "shell shell--alone" : "shell shell--queries"}>
-      {anything?.length !== 0 && (
-        <FilterRail active={active}>
-          <FacetList counts={counts} params={params} update={update} />
-        </FilterRail>
-      )}
-      <main>
-        <div className="nbar">
-          <input id="label-search" className="nsearch" type="search" placeholder="Search labels" value={text}
-                 aria-label="Search labels" onChange={(e) => update({ q: e.target.value || null }, true)} />
-          <span className="grow" />
-          <select id="range" value={days ?? ""} aria-label="Time range" onChange={(e) => update({ days: e.target.value === "30" ? null : e.target.value || "0" })}>
-            {RANGES.map(([name, value]) => <option key={name} value={value ?? ""}>{name}</option>)}
-          </select>
+    <main className="npage">
+      <div className="nbar">
+        <input id="query-search" className="nsearch" type="search" placeholder="Search queries" value={text}
+               aria-label="Search queries" onChange={(e) => update({ q: e.target.value || null }, true)} />
+        {CHIPS.map(([key, name, test]) => {
+          const count = all.filter(test).length;
+          if (!count && only !== key) return null;
+          return (
+            <button key={key} className={`nchip nchip--${key}`} aria-pressed={only === key} onClick={() => update({ only: only === key ? null : key })}>
+              {name} <b>{count}</b>
+            </button>
+          );
+        })}
+        <span className="grow" />
+        <div className="nseg" role="group" aria-label="View">
+          <button aria-pressed={!byDay} onClick={() => update({ view: null })}>Table</button>
+          <button aria-pressed={byDay} onClick={() => update({ view: "days" })}>Day by day</button>
         </div>
-        {found === null ? <div className="nsoon">Loading…</div>
-          : !found.length ? (
-            anything?.length === 0
-              ? <div className="nsoon">No queries yet. <a className="ninline" href="/" onClick={follow}>Now</a> shows how to send them from Python.</div>
-              : <div className="nsoon">No queries match this range and these filters.</div>
-          )
-          : (
-          <div className="nsplit">
-            <table className="ntable">
-              <thead>
-                <tr>
-                  {COLUMNS.map(([column, name, numeric]) => (
-                    <th key={column} className={numeric ? "num" : ""} aria-sort={sort === column ? (column === "name" ? "ascending" : "descending") : undefined}>
-                      <button className="nsort" onClick={() => update({ sort: column === "total" ? null : column })}>{name}</button>
-                    </th>
-                  ))}
-                  <th className="nwide">Trend</th>
-                  {flagged && <th className="nwide">Warnings</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {sorted.map((group) => (
-                  <tr key={group.key ?? ""} aria-selected={group.key === label} onClick={() => update({ label: group.key === label ? null : group.key })}>
-                    <td className="nlabel">{group.key ?? <span className="dim">no label</span>}</td>
-                    <td className="num">{group.runs}</td>
-                    <td className="num">{group.recent_wall_ms.length ? span(group.total_wall_ms) : "–"}</td>
-                    <td className="num dim">{ago(group.last_started_unix_ns, now)}</td>
-                    <td className="nwide"><Spark values={group.recent_wall_ms} /></td>
-                    {flagged && <td className="nwide"><Rules group={group} /></td>}
+      </div>
+      {data === null ? <p className="nquiet">Loading…</p>
+        : !all.length ? <p className="nquiet">No queries ran in this range with these filters.</p>
+        : byDay ? <Days rows={rows} days={data.days} />
+        : (
+          <table className="ntable nqueries">
+            <thead>
+              <tr>
+                {SORTS.slice(0, 2).map(([key, name]) => <Head key={key} sort={sort} column={key} name={name} update={update} />)}
+                <th className="num">Lately</th>
+                <th>vs usual</th>
+                <th className="nwide">{days === 1 ? "24 hours" : `${days} days`}</th>
+                <th className="nwide">Failures</th>
+                <th className="nwide">Warnings</th>
+                <Head sort={sort} column="total" name="Total" update={update} numeric />
+              </tr>
+            </thead>
+            <tbody>
+              {running.map((q) => {
+                const typical = usual.get(q.label) ?? null;
+                const took = elapsed(q, live.pulses.get(q.query_id), now);
+                const share = typical ? took / typical : null;
+                return (
+                  <tr key={q.query_id} className="npinned" onClick={() => go(link(runPath(q.query_id)))}>
+                    <td><Link to={runPath(q.query_id)} className="nlabel">{q.label ?? "Query without a label"}</Link><span className="sub">{[q.service, q.host].filter(Boolean).join(" · ")}</span></td>
+                    <td><span className="nlive">running</span></td>
+                    <td className="num">{span(took)}{typical !== null && <span className="sub">usually {span(typical)}</span>}</td>
+                    <td>{share === null ? null : share > 1.5 ? <span className="npill2 npill2--slow">{share.toFixed(share < 10 ? 1 : 0)}× usual so far</span> : <span className="dim">{Math.round(share * 100)}% of usual</span>}</td>
+                    <td colSpan={4} className="dim nwide">{live.pulses.get(q.query_id)?.pulse.busiest ? `busiest: ${live.pulses.get(q.query_id)!.pulse.busiest!.kind}` : ""}</td>
                   </tr>
-                ))}
-                {!sorted.length && <tr className="nnone"><td colSpan={COLUMNS.length + (flagged ? 2 : 1)}>No label matches “{text}”.</td></tr>}
-              </tbody>
-            </table>
-            {label !== null && <LabelPanel label={label} key={label} now={now} />}
-          </div>
+                );
+              })}
+              {rows.map((q) => <Row key={q.label ?? ""} q={q} range={range} days={days} />)}
+              {!rows.length && <tr className="nnone"><td colSpan={8}>{needle ? <>No query matches &ldquo;{text}&rdquo;.</> : "No query fits this filter."}</td></tr>}
+            </tbody>
+          </table>
         )}
-      </main>
+    </main>
+  );
+}
+
+function sorter(sort: Sort | null): (a: QueryOverview, b: QueryOverview) => number {
+  if (sort === "name") return (a, b) => (a.label ?? "￿").localeCompare(b.label ?? "￿");
+  if (sort === "last") return (a, b) => b.last_started_unix_ns - a.last_started_unix_ns;
+  if (sort === "total") return (a, b) => b.total_wall_ms - a.total_wall_ms;
+  return byAttention;
+}
+
+function Head({ sort, column, name, update, numeric = false }: { sort: Sort | null; column: Sort; name: string; update: (c: Record<string, string | null>) => void; numeric?: boolean }) {
+  return (
+    <th className={numeric ? "num" : ""} aria-sort={sort === column ? (column === "name" ? "ascending" : "descending") : undefined}>
+      <button className="nsort" title="Sort; again for needs-a-look first" onClick={() => update({ sort: sort === column ? null : column })}>{name}</button>
+    </th>
+  );
+}
+
+function Row({ q, range, days }: { q: QueryOverview; range: Range; days: number }) {
+  const open = () => q.label && go(link(labelPath(q.label)));
+  return (
+    <tr onClick={open} className={q.label ? "" : "nplain"}>
+      <td>
+        {q.label ? <Link to={labelPath(q.label)} className="nlabel">{q.label}</Link> : <span className="nlabel dim">Queries without a label</span>}
+        <span className="sub">{[q.service, cadence(q.runs, days)].filter(Boolean).join(" · ")}</span>
+      </td>
+      <td className="dim">{ago(q.last_started_unix_ns)}</td>
+      <td className="num">{q.recent_wall_ms === null ? "–" : span(q.recent_wall_ms)}{q.usual_wall_ms !== null && <span className="sub">usually {span(q.usual_wall_ms)}</span>}</td>
+      <td>
+        {q.verdict ? <span className={`npill2 npill2--${q.verdict === "slower" ? "slow" : "fast"}`}>{times(q.ratio!)}</span>
+          : q.usual_wall_ms === null ? <span className="dim">too few runs</span> : <span className="dim">as usual</span>}
+      </td>
+      <td className="nwide"><Spark q={q} range={range} scale /></td>
+      <td className="nwide">{q.recent_failed ? <span className="npill2 npill2--fail">{q.recent_failed} of {q.recent_runs} failed</span> : <span className="dim">–</span>}</td>
+      <td className="nwide">
+        {q.rules.length ? q.rules.map((r) => <span key={r} className={q.new_rules.includes(r) ? "nfind new" : "nfind"}>{ruleName(r)}</span>) : <span className="dim">–</span>}
+      </td>
+      <td className="num">{span(q.total_wall_ms)}</td>
+    </tr>
+  );
+}
+
+function Days({ rows, days }: { rows: QueryOverview[]; days: number[] }) {
+  const services = [...new Set(rows.map((q) => q.service))].sort((a, b) => (a ?? "￿").localeCompare(b ?? "￿"));
+  const short = (ns: number) => new Date(ns / 1e6).getDate();
+  return (
+    <div className="npanel-box nheat" style={{ gridTemplateColumns: `minmax(140px,220px) repeat(${days.length}, minmax(0,1fr)) 140px` }}>
+      <span />
+      {days.map((d) => <span key={d} className="nheat-day">{short(d)}</span>)}
+      <span className="nheat-day nheat-tail">usual · lately</span>
+      {services.map((service) => (
+        <Service key={service ?? ""} service={service} rows={rows.filter((q) => q.service === service)} days={days} />
+      ))}
+      <div className="nheat-legend">
+        <span><i style={{ background: "color-mix(in oklab, var(--accent) 70%, var(--cell))" }} />faster</span>
+        <span><i />as usual</span>
+        <span><i style={{ background: "color-mix(in oklab, var(--crit) 45%, var(--cell))" }} />slower</span>
+        <span><i style={{ background: "color-mix(in oklab, var(--crit) 88%, var(--cell))" }} />3× slower</span>
+        <span><i className="dot" />failures</span>
+        <span><i className="bar" />plan changed</span>
+      </div>
     </div>
   );
 }
 
-function sortGroups(list: GroupSummary[], sort: Sort): GroupSummary[] {
-  const copy = [...list];
-  if (sort === "name") copy.sort((a, b) => (a.key ?? "").localeCompare(b.key ?? ""));
-  else if (sort === "runs") copy.sort((a, b) => b.runs - a.runs);
-  else if (sort === "last") copy.sort((a, b) => b.last_started_unix_ns - a.last_started_unix_ns);
-  else copy.sort((a, b) => b.total_wall_ms - a.total_wall_ms);
-  return copy;
-}
-
-function ago(ns: number, now: number): string {
-  const s = Math.max(0, (now - ns / 1e6) / 1000);
-  if (s < 60) return "just now";
-  if (s < 3600) return `${Math.floor(s / 60)} min ago`;
-  if (s < 86_400) return `${Math.floor(s / 3600)} h ago`;
-  return `${Math.floor(s / 86_400)} d ago`;
-}
-
-function Rules({ group }: { group: GroupSummary }) {
+function Service({ service, rows, days }: { service: string | null; rows: QueryOverview[]; days: number[] }) {
   return (
-    <span className="nrules">
-      {group.failed ? <span className="npill npill--failed">{group.failed} failed</span> : null}
-      {group.rules.slice(0, RULES_SHOWN).map((rule) => <code key={rule} className="nrule">{rule}</code>)}
-      {group.rules.length > RULES_SHOWN ? <span className="dim" title={group.rules.slice(RULES_SHOWN).join(", ")}>+{group.rules.length - RULES_SHOWN}</span> : null}
-    </span>
-  );
-}
-
-function Spark({ values }: { values: number[] }) {
-  if (values.length < 2) return <span className="dim">–</span>;
-  const w = 84, h = 20, max = Math.max(...values, 1e-9);
-  const points = values.map((v, i) => `${(i / (values.length - 1)) * w},${h - 1 - (v / max) * (h - 2)}`).join(" ");
-  return <svg className="nspark" width={w} height={h} aria-hidden="true"><polyline points={points} /></svg>;
-}
-
-function LabelPanel({ label, now }: { label: string; now: number }) {
-  const runs = useLoad(() => queries({ label, limit: 200 }), label);
-  const [shown, setShown] = useState(PAGE);
-  if (runs === null) return <aside className="npanel"><div className="dim">Loading {label}…</div></aside>;
-  const oldestFirst = [...runs].reverse();
-  const days = new Set(runs.map((run) => new Date(run.started_unix_ns / 1e6).toDateString())).size > 1;
-  const when = (ns: number) => clock(ns, days);
-  const current = runs[0]?.fingerprint ?? null;
-  const changedAt = runs.findIndex((run) => run.fingerprint !== current);
-  const latest = runs[0];
-  return (
-    <aside className="npanel">
-      <div className="npanel-head">
-        <div>
-          <b>{label}</b>
-          <div className="dim">{runs.length} runs · last {latest ? ago(latest.started_unix_ns, now) : "–"}</div>
+    <>
+      <span className="nheat-service">{service ?? "no service"}</span>
+      {rows.map((q) => (
+        <div key={q.label ?? ""} className="nheat-row" onClick={() => q.label && go(link(labelPath(q.label)))}>
+          <span className="nheat-label" title={q.label ?? ""}>{q.label ? q.label.replace(`${service ?? ""}/`, "") : "without a label"}</span>
+          {q.days.map((day, i) => {
+            const end = days[i + 1] ?? Infinity;
+            const changed = q.plan_changed_unix_ns !== null && q.plan_changed_unix_ns >= days[i]! && q.plan_changed_unix_ns < end;
+            const what = day.runs ? `${day.runs} runs${day.median_wall_ms === null ? "" : `, median ${span(day.median_wall_ms)}`}${day.failed ? `, ${day.failed} failed` : ""}` : "no runs";
+            return (
+              <span key={days[i]} className={`nheat-cell${day.failed ? " f" : ""}${changed ? " p" : ""}${day.runs ? "" : " none"}`}
+                    style={cellStyle(day, q.usual_wall_ms)} title={`${q.label ?? "without a label"} · ${new Date(days[i]! / 1e6).toLocaleDateString()} · ${what}`} />
+            );
+          })}
+          <span className="nheat-tail num">
+            {q.usual_wall_ms === null ? "–" : span(q.usual_wall_ms)} · <b className={q.verdict ? `n${q.verdict}` : ""}>{q.recent_wall_ms === null ? "–" : span(q.recent_wall_ms)}</b>
+          </span>
         </div>
-        {latest && <a className="nbutton" href={`/queries/${latest.query_id}`} onClick={follow}>Open latest run</a>}
-      </div>
-      <Trend runs={oldestFirst} changed={changedAt > 0 ? runs.length - changedAt : null} when={when} />
-      <table className="ntable">
-        <thead><tr><th>Run</th><th className="num">Took</th><th>Host</th></tr></thead>
-        <tbody>
-          {runs.slice(0, shown).map((run, i) => (
-            <tr key={run.query_id} onClick={() => go(`/queries/${run.query_id}`)}>
-              <td>
-                <a href={`/queries/${run.query_id}`} onClick={follow}>{when(run.started_unix_ns)}</a>
-                {changedAt > 0 && i === changedAt - 1 ? <span className="nchanged">plan changed</span> : null}
-              </td>
-              <td className="num">{run.status === "failed" ? <span className="npill npill--failed">failed</span> : run.wall_ms === null ? "–" : span(run.wall_ms)}</td>
-              <td>{run.host}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {runs.length > shown && (
-        <button className="link" onClick={() => setShown(shown + PAGE * 2)}>
-          {runs.length - shown <= PAGE * 2 ? `Show the other ${runs.length - shown}` : `Show ${PAGE * 2} more`}
-        </button>
-      )}
-    </aside>
-  );
-}
-
-/** Each run's wall time; runs far above the rest sit on the top edge, so one outlier does not flatten the others. */
-function Trend({ runs, changed, when }: { runs: QuerySummary[]; changed: number | null; when: (ns: number) => string }) {
-  if (!runs.length) return null;
-  const walls = runs.filter((run) => run.wall_ms !== null && run.status !== "failed").map((run) => run.wall_ms!).sort((a, b) => a - b);
-  const typical = walls[Math.floor((walls.length - 1) * 0.9)] ?? 1;
-  const max = Math.min(walls.at(-1) ?? 1, typical * 2) * 1.12 || 1;
-  const w = 340, h = 140, top = 12;
-  const x = (i: number) => 10 + (runs.length === 1 ? (w - 20) / 2 : (i / (runs.length - 1)) * (w - 20));
-  const y = (v: number) => h - 20 - (Math.min(v, max) / max) * (h - 20 - top);
-  const split = changed === null ? null : (x(changed - 1) + x(changed)) / 2;
-  return (
-    <svg className="ntrend" width="100%" viewBox={`0 0 ${w} ${h}`} role="img" aria-label="Wall time of each run">
-      <text x={10} y={top - 2}>{span(max)}</text>
-      {split !== null && (
-        <>
-          <line x1={split} x2={split} y1={top} y2={h - 20} className="nguide" />
-          <text x={split > w * 0.6 ? split - 4 : split + 4} y={top + 10} textAnchor={split > w * 0.6 ? "end" : "start"}>plan changed</text>
-        </>
-      )}
-      {runs.map((run, i) => run.status === "failed" || run.wall_ms === null
-        ? <path key={run.query_id} d={`M${x(i) - 4},${h - 26} l8,8 m0,-8 l-8,8`} className="nfailed"><title>failed</title></path>
-        : <circle key={run.query_id} cx={x(i)} cy={y(run.wall_ms)} r={3.6} className={run.wall_ms > max ? "nover" : changed !== null && i < changed ? "nbefore" : ""}
-                  onClick={() => go(`/queries/${run.query_id}`)}>
-            <title>{`${when(run.started_unix_ns)} · ${span(run.wall_ms)}`}</title>
-          </circle>)}
-      <text x={10} y={h - 5}>{when(runs[0]!.started_unix_ns)}</text>
-      <text x={w - 10} y={h - 5} textAnchor="end">{when(runs[runs.length - 1]!.started_unix_ns)}</text>
-    </svg>
+      ))}
+    </>
   );
 }
