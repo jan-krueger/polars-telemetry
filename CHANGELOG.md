@@ -6,12 +6,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-10-13
+
 ### Added
 - Query-level counters, once Polars sends them (pola-rs/polars#29792): profiles
   gain `query_metrics`, spans one `polars.query_metrics.<key>` attribute per
   counter, and the new `polars.query.io_time` histogram records the time any IO
   of the query was in flight, also split into reads and sends. The console line
   shows it as `io=`.
+- Viewer: a query's details show how long its IO was in flight, split into
+  reading and sending, and shared Markdown gains an "IO in flight" cell.
 
 ### Fixed
 - Node metrics keep working on Polars versions whose metrics snapshot holds
@@ -692,6 +696,7 @@ All three are removed in 0.4.0.
   and collapsed most nodes onto identical windows. The same counters read once
   at query end are exact and cost nothing measurable.
 
+[0.10.0]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.10.0
 [0.9.0]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.9.0
 [0.8.3]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.8.3
 [0.8.2]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.8.2
