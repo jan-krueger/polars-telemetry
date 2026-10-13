@@ -17,6 +17,7 @@
     "planning_ms": { "type": ["number", "null"] },
     "telemetry_ms": { "type": ["number", "null"] },
     "cpu_ms": { "type": "number", "minimum": 0 },
+    "query_metrics": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
     "result_rows": { "type": ["integer", "null"] },
     "call_site": {
       "type": ["object", "null"],

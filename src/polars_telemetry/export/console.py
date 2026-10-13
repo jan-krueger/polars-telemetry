@@ -36,7 +36,7 @@ class ConsoleExporter:
         status = f"FAILED {query.failed}" if query.failed else "ok"
         header = (
             f"polars query {query.label or str(query.query_id)[-8:]} {status} "
-            f"wall={_ms(query.wall_ms)}{_planning(query)} cpu={_ms(query.cpu_ms)} "
+            f"wall={_ms(query.wall_ms)}{_planning(query)}{_io(query)} cpu={_ms(query.cpu_ms)} "
             f"parallelism={query.parallelism:.2f}x nodes={len(query.plan)}"
         )
         if query.result_rows is not None:
@@ -76,3 +76,8 @@ class ConsoleExporter:
 
 def _planning(query: Query) -> str:
     return "" if query.planning_ms is None else f" planning={_ms(query.planning_ms)}"
+
+
+def _io(query: Query) -> str:
+    io_ns = (query.query_metrics or {}).get("io_total_active_ns")
+    return "" if not io_ns else f" io={_ms(io_ns / 1e6)}"

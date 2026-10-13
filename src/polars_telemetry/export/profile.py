@@ -114,6 +114,8 @@ def build_profile(query: Query, *, diagnostics: Diagnostics | None = None) -> di
             "logical": [_node(node, None) for node in query.logical.values()],
         },
     }
+    if query.query_metrics is not None:
+        document["query_metrics"] = dict(query.query_metrics)
     if query.insights is not None:
         document["insights"] = {
             "schema": INSIGHTS_SCHEMA,

@@ -59,6 +59,11 @@ def _busy_query() -> Query:
         metrics={0: NodeMetrics(**fields)},
         insights=(_FINDING,),
         planning_ms=3.0,
+        query_metrics={
+            "io_total_active_ns": 2_000_000,
+            "io_rx_active_ns": 2_000_000,
+            "io_tx_active_ns": 0,
+        },
     )
 
 

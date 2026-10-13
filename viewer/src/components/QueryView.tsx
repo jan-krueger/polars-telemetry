@@ -185,6 +185,7 @@ function Facts({ profile, withDates }: { profile: Profile; withDates: boolean })
       <dt>Shape</dt><dd>{profile.fingerprint}</dd>
       <dt>Started</dt><dd>{clock(profile.started_unix_ns, withDates)} <span className="qfacts-note">{iso(profile.started_unix_ns)}</span></dd>
       {profile.result_rows != null && <><dt>Rows returned</dt><dd>{num(profile.result_rows)}</dd></>}
+      <IoFact profile={profile} />
       <dt>Polars</dt><dd>{profile.polars_version}</dd>
       {profile.call_site && (
         <><dt>Ran at</dt><dd>{basename(profile.call_site.filepath)}:{profile.call_site.lineno} in {profile.call_site.function}()
@@ -194,3 +195,14 @@ function Facts({ profile, withDates }: { profile: Profile; withDates: boolean })
   );
 }
 
+function IoFact({ profile }: { profile: Profile }) {
+  const io = profile.query_metrics;
+  const any = io?.io_total_active_ns;
+  if (any == null) return null;
+  const ms = any / 1e6;
+  const rx = io?.io_rx_active_ns, tx = io?.io_tx_active_ns;
+  return (
+    <><dt>IO in flight</dt><dd>{span(ms)}{profile.wall_ms > 0 ? `, ${num(Math.min(1, ms / profile.wall_ms) * 100, 0)}% of wall` : ""}
+      {rx != null && tx != null && <span className="qfacts-note">reading {span(rx / 1e6)}, sending {span(tx / 1e6)}</span>}</dd></>
+  );
+}

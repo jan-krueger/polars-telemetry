@@ -50,4 +50,11 @@ describe("query as Markdown", () => {
     expect(md).toContain("(https://jan-krueger.github.io/polars-telemetry/insights/#late_filter)");
     expect(md).toContain("```text\n");
   });
+
+  it("adds IO in flight when Polars reported it", () => {
+    expect(queryMarkdown(base)).not.toContain("IO in flight");
+    const md = queryMarkdown({ ...base, query_metrics: { io_total_active_ns: 1_500_000 } });
+    expect(md).toMatch(/\| IO in flight \|/);
+    expect(md).toContain("1.5 ms");
+  });
 });
