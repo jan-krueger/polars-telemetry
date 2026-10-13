@@ -16,7 +16,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Fixed
 - Node metrics keep working on Polars versions whose metrics snapshot holds
   query-level counters next to the node rows. Before, polars-telemetry read that
-  snapshot as broken and recorded no node metrics or findings at all.
+  snapshot as broken and recorded no node metrics or findings at all, and live
+  events carried no node counters.
 
 ## [0.9.0] - 2026-10-11
 
