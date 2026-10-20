@@ -80,6 +80,7 @@ const BY_KIND: Record<string, Role> = {
   Slice: "function",
   DynamicSlice: "function",
   NegativeSlice: "function",
+  Reverse: "function",
   Gather: "function",
   CumAgg: "function",
   Ewm: "function",

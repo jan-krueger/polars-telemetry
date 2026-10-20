@@ -6,6 +6,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- The streaming `Reverse` node (pola-rs/polars#29259) is recognised.
+
 ### Fixed
 - Polars versions that import Polars Cloud as `polars_nanook`
   (pola-rs/polars#30099) still deliver every query. Before, with

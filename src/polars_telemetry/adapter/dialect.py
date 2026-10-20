@@ -52,6 +52,7 @@ _BY_KIND: dict[str, NodeRole] = {
     "Slice": NodeRole.FUNCTION,
     "DynamicSlice": NodeRole.FUNCTION,
     "NegativeSlice": NodeRole.FUNCTION,
+    "Reverse": NodeRole.FUNCTION,
     "Gather": NodeRole.FUNCTION,
     "CumAgg": NodeRole.FUNCTION,
     "Ewm": NodeRole.FUNCTION,

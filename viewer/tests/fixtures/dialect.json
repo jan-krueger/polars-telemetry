@@ -47,6 +47,7 @@
  "RangeJoin": "theta_join",
  "Reduce": "aggregation",
  "Repeat": "function",
+ "Reverse": "function",
  "Rle": "function",
  "RleId": "function",
  "RollingFixedWindowFunction": "function",
