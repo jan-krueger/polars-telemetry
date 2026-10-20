@@ -4,11 +4,12 @@
 
 Polars imports a module named `polars_cloud`, reads `QueryCloudObserver` from
 it **by name** and duck-types the result without checking its type. This
-package supplies that name.
+package supplies that name. Polars versions with pola-rs/polars#30099 prefer
+`polars_nanook`; the module is bound under whichever name Polars resolved.
 
 If the real `polars-cloud` is installed, its factory is kept and forwarded to.
 Otherwise a module is registered under that name in `sys.modules`. No
-distribution called `polars_cloud` is published; it would collide with theirs.
+distribution under either name is published; it would collide with theirs.
 
 The protocol, checked against every Polars version in CI by `tests/contract`:
 

@@ -6,6 +6,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+- Polars versions that import Polars Cloud as `polars_nanook`
+  (pola-rs/polars#30099) still deliver every query. Before, with
+  `polars_nanook` installed, polars-telemetry installed nothing and the probe
+  warned that polars did not invoke the observer callbacks.
+
 ## [0.10.0] - 2026-10-13
 
 ### Added

@@ -95,10 +95,12 @@ def test_install_is_idempotent():
 def test_uninstall_removes_the_injected_module():
     import sys
 
+    from polars_telemetry.adapter.module import module_name
+
     polars_telemetry.install(exporter=ConsoleExporter(io.StringIO()))
-    assert "polars_cloud" in sys.modules
+    assert module_name() in sys.modules
     polars_telemetry.uninstall()
-    assert "polars_cloud" not in sys.modules
+    assert module_name() not in sys.modules
 
 
 def test_otel_query_span_carries_plan_detail(spans):

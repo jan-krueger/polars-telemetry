@@ -13,6 +13,7 @@ polars = pytest.importorskip("polars")
 import polars_telemetry  # noqa: E402
 from polars_telemetry import Config, Redaction, profile, redacted  # noqa: E402
 from polars_telemetry.activation import installed  # noqa: E402
+from polars_telemetry.adapter.module import module_name  # noqa: E402
 
 
 class Collect:
@@ -220,7 +221,7 @@ def _nothing_left_behind() -> None:
     assert installed() is None
     assert "POLARS_QUERY_MONITORING" not in os.environ
     assert os.environ.get("POLARS_ENGINE_AFFINITY") is None
-    assert "polars_cloud" not in sys.modules
+    assert module_name() not in sys.modules
 
 
 @pytest.mark.parametrize("bad", ["not-an-exporter", object()])
@@ -278,10 +279,10 @@ def polars_cloud(monkeypatch):
         calls.append((workspace, organization))
         return Observer()
 
-    module = types.ModuleType("polars_cloud")
+    module = types.ModuleType(module_name())
     module.authenticate = lambda *args, **kwargs: None  # type: ignore[attr-defined]
     module.QueryCloudObserver = factory  # type: ignore[attr-defined]
-    monkeypatch.setitem(sys.modules, "polars_cloud", module)
+    monkeypatch.setitem(sys.modules, module_name(), module)
     for key in (
         "POLARS_QUERY_MONITORING",
         "POLARS_QUERY_MONITORING_WORKSPACE",
@@ -316,7 +317,7 @@ def test_polars_cloud_keeps_its_workspace_and_stays_on_after_uninstall(polars_cl
     assert len(mine.queries) == 1, "and so does polars-telemetry"
 
     polars_telemetry.uninstall()
-    assert sys.modules["polars_cloud"] is module
+    assert sys.modules[module_name()] is module
     calls.clear()
     query.collect()
     assert calls == [chosen], "polars-cloud monitoring is still on after uninstall"

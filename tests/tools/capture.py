@@ -52,7 +52,8 @@ def _install_shim() -> None:
     module.__version__ = "0.0.0-capture"  # type: ignore[attr-defined]
     module.authenticate = lambda *a, **k: None  # type: ignore[attr-defined]
     module.QueryCloudObserver = lambda workspace=None, organization=None: _Observer()  # type: ignore[attr-defined]
-    sys.modules["polars_cloud"] = module
+    for name in ("polars_cloud", "polars_nanook"):
+        sys.modules[name] = module
 
 
 def _run_capture_query(pl: Any) -> None:
