@@ -104,6 +104,7 @@ exclude = ["examples/*.jsonl"]
 # Ignore releases uploaded in the last 7 days. The canary overrides this for
 # polars alone via --exclude-newer-package.
 exclude-newer = "7 days"
+exclude-newer-package = { certifi = false }
 default-groups = ["dev"]
 
 # ---------------------------------------------------------------------------
