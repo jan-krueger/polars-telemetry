@@ -6,10 +6,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-### Added
-- The streaming `Reverse` node (pola-rs/polars#29259) is recognised.
+## [0.10.1] - 2026-10-21
 
 ### Fixed
+- The streaming `Reverse` node (pola-rs/polars#29259) is recognised. Before,
+  every query using it logged a warning about an unknown node kind.
 - Polars versions that import Polars Cloud as `polars_nanook`
   (pola-rs/polars#30099) still deliver every query. Before, with
   `polars_nanook` installed, polars-telemetry installed nothing and the probe
@@ -705,6 +706,7 @@ All three are removed in 0.4.0.
   and collapsed most nodes onto identical windows. The same counters read once
   at query end are exact and cost nothing measurable.
 
+[0.10.1]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.10.1
 [0.10.0]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.10.0
 [0.9.0]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.9.0
 [0.8.3]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.8.3
