@@ -62,6 +62,7 @@ POLARS_PHYSICAL_KINDS = sorted(
         "RangeJoin",
         "Reduce",
         "Repeat",
+        "Reverse",
         "Rle",
         "RleId",
         "RollingFixedWindowFunction",
