@@ -6,6 +6,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.10.2] - 2026-10-26
+
 ### Fixed
 - Recursive SQL CTEs (Polars 2.1) no longer log warnings about unknown node
   kinds: `Recursive` and `WorkingTableScan` are recognised.
@@ -710,6 +712,7 @@ All three are removed in 0.4.0.
   and collapsed most nodes onto identical windows. The same counters read once
   at query end are exact and cost nothing measurable.
 
+[0.10.2]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.10.2
 [0.10.1]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.10.1
 [0.10.0]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.10.0
 [0.9.0]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.9.0
