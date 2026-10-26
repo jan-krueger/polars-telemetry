@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import os
 import shutil
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 import nox
@@ -26,7 +26,7 @@ POLARS_PACKAGES = ["polars", "polars-runtime-32", "polars-runtime-64", "polars-r
 PYTHONS = ["3.10", "3.11", "3.12", "3.13", "3.14"]
 
 # The hook does not exist before 1.44.0, and 1.44.0's runtime is yanked.
-POLARS_VERSIONS = ["1.44.1", "1.44.2", "2.0.0"]
+POLARS_VERSIONS = ["1.44.1", "1.44.2", "2.0.0", "2.1.0"]
 
 # Integration needs a collector; bench is timing-sensitive and measured apart.
 DEFAULT_MARKERS = "not integration and not bench"
@@ -71,6 +71,8 @@ def integration(session: nox.Session) -> None:
 @nox.parametrize("polars", POLARS_VERSIONS)
 def matrix(session: nox.Session, polars: str) -> None:
     """The python x polars grid, each cell isolated."""
+    if session.python == "3.10" and tuple(map(int, polars.split(".")[:2])) >= (2, 1):
+        session.skip(f"polars {polars} needs Python 3.11 or newer")
     session.install("-e", ".", f"polars=={polars}", "pytest", "pytest-cov")
     session.run("pytest", "-m", DEFAULT_MARKERS, *session.posargs)
 
@@ -118,6 +120,20 @@ def bench(session: nox.Session) -> None:
     session.run("pytest", "-m", "bench", *session.posargs)
 
 
+def _audit_ignores() -> list[str]:
+    """pip-audit flags for the osv-scanner.toml ignores that have not expired."""
+    import tomllib
+
+    today = datetime.now(timezone.utc).date()
+    entries = tomllib.loads(Path("osv-scanner.toml").read_text())["IgnoredVulns"]
+    return [
+        arg
+        for entry in entries
+        if entry.get("ignoreUntil", date.max) > today
+        for arg in ("--ignore-vuln", entry["id"])
+    ]
+
+
 @nox.session(venv_backend="none")
 def audit(session: nox.Session) -> None:
     """Known vulnerabilities in the locked dependencies, Python and the viewer's.
@@ -125,7 +141,7 @@ def audit(session: nox.Session) -> None:
     Kept apart from the test sessions because it needs the network, and a
     registry hiccup should not fail a test run.
     """
-    session.run("uv", "run", "--with", "pip-audit", "pip-audit", external=True)
+    session.run("uv", "run", "--with", "pip-audit", "pip-audit", *_audit_ignores(), external=True)
     root = Path.cwd()
     session.chdir("viewer")
     try:

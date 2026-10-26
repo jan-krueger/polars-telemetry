@@ -10,7 +10,7 @@ import pytest
 from polars_telemetry.adapter.build import build_metrics, build_plan
 from polars_telemetry.model.diagnostics import derive
 from polars_telemetry.model.types import Query
-from tests.fixture_paths import latest_fixture
+from tests.fixture_paths import fixture_metrics, latest_fixture
 
 FIXTURE = latest_fixture()
 
@@ -22,7 +22,7 @@ def query():
         wall_ms=40.0,
         plan=build_plan(json.loads((FIXTURE / "physical.json").read_text())),
         logical=build_plan(json.loads((FIXTURE / "ir.json").read_text())),
-        metrics=build_metrics(json.loads((FIXTURE / "metrics.json").read_text())),
+        metrics=build_metrics(fixture_metrics(FIXTURE)),
     )
 
 

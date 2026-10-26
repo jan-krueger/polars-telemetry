@@ -6,6 +6,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+- Recursive SQL CTEs (Polars 2.1) no longer log warnings about unknown node
+  kinds: `Recursive` and `WorkingTableScan` are recognised.
+
 ## [0.10.1] - 2026-10-21
 
 ### Fixed

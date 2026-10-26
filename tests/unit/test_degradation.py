@@ -26,7 +26,7 @@ from polars_telemetry.adapter.hook import QueryObserver
 from polars_telemetry.adapter.recorder import QueryRecorder
 from polars_telemetry.config import Config
 from polars_telemetry.model.types import Query
-from tests.fixture_paths import latest_fixture
+from tests.fixture_paths import fixture_metrics, latest_fixture
 from tests.unit.test_hook import Log
 
 FIXTURE = latest_fixture()
@@ -34,7 +34,7 @@ FIXTURE = latest_fixture()
 
 @pytest.fixture
 def metrics():
-    return json.loads((FIXTURE / "metrics.json").read_text())
+    return fixture_metrics(FIXTURE)
 
 
 @pytest.fixture

@@ -35,6 +35,7 @@ _BY_KIND: dict[str, NodeRole] = {
     "DataFrameScan": NodeRole.DATAFRAME,
     "InMemorySource": NodeRole.DATAFRAME,
     "PythonScan": NodeRole.SCAN,
+    "WorkingTableScan": NodeRole.DATAFRAME,
     # row and column operators
     "Filter": NodeRole.SELECTION,
     "SimpleProjection": NodeRole.PROJECTION,
@@ -68,6 +69,7 @@ _BY_KIND: dict[str, NodeRole] = {
     "StrptimeInfer": NodeRole.FUNCTION,
     "Window": NodeRole.FUNCTION,
     "RollingFixedWindowFunction": NodeRole.FUNCTION,
+    "Recursive": NodeRole.FUNCTION,
     # joins
     "EquiJoin": NodeRole.JOIN,
     "IEJoin": NodeRole.THETA_JOIN,

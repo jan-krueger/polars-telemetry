@@ -52,10 +52,15 @@ jobs:
       matrix:
         # Corners plus the primary cell. The hook first appears in 1.44.
         python: ["3.10", "3.14"]
-        polars: ["1.44.1", "1.44.2", "2.0.0"]
+        polars: ["1.44.1", "1.44.2", "2.0.0", "2.1.0"]
+        exclude:
+          - python: "3.10"
+            polars: "2.1.0"
         include:
+          - python: "3.11"
+            polars: "2.1.0"
           - python: "3.12"
-            polars: "2.0.0"
+            polars: "2.1.0"
           - python: "3.12"
             polars: "2 pre-release"
     steps:
@@ -170,4 +175,4 @@ jobs:
       - run: uv run nox -s audit
       - uses: google/osv-scanner-action/osv-scanner-action@a345acffa64b0eaede81a3d9aae6141214d9c8fc # v2.6.0
         with:
-          scan-args: --lockfile=uv.lock --lockfile=nunatak/Cargo.lock
+          scan-args: --config=osv-scanner.toml --lockfile=uv.lock --lockfile=nunatak/Cargo.lock
