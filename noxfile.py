@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import os
 import shutil
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 import nox
@@ -120,6 +120,20 @@ def bench(session: nox.Session) -> None:
     session.run("pytest", "-m", "bench", *session.posargs)
 
 
+def _audit_ignores() -> list[str]:
+    """pip-audit flags for the osv-scanner.toml ignores that have not expired."""
+    import tomllib
+
+    today = datetime.now(timezone.utc).date()
+    entries = tomllib.loads(Path("osv-scanner.toml").read_text())["IgnoredVulns"]
+    return [
+        arg
+        for entry in entries
+        if entry.get("ignoreUntil", date.max) > today
+        for arg in ("--ignore-vuln", entry["id"])
+    ]
+
+
 @nox.session(venv_backend="none")
 def audit(session: nox.Session) -> None:
     """Known vulnerabilities in the locked dependencies, Python and the viewer's.
@@ -127,7 +141,7 @@ def audit(session: nox.Session) -> None:
     Kept apart from the test sessions because it needs the network, and a
     registry hiccup should not fail a test run.
     """
-    session.run("uv", "run", "--with", "pip-audit", "pip-audit", external=True)
+    session.run("uv", "run", "--with", "pip-audit", "pip-audit", *_audit_ignores(), external=True)
     root = Path.cwd()
     session.chdir("viewer")
     try:
