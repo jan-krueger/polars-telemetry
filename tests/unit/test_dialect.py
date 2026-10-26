@@ -13,13 +13,13 @@ from polars_telemetry.adapter.build import build_metrics, build_plan
 from polars_telemetry.adapter.dialect import described, facets, role_of, unknown_kinds
 from polars_telemetry.model.diagnostics import derive
 from polars_telemetry.model.types import NodeRole, Query
-from tests.fixture_paths import latest_fixture
+from tests.fixture_paths import fixture_metrics, latest_fixture
 
 FIXTURE = latest_fixture()
 
 
 # PhysNodeKind descriptions in polars-stream's to_description.rs at py-1.44.2,
-# py-2.0.0-rc.2 and main, without the Default and Other fallbacks.
+# py-2.0.0-rc.2, py-2.1.0 and main, without the Default and Other fallbacks.
 POLARS_PHYSICAL_KINDS = sorted(
     {
         "AsOfJoin",
@@ -60,6 +60,7 @@ POLARS_PHYSICAL_KINDS = sorted(
         "PeakMin",
         "PythonScan",
         "RangeJoin",
+        "Recursive",
         "Reduce",
         "Repeat",
         "Reverse",
@@ -138,7 +139,7 @@ def test_downstream_reads_roles_not_kind_names():
     """Once the dialect maps a renamed kind, nothing downstream needs touching:
     the same plan under a new kind name derives the same diagnostics."""
     plan = build_plan(json.loads((FIXTURE / "physical.json").read_text()))
-    metrics = build_metrics(json.loads((FIXTURE / "metrics.json").read_text()))
+    metrics = build_metrics(fixture_metrics(FIXTURE))
     renamed = {
         node_id: replace(node, kind="HashJoin") if node.kind == "EquiJoin" else node
         for node_id, node in plan.items()

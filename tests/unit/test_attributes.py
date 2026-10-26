@@ -15,7 +15,7 @@ from polars_telemetry.export.attributes import query_attributes
 from polars_telemetry.model.diagnostics import Diagnostics
 from polars_telemetry.model.redaction import redact, redact_query
 from polars_telemetry.model.types import Query
-from tests.fixture_paths import latest_fixture
+from tests.fixture_paths import fixture_metrics, latest_fixture
 
 FIXTURE = latest_fixture()
 
@@ -27,7 +27,7 @@ def query():
         wall_ms=20.0,
         plan=build_plan(json.loads((FIXTURE / "physical.json").read_text())),
         logical=build_plan(json.loads((FIXTURE / "ir.json").read_text())),
-        metrics=build_metrics(json.loads((FIXTURE / "metrics.json").read_text())),
+        metrics=build_metrics(fixture_metrics(FIXTURE)),
         engine="streaming",
     )
 

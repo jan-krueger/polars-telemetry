@@ -26,7 +26,7 @@ POLARS_PACKAGES = ["polars", "polars-runtime-32", "polars-runtime-64", "polars-r
 PYTHONS = ["3.10", "3.11", "3.12", "3.13", "3.14"]
 
 # The hook does not exist before 1.44.0, and 1.44.0's runtime is yanked.
-POLARS_VERSIONS = ["1.44.1", "1.44.2", "2.0.0"]
+POLARS_VERSIONS = ["1.44.1", "1.44.2", "2.0.0", "2.1.0"]
 
 # Integration needs a collector; bench is timing-sensitive and measured apart.
 DEFAULT_MARKERS = "not integration and not bench"
@@ -71,6 +71,8 @@ def integration(session: nox.Session) -> None:
 @nox.parametrize("polars", POLARS_VERSIONS)
 def matrix(session: nox.Session, polars: str) -> None:
     """The python x polars grid, each cell isolated."""
+    if session.python == "3.10" and tuple(map(int, polars.split(".")[:2])) >= (2, 1):
+        session.skip(f"polars {polars} needs Python 3.11 or newer")
     session.install("-e", ".", f"polars=={polars}", "pytest", "pytest-cov")
     session.run("pytest", "-m", DEFAULT_MARKERS, *session.posargs)
 

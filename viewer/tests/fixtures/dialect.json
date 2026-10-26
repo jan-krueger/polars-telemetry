@@ -45,6 +45,7 @@
  "PeakMin": "function",
  "PythonScan": "scan",
  "RangeJoin": "theta_join",
+ "Recursive": "function",
  "Reduce": "aggregation",
  "Repeat": "function",
  "Reverse": "function",
@@ -68,5 +69,6 @@
  "UnorderedUnion": "union",
  "Window": "function",
  "WithRowIndex": "map",
+ "WorkingTableScan": "dataframe",
  "Zip": "engine"
 }

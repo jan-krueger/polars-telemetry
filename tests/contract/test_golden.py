@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import msgpack
 import pytest
 
 from polars_telemetry.adapter.decode import (
@@ -82,7 +83,9 @@ def test_capture_query_covers_the_node_kinds_we_care_about(captured: Path) -> No
 def test_decoded_json_matches_the_msgpack(captured: Path) -> None:
     """The reviewable JSON must not drift from the binary it documents."""
     for name in ("ir", "physical", "metrics"):
-        blob = decode_plan((captured / f"{name}.msgpack").read_bytes())
+        blob = msgpack.unpackb(
+            (captured / f"{name}.msgpack").read_bytes(), raw=False, strict_map_key=False
+        )
         sidecar = json.loads((captured / f"{name}.json").read_text())
         assert blob == sidecar, f"{name}.json is stale; re-run the capture"
 

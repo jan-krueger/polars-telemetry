@@ -15,6 +15,7 @@ from uuid import UUID
 from packaging.version import Version
 
 from polars_telemetry.adapter.build import build_metrics, build_plan, enrich
+from polars_telemetry.adapter.decode import decode_metrics
 from polars_telemetry.adapter.dialect import _BY_KIND
 from polars_telemetry.export.profile import build_profile
 from polars_telemetry.model.types import CallSite, Query
@@ -33,7 +34,7 @@ def profile_document() -> dict[str, object]:
         wall_ms=48.1,
         plan=build_plan(json.loads((fixture / "physical.json").read_text())),
         logical=build_plan(json.loads((fixture / "ir.json").read_text())),
-        metrics=build_metrics(json.loads((fixture / "metrics.json").read_text())),
+        metrics=build_metrics(decode_metrics((fixture / "metrics.msgpack").read_bytes())),
         call_site=CallSite("/srv/app/pipeline.py", 142, "build_report"),
         started_unix_ns=1_759_478_400_000_000_000,
         polars_version=fixture.name,

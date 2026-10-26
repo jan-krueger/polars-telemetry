@@ -2,7 +2,8 @@
 
 ## Supported versions
 
-**Polars 1.44.1 and newer 1.44.x, and Polars 2.x**, Python 3.10+.
+**Polars 1.44.1 and newer 1.44.x, and Polars 2.x**, Python 3.10+. Polars 2.1
+and newer need Python 3.11+.
 
 Tested on every Polars version in the CI matrix
 ([`ci.yml`](https://github.com/jan-krueger/polars-telemetry/blob/main/.github/workflows/ci.yml)),
