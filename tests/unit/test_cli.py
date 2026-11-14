@@ -75,3 +75,37 @@ def test_write_adds_insights_and_keeps_every_line(q20: Path, tmp_path: Path):
     assert len(lines) == 4
     assert lines[-1] == "not a profile"
     assert all("insights" in json.loads(line) for line in lines[:3])
+
+
+def test_a_file_that_cannot_be_read_is_reported_and_the_rest_still_run(
+    q20: Path, tmp_path: Path, capsys
+):
+    missing = tmp_path / "missing.jsonl"
+    assert main(["insights", str(missing), str(tmp_path), str(q20)]) == 2
+    captured = capsys.readouterr()
+    assert f"cannot read {missing}: No such file or directory" in captured.err
+    assert f"cannot read {tmp_path}: Is a directory" in captured.err
+    assert captured.out.rstrip().endswith("3 queries: 1 warning, 2 information")
+
+
+def test_damaged_lines_and_events_pass_through_write_unchanged(q20: Path, tmp_path: Path):
+    damaged = b'\xff\xfe{"cut'
+    event = b'{"schema":"polars-telemetry/events@1","seq":1,"type":"process"}'
+    session = tmp_path / "damaged.jsonl"
+    session.write_bytes(q20.read_bytes() + damaged + b"\n" + event + b"\n")
+    target = tmp_path / "out.jsonl"
+    assert main(["insights", str(session), "--write", str(target), "--format", "json"]) == 0
+    lines = target.read_bytes().splitlines()
+    assert lines[-2:] == [damaged, event]
+    assert all("insights" in json.loads(line) for line in lines[:3])
+
+
+def test_a_plan_with_a_cycle_is_skipped_rather_than_followed(tmp_path: Path):
+    document = json.loads(EXAMPLE.read_text().splitlines()[0])
+    first = document["plan"]["physical"][0]
+    first["inputs"] = [first["id"]]
+    session = tmp_path / "cycle.jsonl"
+    session.write_text(json.dumps(document) + "\n")
+    code, text = run(str(session))
+    assert code == 0
+    assert "line 1 skipped: plan.physical has a cycle" in text
