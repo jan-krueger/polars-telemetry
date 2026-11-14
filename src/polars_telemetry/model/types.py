@@ -182,6 +182,21 @@ class PlanNode:
     aggregation: AggregationFacet | None = None
     traits: NodeTraits = NodeTraits()
 
+    def with_traits(self, traits: NodeTraits) -> PlanNode:
+        """This node with `traits`, without the cost of `dataclasses.replace`."""
+        return PlanNode(
+            self.node_id,
+            self.kind,
+            self.inputs,
+            self.properties,
+            self.role,
+            self.scan,
+            self.join,
+            self.sort,
+            self.aggregation,
+            traits,
+        )
+
 
 @dataclass(frozen=True, slots=True)
 class CustomMetric:
