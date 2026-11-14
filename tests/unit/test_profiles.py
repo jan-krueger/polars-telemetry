@@ -83,7 +83,11 @@ def _ring(nodes: list[dict[str, object]]) -> None:
     [
         (b"[]", "not a JSON object but a list"),
         (b"null", "not a JSON object but null"),
-        (b"[" * 100_000 + b"]" * 100_000, "nested too deeply"),
+        (b"[" * 100_000 + b"]" * 100_000, "nested more than 64 levels deep"),
+        (
+            _line(_document(label=json.loads("[" * 100 + "]" * 100))),
+            "nested more than 64 levels deep",
+        ),
         (b'{"schema": "polars-telemetry/profile@1", "query_id"', "not valid JSON"),
         (b"\xff\xfe{}", "not UTF-8 text"),
         (_line(_document(plan=["nodes"])), "plan is a list, not an object"),

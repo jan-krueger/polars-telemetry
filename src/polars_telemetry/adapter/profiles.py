@@ -29,6 +29,8 @@ SCHEMA_PREFIX = "polars-telemetry/profile@1"
 EVENTS_PREFIX = "polars-telemetry/events@"
 _GZIP_MAGIC = b"\x1f\x8b"
 _INT_LIMIT = 2**63
+_DEPTH_LIMIT = 64
+_TOO_DEEP = f"nested more than {_DEPTH_LIMIT} levels deep"
 
 
 class ProfileError(ValueError):
@@ -141,9 +143,11 @@ def _line(number: int, raw: bytes) -> Line:
     try:
         document = json.loads(text)
     except RecursionError:
-        return Line(number, raw, None, Skipped(number, "nested too deeply"))
+        return Line(number, raw, None, Skipped(number, _TOO_DEEP))
     except ValueError as exc:
         return Line(number, raw, None, Skipped(number, f"not valid JSON ({exc})"))
+    if _deeper_than(document, _DEPTH_LIMIT):
+        return Line(number, raw, None, Skipped(number, _TOO_DEEP))
     profile = document
     if isinstance(document, dict) and str(document.get("schema", "")).startswith(EVENTS_PREFIX):
         if document.get("type") != "query.finished":
@@ -156,11 +160,25 @@ def _line(number: int, raw: bytes) -> Line:
     return Line(number, raw, document if isinstance(document, dict) else None, read)
 
 
+def _deeper_than(value: object, limit: int) -> bool:
+    stack: list[tuple[object, int]] = [(value, 0)]
+    while stack:
+        item, depth = stack.pop()
+        if not isinstance(item, dict | list):
+            continue
+        if depth >= limit:
+            return True
+        stack.extend(
+            (child, depth + 1) for child in (item.values() if isinstance(item, dict) else item)
+        )
+    return False
+
+
 def _reason(exc: Exception) -> str:
     if isinstance(exc, ProfileError):
         return str(exc)
     if isinstance(exc, RecursionError):
-        return "nested too deeply"
+        return _TOO_DEEP
     return f"unreadable ({type(exc).__name__}: {exc})" if str(exc) else type(exc).__name__
 
 
