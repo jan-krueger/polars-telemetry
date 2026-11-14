@@ -6,6 +6,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-11-15
+
 ### Added
 - `polars-telemetry insights` reads gzip session files and the finished
   queries of an event recording.
@@ -742,6 +744,7 @@ All three are removed in 0.4.0.
   and collapsed most nodes onto identical windows. The same counters read once
   at query end are exact and cost nothing measurable.
 
+[0.11.0]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.11.0
 [0.10.2]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.10.2
 [0.10.1]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.10.1
 [0.10.0]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.10.0
