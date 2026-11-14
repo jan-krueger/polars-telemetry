@@ -10,6 +10,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `polars-telemetry insights` reads gzip session files and the finished
   queries of an event recording.
 
+### Changed
+- `HttpEventExporter` reads its token from `POLARS_TELEMETRY_TOKEN`.
+  `NUNATAK_TOKEN` still works.
+
+### Removed
+- Nunatak, the dashboard server, is no longer part of the project.
+  `nunatak-v0.1.0` stays available; `HttpEventExporter` keeps sending
+  `polars-telemetry/events@1` to any server that accepts it.
+
 ### Fixed
 - `HttpEventExporter` closes its connection when it stops sending, after
   `uninstall()` or a refused token. Before, each install left a kept-alive

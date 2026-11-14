@@ -37,6 +37,9 @@ _BACKOFF_MAX = 30.0
 _CLOSE_WAIT = 2.0
 
 
+_ENV = "POLARS_TELEMETRY_TOKEN"
+
+
 @dataclass(slots=True)
 class _Pending:
     line: str
@@ -48,10 +51,10 @@ class HttpEventExporter:
     """Send the life of every query to a server that receives `polars-telemetry/events@1`.
 
     Args:
-        url: The server, such as `"http://localhost:7766"`. Events go to
+        url: The server, such as `"https://events.example.com"`. Events go to
             `{url}/v1/events`.
         token: Sent as `Authorization: Bearer <token>`. Read from the
-            `NUNATAK_TOKEN` environment variable when not given.
+            `POLARS_TELEMETRY_TOKEN` environment variable when not given.
         service: What the process is, such as `"orders-etl"`.
         environment: Where it runs, such as `"prod"`.
         max_queue_bytes: 16 MiB by default. Events waiting to be sent beyond this
@@ -73,9 +76,9 @@ class HttpEventExporter:
         if parts.scheme not in {"http", "https"} or not parts.hostname:
             msg = f"url must be http:// or https:// with a host, got {url!r}"
             raise ValueError(msg)
-        token = token or os.environ.get("NUNATAK_TOKEN")
+        token = token or os.environ.get(_ENV) or os.environ.get("NUNATAK_TOKEN")
         if not token:
-            msg = "token is required: pass token= or set NUNATAK_TOKEN"
+            msg = f"token is required: pass token= or set {_ENV}"
             raise ValueError(msg)
         if max_queue_bytes <= 0:
             msg = f"max_queue_bytes must be positive, got {max_queue_bytes}"

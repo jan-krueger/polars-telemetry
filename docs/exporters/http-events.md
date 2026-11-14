@@ -3,8 +3,8 @@
 `HttpEventExporter` sends the same events the [events exporter](events.md)
 writes to a file, while each query runs, to a server: the query and its plan
 once it has run for a second, a sample of every changed node's counters after
-that, and its full profile when it finishes. [Nunatak](../nunatak/index.md) is
-that server: a dashboard of the queries running now and of every one before.
+that, and its full profile when it finishes. The server is yours: anything
+that accepts the requests under [What it sends](#what-it-sends).
 
 Use it when:
 
@@ -19,7 +19,7 @@ from polars_telemetry.export.http_events import HttpEventExporter
 
 polars_telemetry.install(
     exporter=HttpEventExporter(
-        "http://localhost:7766",
+        "https://events.example.com",
         service="orders-etl",
         environment="prod",
     )
@@ -29,7 +29,7 @@ polars_telemetry.install(
 | Option | Default | Effect |
 | --- | --- | --- |
 | `url` | required | The server. Events are posted to `{url}/v1/events` |
-| `token` | `NUNATAK_TOKEN` | Sent as `Authorization: Bearer <token>`. Without one, the exporter reads the `NUNATAK_TOKEN` environment variable and refuses to start if it is unset |
+| `token` | `POLARS_TELEMETRY_TOKEN` | Sent as `Authorization: Bearer <token>`. Without one, the exporter reads the `POLARS_TELEMETRY_TOKEN` environment variable and refuses to start if it is unset |
 | `service` | `None` | What the process is, such as `"orders-etl"` |
 | `environment` | `None` | Where it runs, such as `"prod"` |
 | `max_queue_bytes` | 16 MiB | Events waiting to be sent beyond this are dropped, progress samples first |
