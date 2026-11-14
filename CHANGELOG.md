@@ -20,6 +20,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   a traceback, and a plan with a cycle made it hang.
 - `polars-telemetry insights` reports a file it cannot open and exits with 2,
   instead of a traceback.
+- The viewer lays out plans too deep for its graph layout (about 2,000 nodes
+  in a chain) instead of leaving the plan pane empty, and its plan tree and
+  "copy as Markdown" stop at 200 levels instead of overflowing the stack. It
+  rejects a document nested more than 64 levels, which a session download or
+  share link could not write back.
 
 ## [0.10.2] - 2026-10-26
 

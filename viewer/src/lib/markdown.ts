@@ -46,6 +46,8 @@ function findings(profile: Profile): string[] {
   ];
 }
 
+const TREE_DEPTH_MAX = 200;
+
 /** Sinks first, inputs below, as Polars prints plans; a node shared by several consumers is expanded once. */
 export function planTree(plan: PlanNode[]): string {
   const byId = new Map(plan.map((n) => [n.id, n]));
@@ -55,11 +57,15 @@ export function planTree(plan: PlanNode[]): string {
   const shown = new Set<number>();
   const lines: { left: string; right: string }[] = [];
 
-  const visit = (node: PlanNode, lead: string, branch: string) => {
+  const visit = (node: PlanNode, lead: string, branch: string, depth: number) => {
     const { variant } = node;
     const name = [variant ? `${node.kind} (${variant})` : node.kind, node.label && clip(node.label, LABEL_MAX)].filter(Boolean).join(" ");
     if (shown.has(node.id)) {
       lines.push({ left: `${lead}${branch}${node.kind} (shared, see above)`, right: "" });
+      return;
+    }
+    if (depth > TREE_DEPTH_MAX) {
+      lines.push({ left: `${lead}${branch}… deeper than ${TREE_DEPTH_MAX} levels, left out`, right: "" });
       return;
     }
     shown.add(node.id);
@@ -74,9 +80,9 @@ export function planTree(plan: PlanNode[]): string {
     lines.push({ left: `${lead}${branch}${name}`, right: facts.join(" · ") });
     const inputs = node.inputs.map((id) => byId.get(id)).filter((n): n is PlanNode => !!n);
     const below = lead + (branch === "├─ " ? "│  " : branch === "└─ " ? "   " : "");
-    inputs.forEach((input, i) => visit(input, below, i === inputs.length - 1 ? "└─ " : "├─ "));
+    inputs.forEach((input, i) => visit(input, below, i === inputs.length - 1 ? "└─ " : "├─ ", depth + 1));
   };
-  roots.forEach((root) => visit(root, "", ""));
+  roots.forEach((root) => visit(root, "", "", 0));
 
   const width = Math.max(0, ...lines.filter((l) => l.right).map((l) => l.left.length));
   return lines.map(({ left, right }) => (right ? `${left.padEnd(width)}  ${right}` : left)).join("\n");

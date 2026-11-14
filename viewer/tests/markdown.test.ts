@@ -33,6 +33,13 @@ describe("plan tree", () => {
     ]);
     expect(lines[3]).toContain("60 ms · 60.0% · 100 rows");
   });
+
+  it("stops expanding a plan deeper than 200 levels", () => {
+    const deep = Array.from({ length: 20000 }, (_, i) => node(i, "Select", i + 1 < 20000 ? [i + 1] : [], 1, 1));
+    const lines = planTree(deep).split("\n");
+    expect(lines).toHaveLength(202);
+    expect(lines.at(-1)).toContain("deeper than 200 levels, left out");
+  });
 });
 
 describe("query as Markdown", () => {

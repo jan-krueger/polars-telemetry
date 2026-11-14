@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { applyView, EDGE_MAX, EDGE_MIN, edgeWidth, extent, focusSteps, shareView, layout, NODE_H, NODE_W, planGraph, stepFor, toFlow, withSelection } from "../src/lib/graph";
+import { applyView, EDGE_MAX, EDGE_MIN, edgeWidth, extent, focusSteps, shareView, layout, NODE_H, NODE_W, planGraph, type Graph, stepFor, toFlow, withSelection } from "../src/lib/graph";
 import { readProfile } from "../src/model/read";
 import type { PlanNode } from "../src/model/profile";
 
@@ -110,6 +110,24 @@ describe("layout", () => {
     const sink = physical.find((n) => n.role === "sink")!;
     const scan = physical.find((n) => n.role === "scan")!;
     expect(positions[String(sink.id)]!.y).toBeLessThan(positions[String(scan.id)]!.y);
+  });
+
+  const chainOf = (n: number): Graph => ({
+    nodes: Array.from({ length: n }, (_, i) => ({ id: String(i), width: NODE_W, height: NODE_H })),
+    edges: Array.from({ length: n - 1 }, (_, i): [string, string] => [String(i), String(i + 1)]),
+    order: [],
+  });
+
+  it("still places a plan too deep for dagre, sinks above sources", () => {
+    const positions = layout(chainOf(5000));
+    expect(Object.keys(positions)).toHaveLength(5000);
+    expect(positions["4999"]!.y).toBeLessThan(positions["0"]!.y);
+  });
+
+  it("places every node of a plan with a cycle", () => {
+    const graph = chainOf(3);
+    graph.edges.push(["2", "0"]);
+    expect(Object.keys(layout(graph)).sort()).toEqual(["0", "1", "2"]);
   });
 });
 

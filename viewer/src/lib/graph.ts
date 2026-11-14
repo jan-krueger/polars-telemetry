@@ -37,10 +37,53 @@ export function planGraph(plan: PlanNode[]): Graph {
   };
 }
 
+const NODE_SEP = 28;
+const RANK_SEP = 46;
+const MARGIN = 16;
+
 /** Sinks on top, as polars prints plans. Returns top-left corners. */
 export function layout(graph: Graph): Positions {
+  try {
+    return dagreLayout(graph);
+  } catch {
+    return layered(graph);
+  }
+}
+
+function layered(graph: Graph): Positions {
+  const consumers = new Map(graph.nodes.map((n) => [n.id, [] as string[]]));
+  const pending = new Map(graph.nodes.map((n) => [n.id, 0]));
+  for (const [source, target] of graph.edges) {
+    consumers.get(source)?.push(target);
+    pending.set(target, (pending.get(target) ?? 0) + 1);
+  }
+  const rank = new Map<string, number>();
+  const queue = graph.nodes.filter((n) => !pending.get(n.id)).map((n) => n.id);
+  for (const id of queue) rank.set(id, 0);
+  for (let k = 0; k < queue.length; k++) {
+    const id = queue[k]!;
+    for (const next of consumers.get(id) ?? []) {
+      rank.set(next, Math.max(rank.get(next) ?? 0, rank.get(id)! + 1));
+      pending.set(next, pending.get(next)! - 1);
+      if (pending.get(next) === 0) queue.push(next);
+    }
+  }
+  let top = 0;
+  for (const r of rank.values()) top = Math.max(top, r);
+  const columns = new Map<number, number>();
+  const positions: Positions = {};
+  for (const n of graph.nodes) {
+    const r = rank.get(n.id) ?? top + 1;
+    const column = columns.get(r) ?? 0;
+    columns.set(r, column + 1);
+    positions[n.id] = { x: MARGIN + column * (NODE_W + NODE_SEP), y: MARGIN + (top + 1 - r) * (NODE_H + RANK_SEP) };
+  }
+  return positions;
+}
+
+function dagreLayout(graph: Graph): Positions {
   const g = new dagre.graphlib.Graph();
-  g.setGraph({ rankdir: "BT", nodesep: 28, ranksep: 46, marginx: 16, marginy: 16 });
+  g.setGraph({ rankdir: "BT", nodesep: NODE_SEP, ranksep: RANK_SEP, marginx: MARGIN, marginy: MARGIN });
   g.setDefaultEdgeLabel(() => ({}));
   for (const n of graph.nodes) g.setNode(n.id, { width: n.width, height: n.height });
   for (const [source, target] of graph.edges) g.setEdge(source, target);

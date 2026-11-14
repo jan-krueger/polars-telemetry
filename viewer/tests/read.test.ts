@@ -34,6 +34,7 @@ describe("readProfile", () => {
     ["another schema", { schema: "x/y@1" }, "not a polars-telemetry profile"],
     ["no plan", { schema: "polars-telemetry/profile@1" }, "no plan"],
     ["a node without inputs", minimal({ plan: { physical: [{ id: 0 }], logical: [] } }), "has no inputs"],
+    ["a document nested too deeply to write back", minimal({ label: JSON.parse("[".repeat(100) + "]".repeat(100)) }), "nested more than 64 levels"],
   ])("refuses %s", (_, raw, problem) => {
     const result = readProfile(raw);
     expect("problem" in result && result.problem).toContain(problem);
