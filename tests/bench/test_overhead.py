@@ -23,10 +23,14 @@ polars = pytest.importorskip("polars")
 import polars_telemetry  # noqa: E402
 from polars_telemetry import Config  # noqa: E402
 
-# Generous enough to survive a noisy CI runner, tight enough to catch a
-# polling-class regression, which measured 5-15%.
+# A fixed cost per query, measured on a short query, where it is most of the
+# overhead. Measured at about 2 ms.
+FIXED_BUDGET_MS = 6.0
+# Overhead that grows with query time, measured on a query long enough for the
+# fixed cost to be noise. A polling-class regression measured 5-15%.
 BUDGET = 0.10
-ROWS = 2_000_000
+SHORT_ROWS = 2_000_000
+LONG_ROWS = 20_000_000
 REPS = 9
 
 
@@ -35,18 +39,22 @@ class _Null:
         return None
 
 
-@pytest.fixture(scope="module")
-def frames():
+def _frames(rows: int):
     pl = polars
-    orders = pl.DataFrame(
-        {
-            "cid": [i % 1000 for i in range(ROWS)],
-            "amount": [float(i % 97) for i in range(ROWS)],
-            "qty": [(i % 5) + 1 for i in range(ROWS)],
-        }
-    )
+    i = pl.int_range(rows, eager=True)
+    orders = pl.DataFrame({"cid": i % 1000, "amount": (i % 97).cast(pl.Float64), "qty": i % 5 + 1})
     customers = pl.DataFrame({"cid": list(range(1000)), "seg": ["a", "b", "c", "d"] * 250})
     return orders, customers
+
+
+@pytest.fixture(scope="module")
+def frames():
+    return _frames(SHORT_ROWS)
+
+
+@pytest.fixture(scope="module")
+def long_frames():
+    return _frames(LONG_ROWS)
 
 
 def _run(frames) -> None:
@@ -70,10 +78,9 @@ def _time(frames) -> float:
     return (time.perf_counter() - start) * 1000
 
 
-def test_overhead_is_within_budget(frames):
+def _interleaved(frames) -> tuple[list[float], list[float]]:
     for _ in range(2):
         _run(frames)
-
     baseline: list[float] = []
     instrumented: list[float] = []
     for _ in range(REPS):
@@ -83,7 +90,22 @@ def test_overhead_is_within_budget(frames):
             instrumented.append(_time(frames))
         finally:
             polars_telemetry.uninstall()
+    return baseline, instrumented
 
+
+def test_the_fixed_cost_per_query_is_within_budget(frames):
+    baseline, instrumented = _interleaved(frames)
+    cost = statistics.median(i - b for i, b in zip(instrumented, baseline, strict=True))
+
+    assert cost < FIXED_BUDGET_MS, (
+        f"instrumentation adds {cost:.2f}ms per query, over the {FIXED_BUDGET_MS:.0f}ms budget "
+        f"(baseline {statistics.median(baseline):.1f}ms). "
+        "Something added per-query work: building, enriching or exporting the profile."
+    )
+
+
+def test_overhead_is_within_budget(long_frames):
+    baseline, instrumented = _interleaved(long_frames)
     base = statistics.median(baseline)
     with_telemetry = statistics.median(instrumented)
     overhead = with_telemetry / base - 1
