@@ -21,12 +21,28 @@ from tests.unit.test_event_schema import EVENT, _problems
 class Stub:
     """A server that answers each request with the next scripted status, 202 once they run out."""
 
-    def __init__(self, *statuses: int | tuple[int, dict[str, str]]) -> None:
+    def __init__(
+        self, *statuses: int | tuple[int, dict[str, str]], keep_alive: bool = False
+    ) -> None:
         self.statuses = list(statuses)
         self.requests: list[dict[str, Any]] = []
+        self.open_connections = 0
+        lock = threading.Lock()
         stub = self
 
         class Handler(BaseHTTPRequestHandler):
+            protocol_version = "HTTP/1.1" if keep_alive else "HTTP/1.0"
+
+            def setup(self) -> None:
+                super().setup()
+                with lock:
+                    stub.open_connections += 1
+
+            def finish(self) -> None:
+                with lock:
+                    stub.open_connections -= 1
+                super().finish()
+
             def do_POST(self) -> None:
                 body = self.rfile.read(int(self.headers["Content-Length"]))
                 lines = gzip.decompress(body).decode().splitlines()
@@ -65,8 +81,8 @@ class Stub:
 def stub():
     servers: list[Stub] = []
 
-    def start(*statuses: int | tuple[int, dict[str, str]]) -> Stub:
-        servers.append(Stub(*statuses))
+    def start(*statuses: int | tuple[int, dict[str, str]], keep_alive: bool = False) -> Stub:
+        servers.append(Stub(*statuses, keep_alive=keep_alive))
         return servers[-1]
 
     yield start
@@ -154,6 +170,16 @@ def test_each_kind_of_problem_is_warned_about_once(stub, caplog):
         exporter.close()
     assert caplog.text.count("answered 503") == 1
     assert caplog.text.count("refused the token") == 1
+
+
+@pytest.mark.parametrize("statuses", [(), (401,)], ids=["closed", "refused"])
+def test_a_kept_alive_connection_is_closed_when_sending_stops(stub, statuses):
+    server = stub(*statuses, keep_alive=True)
+    exporter = HttpEventExporter(server.url, token="t")
+    exporter.export(_query())
+    _until(lambda: len(server.requests) == 1)
+    exporter.close()
+    _until(lambda: server.open_connections == 0)
 
 
 def test_a_batch_too_large_is_split(stub):
