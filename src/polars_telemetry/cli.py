@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import sys
 from collections import Counter
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TextIO
 
-from polars_telemetry.adapter.profiles import Skipped, read_profile, read_profiles
+from polars_telemetry.adapter.profiles import Line, Skipped, read_lines
 from polars_telemetry.model.insights import Finding, evaluate
 from polars_telemetry.model.insights.finding import SCHEMA, duration, share
 
@@ -46,21 +47,44 @@ def _parser() -> argparse.ArgumentParser:
 def _insights(args: argparse.Namespace, out: TextIO) -> int:
     results: list[tuple[Path, Query, tuple[Finding, ...]]] = []
     skipped: list[tuple[Path, Skipped]] = []
-    for path in args.files:
-        for read in read_profiles(path):
-            if isinstance(read, Skipped):
-                skipped.append((path, read))
-            else:
-                results.append((path, read, evaluate(read)))
-    if args.write:
-        _write(args.files, args.write)
+    unreadable = False
+    with contextlib.ExitStack() as stack:
+        written = stack.enter_context(args.write.open("wb")) if args.write else None
+        for path in args.files:
+            try:
+                for line in read_lines(path):
+                    if isinstance(line.read, Skipped):
+                        skipped.append((path, line.read))
+                    elif line.read is not None:
+                        found = evaluate(line.read)
+                        results.append((path, line.read, found))
+                        if line.document is not None and "profile" not in line.document:
+                            line = _with_insights(line, found)
+                    if written is not None and line.raw.strip():
+                        written.write(line.raw + b"\n")
+            except OSError as exc:
+                unreadable = True
+                print(
+                    f"polars-telemetry: cannot read {path}: {exc.strerror or exc}", file=sys.stderr
+                )
     if args.format == "json":
         json.dump([_record(path, query, found) for path, query, found in results], out, indent=1)
         out.write("\n")
     else:
         _text(results, skipped, show_all=args.all, out=out)
+    if unreadable:
+        return 2
     failing = _FAILS.get(args.fail_on or "", set())
     return int(any(f.level in failing for _, _, found in results for f in found))
+
+
+def _with_insights(line: Line, found: tuple[Finding, ...]) -> Line:
+    document = {
+        **(line.document or {}),
+        "insights": {"schema": SCHEMA, "findings": [f.to_dict() for f in found]},
+    }
+    raw = json.dumps(document, separators=(",", ":"), default=str).encode("utf-8")
+    return Line(line.number, raw, document, line.read)
 
 
 def _record(path: Path, query: Query, found: tuple[Finding, ...]) -> dict[str, Any]:
@@ -128,22 +152,6 @@ def _level(finding: Finding) -> str:
     impact = finding.impact
     basis = "wall" if impact.blocked_share > impact.cpu_share else "CPU"
     return f"{finding.level:4} {share(impact.largest):>5} {basis:<4}"
-
-
-def _write(files: Sequence[Path], target: Path) -> None:
-    with target.open("w", encoding="utf-8") as written:
-        for path in files:
-            for line in path.read_text(encoding="utf-8").splitlines():
-                if not line.strip():
-                    continue
-                try:
-                    document = json.loads(line)
-                    found = evaluate(read_profile(document))
-                except (ValueError, KeyError, TypeError):
-                    written.write(line + "\n")
-                    continue
-                document["insights"] = {"schema": SCHEMA, "findings": [f.to_dict() for f in found]}
-                written.write(json.dumps(document, separators=(",", ":"), default=str) + "\n")
 
 
 if __name__ == "__main__":

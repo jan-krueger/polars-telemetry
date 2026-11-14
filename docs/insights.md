@@ -12,7 +12,9 @@ values, and a fix.
 ## From the command line
 
 `polars-telemetry insights` reads the session files the
-[JSONL exporter](exporters/jsonl.md) and `profile()` write, from any version:
+[JSONL exporter](exporters/jsonl.md) and `profile()` write, from any version,
+plain or gzip, and the finished queries of an [event recording](exporters/events.md). A damaged line
+is listed as skipped, with the reason, and the rest of the file is still read:
 
 ```console
 $ polars-telemetry insights nightly.jsonl
@@ -31,8 +33,8 @@ nightly.jsonl · etl/orders  (54 ms wall, 411 ms CPU, 6 nodes)
 | --- | --- |
 | `--all` | List information-level findings too; by default they are counted per rule |
 | `--format json` | A JSON array, one object per query: `file`, `query_id`, `label`, `wall_ms`, `insights` |
-| `--fail-on warn` / `--fail-on info` | Exit with 1 when a finding reaches that level, for CI |
-| `--write OUT` | Write the profiles again with an [`insights` field](exporters/jsonl.md#what-you-get) the [viewer](profile-viewer.md#findings) shows |
+| `--fail-on warn` / `--fail-on info` | Exit with 1 when a finding reaches that level, for CI. A file that cannot be opened exits with 2 |
+| `--write OUT` | Write the profiles again with an [`insights` field](exporters/jsonl.md#what-you-get) the [viewer](profile-viewer.md#findings) shows; other lines are copied unchanged |
 
 ## In your application
 

@@ -15,9 +15,23 @@ const num = (value: unknown, fallback = 0): number =>
 
 const str = (value: unknown, fallback = ""): string => (typeof value === "string" ? value : fallback);
 
+const MAX_DEPTH = 64;
+
+function deeperThan(value: unknown, limit: number): boolean {
+  const stack: [unknown, number][] = [[value, 0]];
+  while (stack.length) {
+    const [item, depth] = stack.pop()!;
+    if (item === null || typeof item !== "object") continue;
+    if (depth >= limit) return true;
+    for (const child of Array.isArray(item) ? item : Object.values(item)) stack.push([child, depth + 1]);
+  }
+  return false;
+}
+
 /** `position` gives a profile without a query_id a stable id. */
 export function readProfile(raw: unknown, position?: number): Read {
   if (!isObject(raw)) return { problem: "not an object" };
+  if (deeperThan(raw, MAX_DEPTH)) return { problem: `nested more than ${MAX_DEPTH} levels deep` };
   const schema = str(raw.schema);
   if (!schema.startsWith(SCHEMA_PREFIX)) return { problem: "not a polars-telemetry profile" };
   const version = Number(schema.slice(SCHEMA_PREFIX.length));

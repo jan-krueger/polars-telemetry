@@ -6,10 +6,26 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- `polars-telemetry insights` reads gzip session files and the finished
+  queries of an event recording.
+
 ### Fixed
 - `HttpEventExporter` closes its connection when it stops sending, after
   `uninstall()` or a refused token. Before, each install left a kept-alive
   socket open to the server.
+- `polars-telemetry insights` skips a damaged line with its reason and reads
+  the rest of the file. Before, a line that was not a JSON object, held a value
+  of the wrong type or out of range, was nested more than 64 levels, or was not
+  UTF-8 stopped the command with a traceback, and a plan with a cycle made it
+  hang.
+- `polars-telemetry insights` reports a file it cannot open and exits with 2,
+  instead of a traceback.
+- The viewer lays out plans too deep for its graph layout (about 2,000 nodes
+  in a chain) instead of leaving the plan pane empty, and its plan tree and
+  "copy as Markdown" stop at 200 levels instead of overflowing the stack. It
+  rejects a document nested more than 64 levels, which a session download or
+  share link could not write back.
 
 ## [0.10.2] - 2026-10-26
 
