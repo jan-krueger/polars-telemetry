@@ -6,6 +6,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+- `HttpEventExporter` closes its connection when it stops sending, after
+  `uninstall()` or a refused token. Before, each install left a kept-alive
+  socket open to the server.
+
 ## [0.10.2] - 2026-10-26
 
 ### Fixed

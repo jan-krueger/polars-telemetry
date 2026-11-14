@@ -7,6 +7,9 @@ tagged `nunatak-vX.Y.Z`, apart from polars-telemetry's.
 
 ## [Unreleased]
 
+### Security
+- The bundled SQLite is updated (libsqlite3-sys 0.39.1, RUSTSEC-2026-0459).
+
 ## [0.1.0] - 2026-10-11
 
 ### Added

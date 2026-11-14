@@ -40,7 +40,7 @@ def _operations(f: Path) -> dict[str, Callable[[], Any]]:
         "with_columns": lambda: lf().with_columns(c=pl.col("a") * 2),
         "rename": lambda: lf().rename({"a": "aa"}),
         "row_index": lambda: lf().with_row_index(),
-        "explode": lambda: lf().explode("l"),
+        "explode": lambda: lf().explode("l", empty_as_null=True),
         "head": lambda: lf().head(2),
         "slice": lambda: lf().slice(1, 2),
         "unique": lambda: lf().unique(),
@@ -57,7 +57,7 @@ def _operations(f: Path) -> dict[str, Callable[[], Any]]:
         "join_where": lambda: lf().join_where(lf(), pl.col("a") < pl.col("a_right")),
         "concat": lambda: pl.concat([lf(), lf()]),
         "concat_horizontal": lambda: pl.concat(
-            [lf().select("a"), lf().select(c="b")], how="horizontal"
+            [lf().select("a"), lf().select(c="b")], how="horizontal_extend"
         ),
         "shift": lambda: lf().shift(1),
         "reverse": lambda: lf().reverse(),

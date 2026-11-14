@@ -22,6 +22,11 @@ nox.options.reuse_existing_virtualenvs = True
 nox.options.sessions = ["lint", "typecheck", "test"]
 
 POLARS_PACKAGES = ["polars", "polars-runtime-32", "polars-runtime-64", "polars-runtime-compat"]
+POLARS_EXEMPT = [
+    arg
+    for package in POLARS_PACKAGES
+    for arg in ("--exclude-newer-package", f"{package}=2099-01-01")
+]
 
 PYTHONS = ["3.10", "3.11", "3.12", "3.13", "3.14"]
 
@@ -73,7 +78,8 @@ def matrix(session: nox.Session, polars: str) -> None:
     """The python x polars grid, each cell isolated."""
     if session.python == "3.10" and tuple(map(int, polars.split(".")[:2])) >= (2, 1):
         session.skip(f"polars {polars} needs Python 3.11 or newer")
-    session.install("-e", ".", f"polars=={polars}", "pytest", "pytest-cov")
+    session.install("-e", ".", "--group", "dev")
+    session.run("uv", "pip", "install", *POLARS_EXEMPT, f"polars=={polars}", external=True)
     session.run("pytest", "-m", DEFAULT_MARKERS, *session.posargs)
 
 
@@ -84,13 +90,15 @@ def canary(session: nox.Session) -> None:
     Lifts the release quarantine for polars and its runtime packages only.
     """
     session.install("-e", ".", "--group", "dev")
-    exempt = [
-        arg
-        for package in POLARS_PACKAGES
-        for arg in ("--exclude-newer-package", f"{package}=2099-01-01")
-    ]
     session.run(
-        "uv", "pip", "install", "--prerelease=allow", *exempt, "--upgrade", "polars", external=True
+        "uv",
+        "pip",
+        "install",
+        "--prerelease=allow",
+        *POLARS_EXEMPT,
+        "--upgrade",
+        "polars",
+        external=True,
     )
     installed = session.run(
         "python", "-c", "import importlib.metadata as m; print(m.version('polars'))", silent=True

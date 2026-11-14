@@ -14,6 +14,7 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[1]
 CACHE = ROOT / "target" / "crate-dates.json"
 MIN_AGE = timedelta(days=7)
+EXEMPT = {("rusqlite_migration", "2.7.0")}
 AGENT = "polars-telemetry nunatak crate-age check (https://github.com/jan-krueger/polars-telemetry)"
 
 _last = 0.0
@@ -51,7 +52,11 @@ def check() -> int:
     cache = _cache()
     cutoff = datetime.now(UTC) - MIN_AGE
     young = []
-    registry = [p for p in lock["package"] if p.get("source", "").startswith("registry+")]
+    registry = [
+        p
+        for p in lock["package"]
+        if p.get("source", "").startswith("registry+") and (p["name"], p["version"]) not in EXEMPT
+    ]
     try:
         for package in registry:
             when = published(package["name"], package["version"], cache)

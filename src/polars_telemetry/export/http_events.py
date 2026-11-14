@@ -152,6 +152,12 @@ class HttpEventExporter:
             self.dropped += 1
 
     def _run(self) -> None:
+        try:
+            self._loop()
+        finally:
+            self._reset()
+
+    def _loop(self) -> None:
         backoff = _BACKOFF_FIRST
         while True:
             batch = self._next_batch()
