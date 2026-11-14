@@ -119,10 +119,10 @@ def test_a_query_is_sent_as_one_stream_of_valid_events(stub):
 
 def test_a_url_with_a_path_keeps_it(stub):
     server = stub()
-    exporter = HttpEventExporter(f"{server.url}/nunatak/", token="t")
+    exporter = HttpEventExporter(f"{server.url}/events/", token="t")
     exporter.export(_query())
     exporter.close()
-    assert server.requests[0]["path"] == "/nunatak/v1/events"
+    assert server.requests[0]["path"] == "/events/v1/events"
 
 
 def test_progress_waits_for_a_batch_and_goes_out_within_its_window(stub, monkeypatch):
@@ -223,17 +223,29 @@ def test_the_url_must_be_http_with_a_host(url):
         HttpEventExporter(url, token="t")
 
 
-def test_the_token_comes_from_the_environment_when_not_given(stub, monkeypatch):
+@pytest.mark.parametrize(
+    ("variables", "sent"),
+    [
+        ({"POLARS_TELEMETRY_TOKEN": "from-env"}, "from-env"),
+        ({"NUNATAK_TOKEN": "old-name"}, "old-name"),
+        ({"POLARS_TELEMETRY_TOKEN": "from-env", "NUNATAK_TOKEN": "old-name"}, "from-env"),
+    ],
+)
+def test_the_token_comes_from_the_environment_when_not_given(stub, monkeypatch, variables, sent):
+    monkeypatch.delenv("POLARS_TELEMETRY_TOKEN", raising=False)
+    monkeypatch.delenv("NUNATAK_TOKEN", raising=False)
+    for name, value in variables.items():
+        monkeypatch.setenv(name, value)
     server = stub()
-    monkeypatch.setenv("NUNATAK_TOKEN", "from-env")
     exporter = HttpEventExporter(server.url)
     exporter.export(_query())
     exporter.close()
-    assert server.requests[0]["headers"]["Authorization"] == "Bearer from-env"
+    assert server.requests[0]["headers"]["Authorization"] == f"Bearer {sent}"
 
 
 @pytest.mark.parametrize("token", [None, ""])
 def test_without_a_token_the_exporter_says_how_to_give_one(token, monkeypatch):
+    monkeypatch.delenv("POLARS_TELEMETRY_TOKEN", raising=False)
     monkeypatch.delenv("NUNATAK_TOKEN", raising=False)
-    with pytest.raises(ValueError, match="NUNATAK_TOKEN"):
-        HttpEventExporter("http://localhost:7766", token=token)
+    with pytest.raises(ValueError, match="POLARS_TELEMETRY_TOKEN"):
+        HttpEventExporter("https://events.example.com", token=token)

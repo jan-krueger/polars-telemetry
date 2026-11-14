@@ -8,9 +8,7 @@
     "dev": "vite",
     "test": "vitest run",
     "check-css": "node scripts/check-css.mjs",
-    "typecheck": "tsc --noEmit",
-    "dev:nunatak": "vite --config vite.nunatak.config.ts",
-    "build:nunatak": "vite build --config vite.nunatak.config.ts"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@dagrejs/dagre": "^3.1.3",
