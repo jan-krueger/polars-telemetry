@@ -2,16 +2,20 @@
 
 ## The hook
 
-Polars imports the module of Polars Nanook (formerly Polars Cloud), reads
-`QueryCloudObserver` from it **by name** and duck-types the result without
-checking its type. This package supplies that name. The module is
-`polars_cloud` up to Polars 2.1 and `polars_nanook` after; it is bound under
-whichever name Polars resolved.
+Polars looks up `QueryCloudObserver` **by name** in the Polars Nanook module
+(formerly Polars Cloud) and duck-types what it gets.
 
-If the real `polars-nanook` or `polars-cloud` is installed, its factory is kept
-and forwarded to.
-Otherwise a module is registered under that name in `sys.modules`. No
-distribution under either name is published; it would collide with theirs.
+| | Module |
+| --- | --- |
+| Polars 2.1 and older | `polars_cloud` |
+| Newer Polars | `polars_nanook` |
+
+| `polars-nanook` or `polars-cloud` | polars-telemetry |
+| --- | --- |
+| installed | keeps its factory and forwards every callback to it |
+| not installed | registers a stand-in module under that name in `sys.modules` |
+
+No package under either name is published; it would collide with theirs.
 
 The protocol, checked against every Polars version in CI by `tests/contract`:
 
@@ -24,47 +28,48 @@ observer.on_query_failed(...)
 guard.close()
 ```
 
-`ir` and `phys` are MessagePack plans. `handle` has exactly one public method,
-`snapshot_query_metrics()`, returning MessagePack per-node counters keyed by
-`phys_node_key` — the same ids as the physical plan, so metrics attribute to
-nodes without any name matching.
+- `ir`, `phys`: the logical and physical plan, as MessagePack.
+- `handle.snapshot_query_metrics()`: MessagePack counters per node, keyed by
+  `phys_node_key`, the physical plan's node ids. No name matching.
 
 ## Failure isolation
 
-No instrumentation error surfaces as an exception in your query. Every
-callback is wrapped: errors are counted, each distinct one logged once, and
-past a threshold the hook disarms itself for the rest of the process.
+- Every callback is wrapped: an error in polars-telemetry never reaches your
+  query.
+- Each distinct error is logged once. After 5, the hook disarms for the rest of
+  the process:
 
-```text
-polars-telemetry: disabling observer after 5 errors. Queries are unaffected.
-```
+  ```text
+  polars-telemetry: disabling observer after 5 errors. Queries are unaffected.
+  ```
 
-`on_query_planned` always returns a guard, even when it failed internally,
-because Polars calls `close()` on whatever it returns.
+- `on_query_planned` returns a guard even when it failed, because Polars calls
+  `close()` on whatever it returns.
 
 ## Why there are no per-node spans
 
-Polars' counters are cumulative, and no field of a metrics record is a
-timestamp. A node interval could only be *sampled*:
+Polars' counters are cumulative and carry no timestamps, so node intervals could
+only be sampled:
 
-| Sampling interval | Cost (share of query wall time) |
+| Sampling interval | Cost, share of wall time |
 | --- | --- |
 | 25 ms | 4.7% |
 | 5 ms | 15.1% |
 
-Sampling also resolves poorly: on a 48 ms query sampled at 5 ms, eight of
-eleven nodes collapsed onto two identical windows.
-
-Read once at query end, the counters are exact and cost nothing measurable.
-If Polars exposes per-node timestamps, node spans become exact and free, and
-they go back in.
+At 5 ms, 8 of the 11 nodes of a 48 ms query fell onto 2 identical windows.
+Counters read once at query end are exact and cost nothing measurable. Node
+spans return if Polars exposes per-node timestamps.
 
 ## Overhead
 
-With a no-op exporter, the instrumentation stays below measurement noise on a
-3M-row join and aggregation, interleaved against an uninstrumented run on the
-same engine. A nightly workflow runs this bench
-(`tests/bench/test_overhead.py`) and fails when it is over budget.
+Measured nightly by `tests/bench/test_overhead.py`: no-op exporter, streaming
+engine, interleaved with uninstrumented runs.
 
-Exporters add their own cost, on the thread that ran the query; each
-[exporter's page](../exporters/index.md) states it.
+| | Budget | Measured |
+| --- | --- | --- |
+| Fixed cost per query, 2M-row join and aggregation | under 6 ms | about 1.5 ms |
+| Share of wall time, 20M-row query | under 10% | about 1.5% |
+
+The fixed cost is the profile, traits, findings and masking built when a query
+ends, on the thread that ran it. Exporters add their own cost; each
+[exporter's page](../exporters/index.md) says where it runs.
