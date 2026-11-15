@@ -85,3 +85,17 @@ def test_the_parent_survives_a_profile_written_and_read_back():
     assert document["parent_query_id"] == str(inner.parent_query_id)
     assert read_profile(document).parent_query_id == inner.parent_query_id
     assert "parent_query_id" not in build_profile(session.queries[-1])
+
+
+def test_map_elements_on_the_in_memory_engine_links_each_inner_query():
+    def per_row(value):
+        _small()
+        return value
+
+    with polars_telemetry.profile() as session:
+        polars.LazyFrame({"a": [1, 2, 3]}).with_columns(
+            polars.col("a").map_elements(per_row, return_dtype=polars.Int64)
+        ).collect(engine="in-memory")
+    *inner, outer = session.queries
+    assert len(inner) == 3
+    assert {q.parent_query_id for q in inner} == {outer.query_id}

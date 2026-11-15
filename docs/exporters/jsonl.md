@@ -50,7 +50,7 @@ mid-write still reads up to the last complete line.
 | `schema` | The format and its version; readers check it |
 | `polars_version`, `polars_telemetry_version` | What produced it; Polars' counters change independently of the format |
 | `label` | From [`label()`](../labels.md), else `null` |
-| `parent_query_id` | The query this one ran inside, when Polars code runs in a Python UDF such as `map_batches`. Absent otherwise |
+| `parent_query_id` | The query this one ran inside, when Polars code runs in a Python UDF on the thread that called `collect()`: `map_batches`, or any UDF on the in-memory engine. On the streaming engine `map_elements` runs on Polars' own threads, and the queries it runs have no parent. Absent otherwise |
 | `fingerprint` | The plan's shape, without literals: equal for runs of the same query |
 | `wall_ms`, `planning_ms`, `telemetry_ms`, `cpu_ms` | Wall time; of it, Polars' planning and this package's own work before execution; node CPU |
 | `call_site` | The file, line and function that ran the query, else `null` |

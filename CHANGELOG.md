@@ -11,10 +11,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   nodes over the same rows.
 - Rule `filter_after_scan`: a filter keeping at most 10% of its rows after a
   `cast` or a horizontal concat that stops Polars pushing it into the scan.
-- A query run inside another query's Python UDF, such as `map_batches`,
-  records that query as `parent_query_id`, in profiles and events. The viewer
-  lists it under that query, and `polars-telemetry insights` says which query
-  it ran inside.
+- A query run inside another query's Python UDF records that query as
+  `parent_query_id`, in profiles and events, when the UDF runs on the thread
+  that called `collect()`: `map_batches`, or any UDF on the in-memory engine.
+  The viewer lists it under that query, and `polars-telemetry insights` says
+  which query it ran inside.
 
 ### Changed
 - Better fixes, each checked on Polars 1.44 and 2.1: `exploding_join` suggests
