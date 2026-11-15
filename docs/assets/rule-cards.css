@@ -1,0 +1,63 @@
+.md-typeset .rule-card {
+  display: grid;
+  grid-template-columns: 8.2rem 1fr;
+  margin: 0.8em 0 2em;
+  padding: 0.2rem 1.1rem;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.4rem;
+  background: var(--md-default-bg-color);
+}
+
+.md-typeset .rule-card > .rule-label,
+.md-typeset .rule-card > .rule-body {
+  padding: 0.75em 0;
+  border-top: 1px solid var(--md-default-fg-color--lightest);
+}
+
+.md-typeset .rule-card > .rule-label:first-child,
+.md-typeset .rule-card > .rule-label:first-child + .rule-body {
+  border-top: 0;
+}
+
+.md-typeset .rule-card > .rule-label {
+  padding-right: 1.2rem;
+  padding-top: calc(0.75em + 0.1rem);
+  color: var(--md-default-fg-color--light);
+  font-size: 0.68rem;
+  line-height: 1.6;
+}
+
+.md-typeset .rule-card > .rule-body > :first-child {
+  margin-top: 0;
+}
+
+.md-typeset .rule-card > .rule-body > :last-child {
+  margin-bottom: 0;
+}
+
+.md-typeset .rule-card > .rule-body ul {
+  margin-left: 1em;
+}
+
+.md-typeset .rule-card > .rule-label.rule-measured {
+  color: var(--md-primary-fg-color);
+}
+
+.md-typeset .rule-card > .rule-body.rule-measured {
+  font-variant-numeric: tabular-nums;
+}
+
+@media screen and (max-width: 44.9375em) {
+  .md-typeset .rule-card {
+    grid-template-columns: 1fr;
+  }
+
+  .md-typeset .rule-card > .rule-label {
+    padding-bottom: 0;
+  }
+
+  .md-typeset .rule-card > .rule-body {
+    border-top: 0;
+    padding-top: 0.2em;
+  }
+}

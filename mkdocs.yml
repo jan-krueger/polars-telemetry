@@ -53,6 +53,12 @@ nav:
       - How it works: internals/how-it-works.md
       - Compatibility: internals/compatibility.md
 
+hooks:
+  - docs_hooks/rule_cards.py
+
+extra_css:
+  - assets/rule-cards.css
+
 plugins:
   - search
   - mkdocstrings:
@@ -77,6 +83,7 @@ plugins:
 
 markdown_extensions:
   - admonition
+  - md_in_html
   - pymdownx.details
   - pymdownx.superfences
   - tables
