@@ -150,11 +150,11 @@ class NodeTraits:
     string_calls: tuple[CallCount, ...] = ()
     """Distinct calls per function and input: polars computes a repeated call once."""
     plugin_calls: tuple[CallCount, ...] = ()
+    """Keyed by the whole call, input and arguments included: a count above one is
+    the same computation repeated."""
     replace_runs: tuple[ReplaceRun, ...] = ()
     plugins_shared: bool = False
     """The polars that ran it shares repeated plugin calls unless a plugin opts out."""
-    """Keyed by the whole call, input and arguments included: a count above one is
-    the same computation repeated."""
     reorders_joins: bool = False
     """The polars that ran it may reorder joins; `QueryOptFlags(join_order=False)` stops it."""
     columns_read: tuple[str, ...] = ()
