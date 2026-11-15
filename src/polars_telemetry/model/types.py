@@ -301,6 +301,8 @@ class Query:
     query_metrics: dict[str, int] | None = None
     """polars' query-level counters as sent, such as IO time in flight across all
     nodes; None when polars sends none."""
+    parent_query_id: UUID | None = None
+    """The query this one ran inside, from a Python UDF of that query."""
 
     @property
     def cpu_ms(self) -> float:

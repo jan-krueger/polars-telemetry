@@ -99,6 +99,7 @@ def read_profile(document: object) -> Query:
         planning_ms=_number(document.get("planning_ms")),
         telemetry_ms=_number(document.get("telemetry_ms")),
         query_metrics=_query_metrics(document.get("query_metrics")),
+        parent_query_id=_uuid(document.get("parent_query_id")),
     )
 
 
@@ -275,6 +276,15 @@ def _call_site(site: object) -> CallSite | None:
     if not isinstance(filepath, str) or lineno is None or not isinstance(function, str):
         return None
     return CallSite(filepath, lineno, function)
+
+
+def _uuid(value: object) -> UUID | None:
+    if not isinstance(value, str):
+        return None
+    try:
+        return UUID(value)
+    except ValueError:
+        return None
 
 
 def _text(value: object) -> str:

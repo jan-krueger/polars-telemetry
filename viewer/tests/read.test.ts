@@ -18,6 +18,12 @@ const read = (raw: unknown): Profile => {
 };
 
 describe("readProfile", () => {
+  it("reads the query a query ran inside, and ignores one that is not text", () => {
+    expect(read(minimal({ parent_query_id: "p-1" })).parent_query_id).toBe("p-1");
+    expect(read(minimal({ parent_query_id: 7 })).parent_query_id).toBeNull();
+    expect(read(minimal()).parent_query_id).toBeNull();
+  });
+
   it("reads the exporter's own output", () => {
     const profile = read(fixture);
     expect(profile.plan.physical.length).toBeGreaterThan(0);

@@ -6,6 +6,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- A query run inside another query's Python UDF, such as `map_batches`,
+  records that query as `parent_query_id`, in profiles and events. The viewer
+  lists it under that query, and `polars-telemetry insights` says which query
+  it ran inside.
+
 ### Changed
 - The work at the end of each query costs about a fifth less: plan traits
   are read with fewer copies, and fingerprints of a repeated query shape reuse

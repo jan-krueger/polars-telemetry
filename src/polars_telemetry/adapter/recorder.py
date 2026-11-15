@@ -68,6 +68,38 @@ class Follow:
     progress: Callable[[Progress], None]
 
 
+class _Nesting:
+    """The queries running on each thread, innermost last.
+
+    Polars runs a Python UDF on the thread that called `collect()`, so a query
+    that starts while another runs on its thread runs inside that one.
+    """
+
+    __slots__ = ("_lock", "_running")
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._running: dict[int, list[UUID]] = {}
+
+    def enter(self, thread: int, query_id: UUID) -> UUID | None:
+        with self._lock:
+            running = self._running.setdefault(thread, [])
+            parent = running[-1] if running else None
+            running.append(query_id)
+            return parent
+
+    def leave(self, thread: int, query_id: UUID) -> None:
+        with self._lock:
+            running = self._running.get(thread)
+            if running and query_id in running:
+                running.remove(query_id)
+                if not running:
+                    del self._running[thread]
+
+
+_NESTING = _Nesting()
+
+
 @dataclass(slots=True)
 class _Run:
     """One query in flight: what its start and plan delivered so far."""
@@ -83,6 +115,8 @@ class _Run:
     handle: MetricsHandle | None = None
     planning_ms: float | None = None
     telemetry_ms: float | None = None
+    thread: int = 0
+    parent_query_id: UUID | None = None
 
 
 class QueryRecorder:
@@ -129,9 +163,11 @@ class QueryRecorder:
             started_unix_ns=time.time_ns(),
             call_site=caller() if self._config.call_site else None,
             label=current_label(),
+            thread=threading.get_ident(),
         )
+        run.parent_query_id = _NESTING.enter(run.thread, query_id)
         with self._lock:
-            self._runs[threading.get_ident()] = run
+            self._runs[run.thread] = run
 
     def planned(self, query_id: UUID, ir_plan: bytes, physical_plan: bytes, handle: Any) -> None:
         arrived = time.perf_counter()
@@ -183,6 +219,8 @@ class QueryRecorder:
     def release(self) -> None:
         """Stop following the query without exporting it, once recording has been switched off."""
         run = self._current(finishing=True)
+        if run is not None:
+            _NESTING.leave(run.thread, run.query_id)
         if run is not None and run.handle is not None:
             SAMPLER.unwatch(run.query_id)
 
@@ -203,6 +241,8 @@ class QueryRecorder:
     def _finish(self, failure: str | None) -> None:
         # polars can deliver both a failure and a close; the first one wins.
         run = self._current(finishing=True)
+        if run is not None:
+            _NESTING.leave(run.thread, run.query_id)
         if run is None or run.started == 0.0:
             return
         wall_ms = (time.perf_counter() - run.started) * 1000
@@ -252,4 +292,5 @@ def _query(
         planning_ms=run.planning_ms,
         telemetry_ms=run.telemetry_ms,
         query_metrics=query_metrics,
+        parent_query_id=run.parent_query_id,
     )

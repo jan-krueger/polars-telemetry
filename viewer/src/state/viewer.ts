@@ -209,6 +209,8 @@ export function hottest(profile: Profile): NodeRef | null {
 export interface ShapeRow {
   fingerprint: string;
   runs: Profile[];
+  /** Queries run inside each of `runs`, by its query_id; listed under it, not as rows of their own. */
+  inner: Map<string, Profile[]>;
   wallMs: number;
   cpuMs: number;
   /** By first run's start, 1-based. */
@@ -216,13 +218,36 @@ export interface ShapeRow {
 }
 
 export function shapes(profiles: Profile[]): ShapeRow[] {
+  const ids = new Set(profiles.map((p) => p.query_id));
+  const outer = new Map<string, string>();
+  for (const p of profiles) if (p.parent_query_id && ids.has(p.parent_query_id)) outer.set(p.query_id, p.parent_query_id);
+  const outermost = (p: Profile): string | null => {
+    const seen = new Set([p.query_id]);
+    let top: string | null = null;
+    for (let id = outer.get(p.query_id); id !== undefined; id = outer.get(id)) {
+      if (seen.has(id)) return null;
+      seen.add(id);
+      top = id;
+    }
+    return top;
+  };
+  const inside = new Map<string, Profile[]>();
   const byShape = new Map<string, ShapeRow>();
   for (const p of profiles) {
-    const row = byShape.get(p.fingerprint) ?? { fingerprint: p.fingerprint, runs: [], wallMs: 0, cpuMs: 0, order: 0 };
+    const parent = outermost(p);
+    if (parent) {
+      (inside.get(parent) ?? inside.set(parent, []).get(parent)!).push(p);
+      continue;
+    }
+    const row: ShapeRow = byShape.get(p.fingerprint) ?? { fingerprint: p.fingerprint, runs: [], inner: new Map(), wallMs: 0, cpuMs: 0, order: 0 };
     row.runs.push(p);
     row.wallMs += p.wall_ms;
     row.cpuMs += p.cpu_ms;
     byShape.set(p.fingerprint, row);
+  }
+  for (const row of byShape.values()) for (const run of row.runs) {
+    const children = inside.get(run.query_id);
+    if (children) row.inner.set(run.query_id, children);
   }
   // Session order where a start time is missing.
   const start = (row: ShapeRow) => Math.min(...row.runs.map((p) => p.started_unix_ns || Infinity));

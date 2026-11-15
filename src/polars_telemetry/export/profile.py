@@ -116,6 +116,8 @@ def build_profile(query: Query, *, diagnostics: Diagnostics | None = None) -> di
     }
     if query.query_metrics is not None:
         document["query_metrics"] = dict(query.query_metrics)
+    if query.parent_query_id is not None:
+        document["parent_query_id"] = str(query.parent_query_id)
     if query.insights is not None:
         document["insights"] = {
             "schema": INSIGHTS_SCHEMA,

@@ -32,7 +32,7 @@ nightly.jsonl · etl/orders  (54 ms wall, 411 ms CPU, 6 nodes)
 | Option | Effect |
 | --- | --- |
 | `--all` | List information-level findings too; by default they are counted per rule |
-| `--format json` | A JSON array, one object per query: `file`, `query_id`, `label`, `wall_ms`, `insights` |
+| `--format json` | A JSON array, one object per query: `file`, `query_id`, `label`, `parent_query_id`, `wall_ms`, `insights` |
 | `--fail-on warn` / `--fail-on info` | Exit with 1 when a finding reaches that level, for CI. A file that cannot be opened exits with 2 |
 | `--write OUT` | Write the profiles again with an [`insights` field](exporters/jsonl.md#what-you-get) the [viewer](profile-viewer.md#findings) shows; other lines are copied unchanged |
 
