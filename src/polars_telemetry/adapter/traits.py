@@ -14,6 +14,8 @@ import re
 from typing import TYPE_CHECKING
 
 from polars_telemetry.adapter.dialect import (
+    ALIGNS_BY_POSITION,
+    CASTS,
     DEDUPLICATING,
     GROUPING,
     IN_MEMORY_FALLBACK,
@@ -70,9 +72,14 @@ def traits(
     strings: dict[tuple[str, str], set[str]] = {}
     plugins: dict[tuple[str, str], int] = {}
     runs: list[ReplaceRun] = []
+    read: set[str] = set()
+    cast: set[str] = set()
     for text in texts:
         for column, steps in _chains(text):
             target = token(column)
+            read.add(target)
+            if steps and steps[0][0] in CASTS:
+                cast.add(target)
             runs.extend(_replace_runs(target, steps))
             for step, call, _ in steps:
                 if step.startswith("plugin:"):
@@ -93,6 +100,9 @@ def traits(
         replace_runs=tuple(runs),
         plugins_shared=plugins_shared,
         reorders_joins=reorders_joins,
+        columns_read=tuple(sorted(read)),
+        columns_cast=tuple(sorted(cast)),
+        aligns_by_position=kind in ALIGNS_BY_POSITION,
     )
 
 

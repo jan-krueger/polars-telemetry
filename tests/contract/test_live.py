@@ -196,7 +196,7 @@ def test_every_api_a_fix_names_exists_in_this_polars() -> None:
     quoted = {q for f in rules.glob("*.py") for q in re.findall(r"`([^`]+)`", f.read_text())}
     names = {n for q in quoted for n in re.findall(r"(?:^|[./])([a-z_]+)(?=\(|$|/)", q)}
     names -= {"a", "b", "keys"}
-    places = (pl.LazyFrame, pl.col("a"), pl.col("a").str)
+    places = (pl, pl.LazyFrame, pl.col("a"), pl.col("a").str)
     missing = sorted(n for n in names if not any(hasattr(p, n) for p in places))
     assert names
     assert missing == []

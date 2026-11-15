@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 from polars_telemetry.model.insights.rules.cross_join import CrossJoin
 from polars_telemetry.model.insights.rules.datetime_format_inferred import DatetimeFormatInferred
 from polars_telemetry.model.insights.rules.exploding_join import ExplodingJoin
+from polars_telemetry.model.insights.rules.filter_after_scan import FilterAfterScan
 from polars_telemetry.model.insights.rules.in_memory_fallback import InMemoryFallback
 from polars_telemetry.model.insights.rules.python_udf import PythonUdf
 from polars_telemetry.model.insights.rules.redundant_aggregation import RedundantAggregation
@@ -27,4 +28,5 @@ RULES: tuple[Rule[Any], ...] = (
     DatetimeFormatInferred(),
     RepeatedSubplan(),
     RepeatedPluginCall(),
+    FilterAfterScan(),
 )

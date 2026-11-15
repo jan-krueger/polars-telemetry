@@ -157,6 +157,12 @@ class NodeTraits:
     the same computation repeated."""
     reorders_joins: bool = False
     """The polars that ran it may reorder joins; `QueryOptFlags(join_order=False)` stops it."""
+    columns_read: tuple[str, ...] = ()
+    """Tokens of the columns its expressions read."""
+    columns_cast: tuple[str, ...] = ()
+    """Tokens of the columns an expression of it casts as its first step."""
+    aligns_by_position: bool = False
+    """Puts its inputs' rows side by side by position, as a horizontal concat does."""
 
 
 @dataclass(frozen=True, slots=True)

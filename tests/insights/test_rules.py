@@ -286,3 +286,53 @@ class TestRepeatedPluginCall:
         other = 'col("w").lib/mylib.so:fold()'
         plan = Plan().node(1, "MultiScan").node(2, "Select", (1,), selectors=[self.CALL, other])
         assert found(plan, "repeated_plugin_call") == []
+
+
+class TestFilterAfterScan:
+    CAST = 'col("a").strict_cast(UInt64)'
+
+    def cast_then_filter(
+        self, *, kept: int, cast: str = CAST, predicate: str = '(col("a") > 990)'
+    ) -> Plan:
+        return (
+            Plan()
+            .node(1, "MultiScan", rows=100_000, ms=40, scan_type="parquet")
+            .node(2, "Select", (1,), rows=100_000, rows_in=100_000, ms=20, selectors=[cast])
+            .node(3, "Filter", (2,), rows=kept, rows_in=100_000, ms=5, predicate=predicate)
+        )
+
+    def test_a_cast_the_filter_reads_is_named_with_its_fix(self):
+        (finding,) = found(self.cast_then_filter(kept=900), "filter_after_scan")
+        assert finding.title == "Filter keeps 0.9% after a `cast` Polars cannot push it past"
+        assert finding.fix.startswith("filter before the `cast`, on the stored type")
+        assert numbers(finding) == {"rows_in": 100_000, "kept": 0.009}
+        assert round(finding.impact.cpu_share, 3) == round(60 / 65 * 0.991, 3)
+
+    def test_a_filter_that_keeps_much_or_reads_another_column_stays_quiet(self):
+        assert found(self.cast_then_filter(kept=50_000), "filter_after_scan") == []
+        other = self.cast_then_filter(kept=900, cast='col("b").strict_cast(UInt64)')
+        assert found(other, "filter_after_scan") == []
+
+    def test_a_horizontal_concat_of_separate_frames_is_named_with_its_fix(self):
+        plan = (
+            Plan()
+            .node(1, "MultiScan", rows=100_000, ms=40, scan_type="parquet")
+            .node(2, "InMemorySource", rows=100_000)
+            .node(3, "Zip", (1, 2), rows=100_000, rows_in=200_000)
+            .node(4, "SimpleProjection", (3,), rows=100_000, rows_in=100_000, columns=["a", "D"])
+            .node(5, "Filter", (4,), rows=100, rows_in=100_000, predicate='(col("a") == 42)')
+        )
+        (finding,) = found(plan, "filter_after_scan")
+        assert "horizontal concat" in finding.title
+        assert "`with_row_index` and a `join`" in finding.fix
+
+    def test_columns_of_one_select_zipped_together_are_no_concat(self):
+        plan = (
+            Plan()
+            .node(1, "MultiScan", rows=100_000, ms=40, scan_type="parquet")
+            .node(2, "Multiplexer", (1,), rows=200_000)
+            .node(3, "CumAgg", (2,), rows=100_000)
+            .node(4, "Zip", (2, 3), rows=100_000, rows_in=200_000)
+            .node(5, "Filter", (4,), rows=100, rows_in=100_000, predicate='(col("c") < 5)')
+        )
+        assert found(plan, "filter_after_scan") == []

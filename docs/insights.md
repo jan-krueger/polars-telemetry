@@ -148,6 +148,20 @@ call, which `plugin_calls` counts (see [`repeated_plugin_call`](#repeated_plugin
 It fires mostly for an expression that one `select` uses for several outputs:
 compute it once as a column with `with_columns` and refer to that column.
 
+### `filter_after_scan`
+
+A filter that keeps at most 10% of its rows, which Polars cannot push into the
+scan for one of two reasons, so the scan reads every row first:
+
+- **A `cast` of a column the filter reads.** Polars keeps the cast before the
+  filter, as the cast could fail on rows the filter would drop. Filter on the
+  stored type first, such as `bin.contains` on a `Binary` column instead of
+  `str.contains` after casting it to `String`: 2.4x faster on ClickBench's
+  `MobilePhoneModel` filter and 3.7x on its `URL` filter.
+- **A horizontal concat.** `concat(how="horizontal")` lines rows up by
+  position, so filtering one side first would change the result. Add the
+  columns with `with_row_index` on both frames and a `join` on it instead.
+
 ### `repeated_plugin_call`
 
 The same plugin call, on the same input with the same arguments, more than once

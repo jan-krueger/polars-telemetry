@@ -23,6 +23,7 @@ class Plan:
         inputs: tuple[int, ...] = (),
         *,
         rows: int = 0,
+        rows_in: int = 0,
         ms: float = 0.0,
         blocked_ms: float = 0.0,
         **properties: Any,
@@ -34,6 +35,7 @@ class Plan:
             {
                 "phys_node_key": node_id,
                 "rows_sent": rows,
+                "rows_received": rows_in,
                 "total_time_ns": int(ms * 1e6),
                 "max_state_update_time_ns": int(blocked_ms * 1e6),
                 "done": True,

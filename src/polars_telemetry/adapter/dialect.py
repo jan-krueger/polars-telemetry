@@ -115,6 +115,8 @@ IN_MEMORY_FALLBACK = frozenset(
 )
 INFERS_DATETIME_FORMAT = "StrptimeInfer"
 PYTHON_FORMAT = "OPAQUE_PYTHON"
+ALIGNS_BY_POSITION = frozenset({"Zip"})
+CASTS = frozenset({"cast", "strict_cast"})
 
 
 def shares_plugin_calls(polars_version: str) -> bool:
