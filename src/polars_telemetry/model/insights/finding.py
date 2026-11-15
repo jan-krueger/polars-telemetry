@@ -110,6 +110,8 @@ class Finding:
     title: str
     fix: str
     evidence: tuple[Measure, ...] = ()
+    node_ids: tuple[int, ...] = ()
+    """Every node the finding covers, when one finding stands for the same finding on several."""
 
     @classmethod
     def from_dict(cls, values: dict[str, Any]) -> Finding:
@@ -123,6 +125,7 @@ class Finding:
             title=str(values["title"]),
             fix=str(values.get("fix") or ""),
             evidence=tuple(Measure.from_dict(m) for m in values.get("evidence") or []),
+            node_ids=tuple(int(i) for i in values.get("node_ids") or ()),
         )
 
     def to_dict(self) -> dict[str, object]:
@@ -137,4 +140,5 @@ class Finding:
             "title": self.title,
             "fix": self.fix,
             "evidence": [m.to_dict() for m in self.evidence],
+            **({"node_ids": list(self.node_ids)} if self.node_ids else {}),
         }

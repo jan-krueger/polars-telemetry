@@ -13,6 +13,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   it ran inside.
 
 ### Changed
+- The same finding on several nodes is one finding, with their summed impact
+  and every node in `node_ids`: a step repeated for 200 columns is one warning
+  instead of 200 findings of information.
 - Polars Cloud is called by its new name, Polars Nanook, in the docs and in
   log messages; its page moved to `polars-nanook/`, and the old address
   redirects there.

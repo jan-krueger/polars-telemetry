@@ -244,6 +244,7 @@ function readInsights(raw: unknown): Finding[] | null {
       kind: f.kind === "applied" ? "applied" : "problem",
       level: f.level as FindingLevel,
       node_id: f.node_id as number,
+      node_ids: nodeIds(f.node_ids, f.node_id as number),
       node_kind: str(f.node_kind),
       cpu_share: num(f.cpu_share),
       blocked_share: num(f.blocked_share),
@@ -252,6 +253,11 @@ function readInsights(raw: unknown): Finding[] | null {
       evidence: Array.isArray(f.evidence) ? f.evidence.flatMap(readMeasure) : [],
     }];
   });
+}
+
+function nodeIds(value: unknown, node: number): number[] {
+  const ids = Array.isArray(value) ? value.filter((i): i is number => Number.isFinite(i)) : [];
+  return ids.includes(node) ? ids : [node, ...ids];
 }
 
 const UNITS: readonly Measure["unit"][] = ["rows", "count", "ms", "share", "ratio"];

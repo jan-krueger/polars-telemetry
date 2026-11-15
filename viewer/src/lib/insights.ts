@@ -4,7 +4,7 @@ import { compact } from "./format";
 export function byNode(profile: Profile | null): Map<number, Finding[]> {
   const found = new Map<number, Finding[]>();
   for (const finding of profile?.insights ?? []) {
-    found.set(finding.node_id, [...(found.get(finding.node_id) ?? []), finding]);
+    for (const id of finding.node_ids) found.set(id, [...(found.get(id) ?? []), finding]);
   }
   return found;
 }
@@ -17,7 +17,7 @@ export function badge(findings: Finding[] | undefined): Exclude<FindingLevel, "a
 }
 
 export function warned(profile: Profile | null): number[] {
-  const ids = (profile?.insights ?? []).filter((f) => f.level === "warn").map((f) => f.node_id);
+  const ids = (profile?.insights ?? []).filter((f) => f.level === "warn").flatMap((f) => f.node_ids);
   return [...new Set(ids)];
 }
 

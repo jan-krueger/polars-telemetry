@@ -66,6 +66,11 @@ At 1% or more a finding is a **warning**, below that **information**. Nothing
 is dropped for being small. Whether a pattern is deliberate is for you to
 judge.
 
+The same finding on several nodes, such as one fallback repeated for each of
+200 columns, is reported once: its title ends in `(200 nodes)`, its impact is
+their sum, and `node_ids` lists them. A step repeated many times is a warning
+when the repeats together reach 1%, though each alone is far below.
+
 ## Rules
 
 ### `in_memory_fallback`

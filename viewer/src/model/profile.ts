@@ -49,6 +49,8 @@ export interface Finding {
   kind: "problem" | "applied";
   level: FindingLevel;
   node_id: number;
+  /** Every node it covers: `node_id` alone, or each node of the same finding on several. */
+  node_ids: number[];
   node_kind: string;
   cpu_share: number;
   blocked_share: number;

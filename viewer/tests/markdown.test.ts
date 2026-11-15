@@ -44,7 +44,7 @@ describe("plan tree", () => {
 
 describe("query as Markdown", () => {
   const finding: Finding = {
-    rule: "late_filter", kind: "problem", level: "warn", node_id: base.plan.physical[0]!.id, node_kind: "X",
+    rule: "late_filter", kind: "problem", level: "warn", node_id: base.plan.physical[0]!.id, node_ids: [base.plan.physical[0]!.id], node_kind: "X",
     cpu_share: 0.46, blocked_share: 0, title: "Filter runs after `join`", fix: "filter before the join",
     evidence: [{ name: "rows kept", value: 0.02, unit: "share" }],
   };

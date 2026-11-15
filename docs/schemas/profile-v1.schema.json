@@ -93,6 +93,7 @@
         "kind": { "type": "string" },
         "level": { "type": "string" },
         "node_id": { "type": ["integer", "null"] },
+        "node_ids": { "type": "array", "items": { "type": "integer" } },
         "node_kind": { "type": ["string", "null"] },
         "cpu_share": { "type": "number" },
         "blocked_share": { "type": "number" },

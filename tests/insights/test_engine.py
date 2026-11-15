@@ -108,3 +108,39 @@ def test_the_view_counts_a_shared_input_once_per_consumer():
     )
     view = PlanView(query)
     assert view.larger_input_rows(query.plan[2]) == 1000
+
+
+class AnyFilter(EveryFilter):
+    id: ClassVar[str] = "any_filter"
+
+    def describe(self, evidence: Seen) -> Text:
+        return Text("A filter", "fix it")
+
+
+def many_small_filters(count: int) -> Plan:
+    built = Plan().node(1, "MultiScan", rows=1000, ms=1000)
+    for node_id in range(2, count + 2):
+        built = built.node(node_id, "Filter", (1,), rows=10, ms=0.5 if node_id != 5 else 0.9)
+    return built
+
+
+def test_the_same_finding_on_many_nodes_is_one_finding_with_their_sum():
+    (finding,) = evaluate(many_small_filters(40).query(wall_ms=100_000), [AnyFilter()])
+    assert finding.node_ids == tuple(range(2, 42))
+    assert finding.node_id == 5
+    assert finding.title == "A filter (40 nodes)"
+    assert abs(finding.impact.cpu_share - (39 * 0.5 + 0.9) / (1000 + 39 * 0.5 + 0.9)) < 1e-9
+    assert finding.level == "warn"
+
+
+def test_findings_that_differ_stay_apart_and_one_alone_lists_no_nodes():
+    found = evaluate(plan().query(), [EveryFilter()])
+    assert len(found) == 3
+    assert all(f.node_ids == () and "node_ids" not in f.to_dict() for f in found)
+
+
+def test_the_nodes_of_a_merged_finding_survive_writing_and_reading():
+    (finding,) = evaluate(many_small_filters(3).query(), [AnyFilter()])
+    written = finding.to_dict()
+    assert written["node_ids"] == [2, 3, 4]
+    assert Finding.from_dict(written).to_dict() == written

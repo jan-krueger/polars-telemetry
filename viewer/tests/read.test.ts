@@ -173,8 +173,14 @@ describe("insights", () => {
     return result.profile.insights;
   };
 
+  it("covers every node of a finding found on several, and the one node of an older finding", () => {
+    const merged = read({ schema: "insights@1", findings: [{ ...finding, node_ids: [7, 9, "x"] }] })!;
+    expect(merged[0]!.node_ids).toEqual([7, 9]);
+    expect(read({ schema: "insights@1", findings: [finding] })![0]!.node_ids).toEqual([7]);
+  });
+
   it("keeps findings as written, numbers only in their evidence", () => {
-    expect(read({ schema: "insights@1", findings: [finding] })).toEqual([{ ...finding, evidence: [finding.evidence[0]] }]);
+    expect(read({ schema: "insights@1", findings: [finding] })).toEqual([{ ...finding, node_ids: [7], evidence: [finding.evidence[0]] }]);
   });
 
   it("leaves out malformed findings and unknown schemas rather than guessing", () => {

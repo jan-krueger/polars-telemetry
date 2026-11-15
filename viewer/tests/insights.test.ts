@@ -11,7 +11,7 @@ const base = read.profile;
 const [first, second] = base.plan.physical;
 
 const finding = (node_id: number, level: Finding["level"], cpu = 0.2, blocked = 0): Finding => ({
-  rule: `rule_${level}`, kind: level === "applied" ? "applied" : "problem", level, node_id, node_kind: "X",
+  rule: `rule_${level}`, kind: level === "applied" ? "applied" : "problem", level, node_id, node_ids: [node_id], node_kind: "X",
   cpu_share: cpu, blocked_share: blocked, title: "t", fix: "f", evidence: [],
 });
 const profile = (insights: Finding[] | null): Profile => ({ ...base, insights });
@@ -21,6 +21,13 @@ describe("findings in the viewer", () => {
     const found = byNode(profile([finding(first!.id, "info"), finding(first!.id, "warn"), finding(second!.id, "applied")]));
     expect(badge(found.get(first!.id))).toBe("warn");
     expect(badge(found.get(second!.id))).toBeNull();
+  });
+
+  it("badges and lists every node of a finding found on several", () => {
+    const merged = { ...finding(first!.id, "warn"), node_ids: [first!.id, second!.id] };
+    const found = byNode(profile([merged]));
+    expect([badge(found.get(first!.id)), badge(found.get(second!.id))]).toEqual(["warn", "warn"]);
+    expect(warned(profile([merged]))).toEqual([first!.id, second!.id]);
   });
 
   it("lists warned nodes once each, in the order the findings rank them", () => {

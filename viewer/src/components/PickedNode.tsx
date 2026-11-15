@@ -38,7 +38,7 @@ function Overview({ physical, findings, onPick }: { physical: PlanNode[]; findin
     for (const f of list) {
       if (f.kind !== "problem") continue;
       const seen = rules.get(f.rule) ?? { title: f.title, level: f.level, nodes: [] };
-      seen.nodes.push(f.node_id);
+      seen.nodes.push(...f.node_ids);
       rules.set(f.rule, seen);
     }
   }
