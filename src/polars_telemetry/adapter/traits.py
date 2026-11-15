@@ -103,7 +103,29 @@ def traits(
         columns_read=tuple(sorted(read)),
         columns_cast=tuple(sorted(cast)),
         aligns_by_position=kind in ALIGNS_BY_POSITION,
+        expression_parts=_parts(texts),
     )
+
+
+_PART_CALLS = 4
+_PART_TEXT_MAX = 20_000
+_CALL = re.compile(r"\.\w+\(")
+_INTERNAL = ("_POLARS_TMP", "__POLARS_CSE")
+
+
+def _parts(texts: list[str]) -> tuple[str, ...]:
+    """Digests of each bracketed sub-expression with several calls, temporaries aside."""
+    found: set[str] = set()
+    for text in texts:
+        if len(text) > _PART_TEXT_MAX:
+            continue
+        for start, char in enumerate(text):
+            if char != "(" or (start and (text[start - 1].isalnum() or text[start - 1] in "_.")):
+                continue
+            part = text[start : _after_arguments(text, start)]
+            if len(_CALL.findall(part)) >= _PART_CALLS and not any(t in part for t in _INTERNAL):
+                found.add(hashlib.blake2b(part.encode(), digest_size=8).hexdigest())
+    return tuple(sorted(found))
 
 
 def _replace_runs(target: str, steps: list[tuple[str, str, str]]) -> Iterator[ReplaceRun]:

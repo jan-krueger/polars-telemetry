@@ -336,3 +336,43 @@ class TestFilterAfterScan:
             .node(5, "Filter", (4,), rows=100, rows_in=100_000, predicate='(col("c") < 5)')
         )
         assert found(plan, "filter_after_scan") == []
+
+
+class TestRepeatedExpression:
+    HEAVY = '((col("x").sin() * col("y").cos()).abs().sqrt().exp())'
+
+    def plan(self, *, second_rows: int = 1_000, second: str = HEAVY, shared: bool = True) -> Plan:
+        plan = Plan().node(1, "InMemorySource", rows=1_000)
+        if shared:
+            plan.node(2, "Multiplexer", (1,), rows=2_000, rows_in=1_000)
+            first_in, second_in = (2,), (2,)
+        else:
+            plan.node(9, "InMemorySource", rows=second_rows)
+            first_in, second_in = (1,), (9,)
+        return (
+            plan.node(
+                3, "Reduce", first_in, rows=1, rows_in=1_000, ms=30, exprs=[f"{self.HEAVY}.max()"]
+            )
+            .node(
+                4,
+                "Select",
+                second_in,
+                rows=second_rows,
+                rows_in=second_rows,
+                ms=40,
+                selectors=[second],
+            )
+            .node(5, "Zip", (3, 4), rows=second_rows)
+        )
+
+    def test_the_same_expression_over_the_same_rows_in_two_nodes(self):
+        (finding,) = found(self.plan(), "repeated_expression")
+        assert finding.node_id == 4
+        assert finding.fix.startswith("compute it once, as a column with `with_columns`")
+        assert round(finding.impact.cpu_share, 2) == round(30 / 70, 2)
+
+    def test_other_rows_another_expression_or_separate_frames_stay_quiet(self):
+        assert found(self.plan(second_rows=10), "repeated_expression") == []
+        cheap = '(col("x").sin() * col("y"))'
+        assert found(self.plan(second=cheap), "repeated_expression") == []
+        assert found(self.plan(shared=False), "repeated_expression") == []

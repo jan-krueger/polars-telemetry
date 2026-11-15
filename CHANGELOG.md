@@ -7,6 +7,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- Rule `repeated_expression`: the same sizeable expression computed by two
+  nodes over the same rows.
 - Rule `filter_after_scan`: a filter keeping at most 10% of its rows after a
   `cast` or a horizontal concat that stops Polars pushing it into the scan.
 - A query run inside another query's Python UDF, such as `map_batches`,

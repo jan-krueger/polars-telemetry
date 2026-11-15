@@ -11,6 +11,7 @@ from polars_telemetry.model.insights.rules.filter_after_scan import FilterAfterS
 from polars_telemetry.model.insights.rules.in_memory_fallback import InMemoryFallback
 from polars_telemetry.model.insights.rules.python_udf import PythonUdf
 from polars_telemetry.model.insights.rules.redundant_aggregation import RedundantAggregation
+from polars_telemetry.model.insights.rules.repeated_expression import RepeatedExpression
 from polars_telemetry.model.insights.rules.repeated_plugin_call import RepeatedPluginCall
 from polars_telemetry.model.insights.rules.repeated_string_scan import RepeatedStringScan
 from polars_telemetry.model.insights.rules.repeated_subplan import RepeatedSubplan
@@ -29,4 +30,5 @@ RULES: tuple[Rule[Any], ...] = (
     RepeatedSubplan(),
     RepeatedPluginCall(),
     FilterAfterScan(),
+    RepeatedExpression(),
 )

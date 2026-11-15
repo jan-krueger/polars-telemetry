@@ -162,6 +162,15 @@ scan for one of two reasons, so the scan reads every row first:
   position, so filtering one side first would change the result. Add the
   columns with `with_row_index` on both frames and a `join` on it instead.
 
+### `repeated_expression`
+
+The same sizeable expression computed by two nodes over the same rows, such as
+an expression that `join_where` evaluates once for its condition and again for
+an aggregate of it. Polars shares repeated expressions within a node, not
+across nodes. Compute it once as a column with `with_columns` and refer to that
+column: 1.7x faster for a distance computed this way on 2.25M row pairs.
+Impact is the CPU of the cheaper of the two nodes.
+
 ### `repeated_plugin_call`
 
 The same plugin call, on the same input with the same arguments, more than once

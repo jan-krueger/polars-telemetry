@@ -163,6 +163,9 @@ class NodeTraits:
     """Tokens of the columns an expression of it casts as its first step."""
     aligns_by_position: bool = False
     """Puts its inputs' rows side by side by position, as a horizontal concat does."""
+    expression_parts: tuple[str, ...] = ()
+    """Digests of the sizeable bracketed sub-expressions it computes: equal digests
+    in two nodes, the same computation in both."""
 
 
 @dataclass(frozen=True, slots=True)
