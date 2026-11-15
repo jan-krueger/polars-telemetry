@@ -1,7 +1,7 @@
 """Managing the module polars resolves the factory from.
 
-polars imports ``polars_cloud`` (``polars_nanook`` once polars prefers it,
-pola-rs/polars#30099) and reads ``QueryCloudObserver`` off it by name. If the
+polars imports the Polars Nanook module, ``polars_cloud`` up to Polars 2.1 and
+``polars_nanook`` after, and reads ``QueryCloudObserver`` off it by name. If the
 real package is installed we take over that attribute and keep the original as
 a delegate; otherwise we register a module under that name. We never ship a
 distribution under either name.
@@ -27,7 +27,7 @@ class Binding:
     name: str
     module: types.ModuleType
     previous_factory: Any | None
-    """The real polars-cloud factory, when the package was already installed."""
+    """The real Polars Nanook factory, when the package was already installed."""
 
     injected: bool
     """True when we created the module rather than finding it."""

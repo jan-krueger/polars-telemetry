@@ -13,6 +13,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   it ran inside.
 
 ### Changed
+- Polars Cloud is called by its new name, Polars Nanook, in the docs and in
+  log messages; its page moved to `polars-nanook/`, and the old address
+  redirects there.
 - The work at the end of each query costs about a fifth less: plan traits
   are read with fewer copies, and fingerprints of a repeated query shape reuse
   their masked text.

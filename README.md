@@ -10,8 +10,8 @@ observability stack.
 [![Both plans of a TPC-H query, its figures, and a finding on the selected node in the profile viewer](https://raw.githubusercontent.com/jan-krueger/polars-telemetry/main/docs/assets/viewer.png)](https://jan-krueger.github.io/polars-telemetry/viewer/)
 
 Python 3.10+, Polars 1.44.1 – 1.44.x and 2.x. Not affiliated with Polars: it
-uses an interface Polars exposes for Polars Cloud, which can change in any
-Polars release.
+uses an interface Polars exposes for Polars Nanook (formerly Polars Cloud),
+which can change in any Polars release.
 
 ## Install
 
@@ -135,7 +135,7 @@ every exporter. Details: [Data and privacy](https://jan-krueger.github.io/polars
 
 - [Documentation](https://jan-krueger.github.io/polars-telemetry/)
 - [Troubleshooting](https://jan-krueger.github.io/polars-telemetry/troubleshooting/)
-- [Polars Cloud](https://jan-krueger.github.io/polars-telemetry/polars-cloud/): runs alongside it
+- [Polars Nanook](https://jan-krueger.github.io/polars-telemetry/polars-nanook/): runs alongside it
 - [Contributing](https://github.com/jan-krueger/polars-telemetry/blob/main/CONTRIBUTING.md)
 - [Changelog](https://github.com/jan-krueger/polars-telemetry/blob/main/CHANGELOG.md)
 

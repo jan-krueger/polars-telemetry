@@ -54,8 +54,8 @@ and logged that it ignores the new arguments. Call `uninstall()` first.
 
 ## A login prompt appears when I call `install()`
 
-`polars-cloud` is installed, and Polars calls its `authenticate()` when
-monitoring is enabled. See [Polars Cloud](polars-cloud.md).
+`polars-nanook` or `polars-cloud` is installed, and Polars calls its
+`authenticate()` when monitoring is enabled. See [Polars Nanook](polars-nanook.md).
 
 ## Queries run differently after `install()`
 

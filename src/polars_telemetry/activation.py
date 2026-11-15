@@ -1,7 +1,7 @@
 """Registration of the observer factory with polars.
 
 polars resolves ``polars_cloud.QueryCloudObserver`` by name and duck-types the
-result. If the real polars-cloud is installed its factory is wrapped and
+result. If the real Polars Nanook package is installed its factory is wrapped and
 forwarded to rather than replaced.
 
 The installation is process-wide state, changed by `install()`, `uninstall()`
@@ -81,7 +81,7 @@ def install(
 
 
 def uninstall() -> None:
-    """Stop instrumenting, and hand queries back to Polars Cloud if it was there.
+    """Stop instrumenting, and hand queries back to Polars Nanook if it was there.
 
     The engine affinity goes back to what it was before `install()`, unless
     the application chose another engine in the meantime.

@@ -13,7 +13,7 @@ Names and signatures are dictated by polars and must not be renamed; a change
 to them is a change to this module only. Each callback is translated into a
 call on a `Recorder` and contained: polars calls close() on whatever
 on_query_planned returns, so that method returns a guard even when it has
-failed internally. The real polars-cloud observer, when installed, is
+failed internally. The real Polars Nanook observer, when installed, is
 forwarded every callback.
 """
 
@@ -63,7 +63,7 @@ class ObserverFactory:
         *,
         label: str = "observer",
     ) -> None:
-        """delegate: the real polars-cloud factory, if one was installed."""
+        """delegate: the real Polars Nanook factory, if one was installed."""
         self._make_recorder = make_recorder
         self._delegate = delegate
         self._delegate_errors: set[str] = set()
@@ -88,7 +88,7 @@ class ObserverFactory:
         key = f"{type(exc).__name__}: {exc}"
         if key not in self._delegate_errors:
             self._delegate_errors.add(key)
-            _log.warning("polars-telemetry: the polars-cloud observer failed (%s).", key)
+            _log.warning("polars-telemetry: the Polars Nanook observer failed (%s).", key)
 
 
 class QueryObserver:
@@ -148,7 +148,7 @@ class QueryObserver:
             self._tracker.record(exc)
 
     def _forward(self, method: str, *args: Any) -> Any:
-        """Pass the callback on to polars-cloud, when it is also installed."""
+        """Pass the callback on to Polars Nanook, when it is also installed."""
         if self._delegate is None:
             return None
         try:

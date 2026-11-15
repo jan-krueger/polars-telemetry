@@ -42,7 +42,7 @@ nav:
   - Label and scope queries: labels.md
   - Profile viewer: profile-viewer.md
   - Insights: insights.md
-  - Polars Cloud: polars-cloud.md
+  - Polars Nanook: polars-nanook.md
   - Reference:
       - Configuration: reference/configuration.md
       - Spans and metrics: reference/spans-and-metrics.md
