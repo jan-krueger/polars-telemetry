@@ -11,6 +11,7 @@
     "polars_telemetry_version": { "type": "string" },
     "query_id": { "type": "string" },
     "label": { "type": ["string", "null"] },
+    "parent_query_id": { "type": "string" },
     "fingerprint": { "type": ["string", "null"] },
     "started_unix_ns": { "type": "integer" },
     "wall_ms": { "type": "number", "minimum": 0 },

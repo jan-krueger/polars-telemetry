@@ -1,5 +1,5 @@
 import { useEffect, useRef, type Dispatch } from "react";
-import type { Session } from "../model/profile";
+import type { Profile, Session } from "../model/profile";
 import { span } from "../lib/format";
 import { title, type Action, type ShapeRow } from "../state/viewer";
 import { SessionSwitcher } from "./Sessions";
@@ -17,6 +17,38 @@ interface Props {
 
 const Breakable = ({ text }: { text: string }) =>
   text.split(/(?<=[/._])/).map((part, i) => <span key={i}>{i ? <wbr /> : null}{part}</span>);
+
+const INNER_SHOWN = 5;
+
+interface RunProps {
+  profile: Profile;
+  prefix: string;
+  queryId: string | null;
+  dispatch: Dispatch<Action>;
+  extra?: string;
+}
+
+function Run({ profile: p, prefix, queryId, dispatch, extra = "" }: RunProps) {
+  return (
+    <button className="run" aria-pressed={p.query_id === queryId}
+            onClick={() => dispatch({ type: "queryPicked", queryId: p.query_id })}>
+      <div className="l1"><Breakable text={title(p).slice(prefix.length)} /></div>
+      <div className="l2">{span(p.wall_ms)} wall{p.cpu_ms > 0 ? ` · ${span(p.cpu_ms)} cpu` : ""}{extra}</div>
+    </button>
+  );
+}
+
+function Inner({ runs, ...rest }: Omit<RunProps, "profile" | "extra"> & { runs: Profile[] }) {
+  const list = runs.map((p) => <Run key={p.query_id} profile={p} {...rest} />);
+  if (runs.length <= INNER_SHOWN) return <div className="inner">{list}</div>;
+  const picked = runs.some((p) => p.query_id === rest.queryId);
+  return (
+    <details className="inner" open={picked || undefined}>
+      <summary>{runs.length} queries inside</summary>
+      {list}
+    </details>
+  );
+}
 
 export default function Sidebar({ sessions, current, shapes, prefix, search, queryId, dispatch, onKeep }: Props) {
   const list = useRef<HTMLElement>(null);
@@ -48,13 +80,16 @@ export default function Sidebar({ sessions, current, shapes, prefix, search, que
               {row.runs.length > 1 && (
                 <div className="fp"><span>{row.fingerprint}</span><span>{row.runs.length} runs</span></div>
               )}
-              {row.runs.map((p) => (
-                <button key={p.query_id} className="run" aria-pressed={p.query_id === queryId}
-                        onClick={() => dispatch({ type: "queryPicked", queryId: p.query_id })}>
-                  <div className="l1"><Breakable text={title(p).slice(prefix.length)} /></div>
-                  <div className="l2">{span(p.wall_ms)} wall{p.cpu_ms > 0 ? ` · ${span(p.cpu_ms)} cpu` : ""}</div>
-                </button>
-              ))}
+              {row.runs.map((p) => {
+                const inner = row.inner.get(p.query_id) ?? [];
+                return (
+                  <div key={p.query_id}>
+                    <Run profile={p} prefix={prefix} queryId={queryId} dispatch={dispatch}
+                         extra={inner.length ? ` · ${inner.length} inside` : ""} />
+                    {inner.length > 0 && <Inner runs={inner} prefix={prefix} queryId={queryId} dispatch={dispatch} />}
+                  </div>
+                );
+              })}
             </div>
           ))}
         </>

@@ -3,10 +3,11 @@ import { readProfile, sessionInfo } from "../src/model/read";
 import type { Profile, Session } from "../src/model/profile";
 import { currentProfile, initialState, matches, reducer, sameRuns, sharedPrefix, shapes, sortShapes, title, visibleShapes, type ViewerState } from "../src/state/viewer";
 
-function profile(id: string, fingerprint: string, wall: number, hotNode = 7): Profile {
+function profile(id: string, fingerprint: string, wall: number, hotNode = 7, parent?: string): Profile {
   const result = readProfile({
     schema: "polars-telemetry/profile@1",
     query_id: id,
+    parent_query_id: parent,
     fingerprint,
     wall_ms: wall,
     plan: {
@@ -103,6 +104,19 @@ describe("shapes", () => {
   it("groups runs by fingerprint, the most expensive shape first", () => {
     const rows = shapes([profile("a", "f1", 5), profile("b", "f2", 50), profile("c", "f1", 1)]);
     expect(rows.map((r) => [r.fingerprint, r.runs.length])).toEqual([["f2", 1], ["f1", 2]]);
+  });
+
+  it("lists a query run inside another under it, not as a row, and counts its time once", () => {
+    const rows = shapes([profile("outer", "f1", 10), profile("in1", "f2", 4, 7, "outer"), profile("in2", "f2", 3, 7, "in1")]);
+    expect(rows.map((r) => [r.fingerprint, r.runs.map((p) => p.query_id), r.wallMs])).toEqual([["f1", ["outer"], 10]]);
+    expect(rows[0]!.inner.get("outer")!.map((p) => p.query_id)).toEqual(["in1", "in2"]);
+  });
+
+  it("keeps a query whose outer query is not loaded, or that loops back, as a row", () => {
+    const orphan = shapes([profile("in", "f2", 4, 7, "gone")]);
+    expect(orphan.map((r) => r.runs.map((p) => p.query_id))).toEqual([["in"]]);
+    const loop = shapes([profile("a", "f1", 1, 7, "b"), profile("b", "f1", 2, 7, "a")]);
+    expect(loop.flatMap((r) => r.runs.map((p) => p.query_id)).sort()).toEqual(["a", "b"]);
   });
 });
 

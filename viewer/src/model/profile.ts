@@ -61,6 +61,8 @@ export interface Profile {
   query_id: string;
   /** Nested labels joined with "/". */
   label: string | null;
+  /** The query this one ran inside, from a Python UDF of that query. */
+  parent_query_id: string | null;
   /** What was masked before export, e.g. ["strings", "numbers"]; null if nothing. */
   redacted: string[] | null;
   schema: string;

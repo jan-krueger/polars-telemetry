@@ -109,3 +109,16 @@ def test_a_plan_with_a_cycle_is_skipped_rather_than_followed(tmp_path: Path):
     code, text = run(str(session))
     assert code == 0
     assert "line 1 skipped: plan.physical has a cycle" in text
+
+
+def test_a_query_run_inside_another_says_which(q20: Path, tmp_path: Path):
+    lines = q20.read_text().splitlines()
+    outer, inner = json.loads(lines[0]), json.loads(lines[1])
+    inner["parent_query_id"] = outer["query_id"]
+    session = tmp_path / "nested.jsonl"
+    session.write_text(json.dumps(outer) + "\n" + json.dumps(inner) + "\n")
+    _, text = run(str(session), "--all")
+    assert f"nodes, inside {outer['query_id']})" in text
+    _, written = run(str(session), "--json")
+    parents = {r["query_id"]: r["parent_query_id"] for r in json.loads(written)}
+    assert parents == {outer["query_id"]: None, inner["query_id"]: outer["query_id"]}

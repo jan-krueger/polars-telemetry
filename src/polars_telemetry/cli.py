@@ -92,6 +92,7 @@ def _record(path: Path, query: Query, found: tuple[Finding, ...]) -> dict[str, A
         "file": str(path),
         "query_id": str(query.query_id),
         "label": query.label,
+        "parent_query_id": None if query.parent_query_id is None else str(query.parent_query_id),
         "wall_ms": query.wall_ms,
         "insights": {"schema": SCHEMA, "findings": [f.to_dict() for f in found]},
     }
@@ -112,9 +113,10 @@ def _text(
         if not found:
             continue
         name = query.label or str(query.query_id)
+        inside = "" if query.parent_query_id is None else f", inside {query.parent_query_id}"
         out.write(
             f"{path.name} · {name}  ({duration(query.wall_ms)} wall, "
-            f"{duration(query.cpu_ms)} CPU, {len(query.plan)} nodes)\n"
+            f"{duration(query.cpu_ms)} CPU, {len(query.plan)} nodes{inside})\n"
         )
         for finding in shown:
             out.write(
