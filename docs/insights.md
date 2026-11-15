@@ -11,10 +11,12 @@ values, and a fix.
 
 ## From the command line
 
-`polars-telemetry insights` reads the session files the
-[JSONL exporter](exporters/jsonl.md) and `profile()` write, from any version,
-plain or gzip, and the finished queries of an [event recording](exporters/events.md). A damaged line
-is listed as skipped, with the reason, and the rest of the file is still read:
+`polars-telemetry insights` reads, from any version, plain or gzip:
+
+- session files of the [JSONL exporter](exporters/jsonl.md) and `profile()`;
+- the finished queries of an [event recording](exporters/events.md).
+
+A damaged line is listed as skipped, with its reason; the rest is still read.
 
 ```console
 $ polars-telemetry insights nightly.jsonl
@@ -51,130 +53,139 @@ as it finishes, and the findings go to every exporter:
 
 ## How findings are ranked
 
-Rules detect facts independent of data volume: a ratio, a node kind, a count
-of calls. A small test run shows the same findings as the production run it
-stands in for.
-
-How much a finding matters is its **impact**, the larger of two shares:
-
-- **CPU**: the share of the CPU time charged to plan nodes that the finding's
-  nodes account for.
-- **Wall**: the share of wall time the pipeline waited on one step of the
-  node, for a call that blocks everything behind it.
-
-At 1% or more a finding is a **warning**, below that **information**. Nothing
-is dropped for being small. Whether a pattern is deliberate is for you to
-judge.
-
-The same finding on several nodes, such as one fallback repeated for each of
-200 columns, is reported once: its title ends in `(200 nodes)`, its impact is
-their sum, and `node_ids` lists them. A step repeated many times is a warning
-when the repeats together reach 1%, though each alone is far below.
+- **Detection** uses facts independent of data volume: a ratio, a node kind, a
+  count of calls. A small test run shows the findings of the production run it
+  stands in for.
+- **Impact** is the larger of two shares:
+  - **CPU**: of the CPU time charged to plan nodes, the share the finding's
+    nodes account for.
+  - **Wall**: the share of wall time the pipeline waited on one step of the
+    node, for a call that blocks everything behind it.
+- **Level**: a **warning** at 1% impact or more, **information** below. Nothing
+  is dropped for being small; whether a pattern is deliberate is for you to
+  judge.
+- **The same finding on several nodes** is one finding: its title ends in
+  `(200 nodes)`, its impact is their sum, and `node_ids` lists them. Repeats
+  that are each far below 1% warn once together they reach it.
 
 ## Rules
 
 ### `in_memory_fallback`
 
-A node the streaming engine cannot run: Polars hands its whole input to the
-in-memory engine in one call, and the pipeline waits for it. Polars marks the
-same nodes in its own plan graph. Common causes: median, quantile or mode in a
-group-by, and before Polars 2.0 `rank().over()`. With
-`Config(describe_fallbacks=True)`, the default, the node's **Runs** property in
-the viewer shows the expression.
+- **Fires on:** a node the streaming engine cannot run. Polars hands its whole
+  input to the in-memory engine in one call, and the pipeline waits for it.
+  Polars marks the same nodes in its own plan graph.
+- **Common causes:** median, quantile or mode in a group-by; `rank().over()`
+  before Polars 2.0.
+- **Fix:** operations the streaming engine runs natively. With
+  `Config(describe_fallbacks=True)`, the default, the node's **Runs** property in
+  the viewer shows the expression.
 
 ### `exploding_join`
 
-A join that emits more than twice its larger input. A one-to-many join stays
-within both inputs together, so this takes keys that repeat on both sides.
-Impact counts the nodes that process the extra rows. For an inequality join
-(`join_where`), the fix is an equality key, if rows should only match within
-one. From Polars 2.0, when the plan has several joins, the fix also suggests
-comparing with `QueryOptFlags(join_order=False)`: Polars may have chosen a join
-order that multiplies rows the written order does not.
+- **Fires on:** a join that emits more than twice its larger input. A
+  one-to-many join stays within both inputs together, so this takes keys that
+  repeat on both sides.
+- **Impact:** the nodes that process the extra rows.
+- **Fix:**
+  - equality join: `unique(subset=keys)` on one input if keys repeat by
+    mistake, or join on the full key;
+  - inequality join (`join_where`): an equality key, if rows should only match
+    within one;
+  - from Polars 2.0, with several joins in the plan: compare with
+    `QueryOptFlags(join_order=False)`, as Polars may have chosen an order that
+    multiplies rows the written one does not.
+- **Measured:** `unique(subset=keys)` 2–9x faster; an equality key in
+  `join_where` 11–28x; `join_order=False` 16–26x on a query whose
+  reordered joins multiplied rows.
 
 ### `cross_join`
 
-A cross join where both sides have more than one row; one against a single row
-is a broadcast and not reported. If a filter follows, the finding says how many
-pairs survive; an equality key or `join_where` usually avoids building them.
+- **Fires on:** a cross join with more than one row on both sides. Against a
+  single row it is a broadcast and not reported.
+- **Evidence:** if a filter follows, how many pairs survive it.
+- **Fix:** an equality key, or `join_where`, avoids building the pairs.
 
 ### `repeated_string_scan`
 
-`str.contains`, or `str.replace` / `str.replace_all`, called on one column four
-or more times within a node with different arguments, each call a separate pass
-over the data. An identical call counts once: Polars computes it once.
-`str.contains_any` or one regular expression replaces many `contains` with one
-pass.
+- **Fires on:** `str.contains`, or `str.replace` / `str.replace_all`, called on
+  one column four or more times in a node with different arguments, each a
+  separate pass over the data. An identical call counts once: Polars computes it
+  once.
+- **Fix for `contains`:** `str.contains_any`, or one regular expression, in one
+  pass.
+- **Fix for `replace`:** `str.replace_many` scans once, so a chain merges into it
+  only where the result stays the same:
+  - no replacement feeds a later pattern (`straße → str.` then `. → ""`);
+  - no two patterns overlap (`straße` and `ß`), since only one can match.
 
-`str.replace_many` scans once, so a chain of replacements merges into it only
-where that gives the same result:
-
-- no replacement feeds a later pattern (`straße → str.` then `. → ""`);
-- no two patterns overlap (`straße` and `ß`), since only one can match.
-
-The finding splits the chain, in order, into the fewest groups free of both,
-and its fix names how many `replace_many` calls that takes. Polars does not
-record `literal=True` or `replace` against `replace_all` in the plan, so the fix
-holds for literal `replace_all` calls; patterns that only escape punctuation
-(`\.`) count as literal.
+  The finding splits the chain, in order, into the fewest groups free of both,
+  and its fix names how many `replace_many` calls that takes.
+- **Limit:** the plan does not record `literal=True`, nor `replace` against
+  `replace_all`, so the fix holds for literal `replace_all` calls. Patterns that
+  only escape punctuation (`\.`) count as literal.
 
 ### `redundant_aggregation`
 
-A deduplication, a `unique()` or a group-by that only keeps values with
-`first()` or `last()`, that removes at most one row in ten thousand. Only
-deduplication the query asks for is reported; Polars' internal deduplication,
-such as for `n_unique()`, is not the query's to change.
+- **Fires on:** a `unique()`, or a group-by that only keeps values with
+  `first()` or `last()`, that removes at most one row in ten thousand.
+- **Not reported:** Polars' internal deduplication, such as for `n_unique()`,
+  which is not the query's to change.
 
 ### `python_udf`
 
-A Python function in the plan: `map_elements`, `map_batches` or
-`LazyFrame.map_batches`. Polars cannot look inside it, so nothing is pushed
-through it; it runs under the GIL. A frame-level function also takes the
-whole input in one call, which `longest_step` shows.
+- **Fires on:** a Python function in the plan: `map_elements`, `map_batches` or
+  `LazyFrame.map_batches`.
+- **Why it costs:** Polars cannot look inside it, so nothing is pushed through
+  it, and it runs under the GIL. A frame-level function takes the whole input in
+  one call, which `longest_step` shows.
 
 ### `datetime_format_inferred`
 
-`str.to_datetime()` or `str.strptime()` without a format. Polars infers one from
-the data in a separate node; with `format=` the parse stays inside the
-expression, and a value in another format fails instead of guessing.
+- **Fires on:** `str.to_datetime()` or `str.strptime()` without a format: Polars
+  infers one from the data, in a separate node.
+- **Fix:** `format=`. The parse stays inside the expression, and a value in
+  another format fails instead of being guessed.
 
 ### `repeated_subplan`
 
-The same nodes, with the same inputs, run more than once. Work below a node
-that feeds several consumers is done once and not counted. Impact is the CPU of
-every copy but one. Polars shares identical subplans itself unless something
-in them is not deterministic; before Polars 2.0 that includes every plugin
-call, which `plugin_calls` counts (see [`repeated_plugin_call`](#repeated_plugin_call)).
-It fires mostly for an expression that one `select` uses for several outputs:
-compute it once as a column with `with_columns` and refer to that column.
+- **Fires on:** the same nodes, with the same inputs, run more than once. Work
+  below a node that feeds several consumers is done once and not counted.
+- **Impact:** the CPU of every copy but one.
+- **When:** Polars shares identical subplans itself unless something in them is
+  not deterministic; before Polars 2.0 that includes every plugin call, which
+  `plugin_calls` counts (see [`repeated_plugin_call`](#repeated_plugin_call)).
+  It fires mostly for an expression that one `select` uses for several outputs.
+- **Fix:** compute that expression once, as a column with `with_columns`, and
+  refer to the column; a LazyFrame used twice, `.cache()` it.
+- **Measured:** `with_columns` 2.2–2.4x faster for 100 quantiles each used
+  twice in one `select`.
 
 ### `filter_after_scan`
 
-A filter that keeps at most 10% of its rows, which Polars cannot push into the
-scan for one of two reasons, so the scan reads every row first:
+- **Fires on:** a filter that keeps at most 10% of its rows, which Polars cannot
+  push into the scan, so the scan reads every row first. Two causes:
 
-- **A `cast` of a column the filter reads.** Polars keeps the cast before the
-  filter, as the cast could fail on rows the filter would drop. Filter on the
-  stored type first, such as `bin.contains` on a `Binary` column instead of
-  `str.contains` after casting it to `String`: 2.4x faster on ClickBench's
-  `MobilePhoneModel` filter and 3.7x on its `URL` filter.
-- **A horizontal concat.** `concat(how="horizontal")` lines rows up by
-  position, so filtering one side first would change the result. Add the
-  columns with `with_row_index` on both frames and a `join` on it instead.
+| Cause | Why Polars cannot push it | Fix | Measured |
+| --- | --- | --- | --- |
+| a `cast` of a column the filter reads | the cast could fail on rows the filter would drop | filter on the stored type first, such as `bin.contains` on a `Binary` column instead of `str.contains` after casting it to `String` | 1.1–3.7x faster on ClickBench's `URL`, `MobilePhoneModel` and `SearchPhrase` filters |
+| a horizontal concat | `concat(how="horizontal")` lines rows up by position, so filtering one side first changes the result | `with_row_index` on both frames and a `join` on it | 1.4–1.7x |
 
 ### `repeated_expression`
 
-The same sizeable expression computed by two nodes over the same rows, such as
-an expression that `join_where` evaluates once for its condition and again for
-an aggregate of it. Polars shares repeated expressions within a node, not
-across nodes. Compute it once as a column with `with_columns` and refer to that
-column: 1.7x faster for a distance computed this way on 2.25M row pairs.
-Impact is the CPU of the cheaper of the two nodes.
+- **Fires on:** the same sizeable expression computed by two nodes over the
+  same rows, such as one that `join_where` evaluates for its condition and again
+  for an aggregate of it. Polars shares repeated expressions within a node, not
+  across nodes.
+- **Impact:** the CPU of the cheaper of the two nodes.
+- **Fix:** compute it once, as a column with `with_columns`, and refer to the
+  column.
+- **Measured:** 1.7–1.8x faster for a distance over 2.25M row pairs.
 
 ### `repeated_plugin_call`
 
-The same plugin call, on the same input with the same arguments, more than once
-in one node.
+- **Fires on:** the same plugin call, on the same input with the same arguments,
+  more than once in one node.
 
 | Polars | Plugin calls shared between expressions | Fix |
 | --- | --- | --- |
