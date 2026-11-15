@@ -109,12 +109,14 @@ carry it. See [Data and privacy](../privacy.md#what-can-carry-your-data).
 
 ## Cost
 
-About 0.1 ms per query for the span. Metrics cost about 9 µs per value
-recorded: one per node for each time and ratio, one per node kind for each
-count (counts are summed first). On a large plan they dominate: about 2.4 ms
-for a 22-node TPC-H query. `node_metrics=False` removes it, with everything
-derived from the counters. All of it runs on the query's thread, after the
-query finishes.
+| | Cost |
+| --- | --- |
+| The span | about 0.1 ms per query |
+| Metrics | about 9 µs per value: one per node for each time and ratio, one per node kind for each count (counts are summed first) |
+| A 22-node TPC-H query | about 2.4 ms, mostly metrics |
+
+`node_metrics=False` removes the metrics, with everything derived from the
+counters. All of it runs on the query's thread, after the query finishes.
 
 ## When it fails
 

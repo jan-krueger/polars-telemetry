@@ -68,11 +68,14 @@ specific engine.
 ## Child processes hang
 
 Polars' streaming engine can hang in a process forked while other threads run
-queries, with or without polars-telemetry; Polars 2 uses it by default. On
-Polars 1.44, `install()` puts queries on it, so a forked child goes back to the
-engine it had before `install()`. Start child processes with
-`multiprocessing.set_start_method("spawn")` or `"forkserver"`, as Polars
-recommends; `fork` is the default on Linux before Python 3.14.
+queries, with or without polars-telemetry.
+
+- Polars 2 uses the streaming engine by default.
+- On Polars 1.44, `install()` puts queries on it, so a forked child goes back to
+  the engine it had before `install()`.
+- Fix: start child processes with `multiprocessing.set_start_method("spawn")` or
+  `"forkserver"`, as Polars recommends. `fork` is the default on Linux before
+  Python 3.14.
 
 ## The viewer forgets my sessions
 

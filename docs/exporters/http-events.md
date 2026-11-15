@@ -1,10 +1,14 @@
 # Events over HTTP
 
-`HttpEventExporter` sends the same events the [events exporter](events.md)
-writes to a file, while each query runs, to a server: the query and its plan
-once it has run for a second, a sample of every changed node's counters after
-that, and its full profile when it finishes. The server is yours: anything
-that accepts the requests under [What it sends](#what-it-sends).
+`HttpEventExporter` sends the events the [events exporter](events.md) writes to
+a file to a server instead, while each query runs:
+
+1. the query and its plan, once it has run for a second;
+2. a sample of every changed node's counters after that;
+3. its full profile, when it finishes.
+
+The server is yours: anything that accepts the requests under
+[What it sends](#what-it-sends).
 
 Use it when:
 

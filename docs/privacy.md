@@ -54,20 +54,27 @@ col("placed") >= 2024-01-01             ->   col("placed") >= <date>
 ```
 
 Masking works on Polars' text form of expressions: a precaution, not a
-compliance guarantee. Polars writes text values without escaping them, so a
-value containing `"` can make an expression ambiguous; then everything from
-its first text value on is masked. `include_plan`, off by default, keeps the
-whole plan off spans. A masked profile says so in its `redacted` field, and
-the viewer shows it next to the query.
+compliance guarantee.
+
+- Polars writes text values without escaping them, so a value containing `"`
+  can make an expression ambiguous; then everything from its first text value
+  on is masked.
+- `include_plan`, off by default, keeps the whole plan off spans.
+- A masked profile says so in its `redacted` field, and the viewer shows it next
+  to the query.
 
 ### URL query strings
 
 A presigned S3 URL, a signed GCS URL or an Azure SAS URL carries its credential
-in the query string, and Polars keeps the whole URL in the plan. Every exporter
-masks the query string, with or without a redaction:
-`https://bucket.s3.amazonaws.com/data/orders.parquet?<query>`. The bucket and
-path stay. `s3://` paths and credentials passed as `storage_options` are never
-in the plan. To keep query strings:
+in the query string, and Polars keeps the whole URL in the plan.
+
+- Every exporter masks the query string, with or without a redaction:
+  `https://bucket.s3.amazonaws.com/data/orders.parquet?<query>`. The bucket and
+  path stay.
+- `s3://` paths and credentials passed as `storage_options` are never in the
+  plan.
+
+To keep query strings:
 
 ```python
 Redaction(strings=False, numbers=False, temporal=False, url_queries=False)

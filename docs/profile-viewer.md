@@ -94,11 +94,14 @@ The setting carries over to the next query as that share, not as a node count.
 
 ## Replaying a recording
 
-A query from an [events recording](exporters/events.md) can be replayed. The bar
-above the plans shows how many threads the query kept busy over its run; drag
-along it, or play it. Playback takes about twelve seconds whatever the query's
-length; the speed button switches to real time. With the bar focused, ← and →
-step from sample to sample and space plays or pauses.
+A query from an [events recording](exporters/events.md) can be replayed.
+
+- **The bar** above the plans shows how many threads the query kept busy over
+  its run. Drag along it, or play it.
+- **Playback** takes about twelve seconds whatever the query's length; the speed
+  button switches to real time.
+- **Keys**, with the bar focused: ← and → step from sample to sample, space plays
+  or pauses.
 
 While replaying:
 
@@ -138,10 +141,12 @@ not stored*. **Keep** stores it like an opened file, under whatever name you
 gave it.
 
 Anyone with the link can read everything in those profiles, and chat tools and
-browser history keep it. For a profile not [masked](privacy.md) before export,
-the viewer asks before copying, unless you ticked *Don't ask again in this
-browser* there. For a link too long for chat tools, the viewer suggests sending
-the session file instead.
+browser history keep it.
+
+- For a profile not [masked](privacy.md) before export, the viewer asks before
+  copying, unless you ticked *Don't ask again in this browser*.
+- For a link too long for chat tools, it suggests sending the session file
+  instead.
 
 **Copy as Markdown** copies it for a GitHub issue or pull request: its
 figures, its findings with links to their rules, and the physical plan as a tree with each node's time, share of

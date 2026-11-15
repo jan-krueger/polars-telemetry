@@ -112,10 +112,12 @@ None: metrics never carry literals, paths or call sites. Labels are only sent
 with `tag_labels=True`.
 
 Datadog bills each distinct metric and tag combination as a custom metric.
-Node metrics are bounded by Polars' node kinds. Query metrics grow with the
-number of query shapes, through `fingerprint`; if that is large, drop it with
-`tag_names={"fingerprint": None}`. Turn on `tag_labels` only for labels from a
-small, fixed set.
+
+| Metrics | Grow with | If too many |
+| --- | --- | --- |
+| node | Polars' node kinds, a bounded set | — |
+| query | query shapes, through `fingerprint` | `tag_names={"fingerprint": None}` |
+| with `tag_labels` | your labels | turn it on only for labels from a small, fixed set |
 
 ## Cost
 

@@ -46,13 +46,15 @@ dimension.
 
 ### The fingerprint
 
-A hash of node kinds, topology and column identity — **not** literal values. So
-`amount > 10` and `amount > 90` produce the same fingerprint, while a different
-grouping column produces a different one. A scanned file counts by its name,
-with numbers and dates masked: `data-2024-01-01.parquet` and
-`data-2024-01-02.parquet` in any directory are the same shape, `orders.parquet`
-is another. It is bounded by your code paths, so it is safe as a metric
-dimension; `polars.query_id` is not.
+A hash of node kinds, topology and column identity, **not** literal values.
+
+| Same fingerprint | Different fingerprint |
+| --- | --- |
+| `amount > 10` and `amount > 90` | another grouping column |
+| `data-2024-01-01.parquet` and `data-2024-01-02.parquet`, in any directory: a file counts by its name, numbers and dates masked | `orders.parquet` |
+
+It is bounded by your code paths, so it is safe as a metric dimension;
+`polars.query_id` is not.
 
 ### Hot node
 
@@ -192,12 +194,17 @@ Query-level, dimensioned by `polars.plan.fingerprint`, `polars.insight.rule` and
 It counts `warn` and `info` findings; `applied` ones are span events only.
 `polars.engine` is `unknown` when a query failed before planning.
 
-`polars.node.io_bytes`, `polars.node.largest_morsel` and `polars.query.io_time`
-carry one extra dimension, `polars.direction`. For bytes its values are
-`requested`, `received` and `sent`; for morsels, `received` and `sent`; for
-query IO time, `any`, `received` and `sent`. Query IO time counts concurrent
-IO once, so `any` is less than the sum of the other two when reads and sends
-overlap. It is recorded only on Polars versions that report it.
+These carry one extra dimension, `polars.direction`:
+
+| Metric | `polars.direction` |
+| --- | --- |
+| `polars.node.io_bytes` | `requested`, `received`, `sent` |
+| `polars.node.largest_morsel` | `received`, `sent` |
+| `polars.query.io_time` | `any`, `received`, `sent` |
+
+Query IO time counts concurrent IO once, so `any` is less than the sum of the
+other two when reads and sends overlap. It is recorded only on Polars versions
+that report it.
 
 Every metric dimension is in `semconv.METRIC_DIMENSIONS`, and each is drawn
 from a bounded set. Plan literals are **never** metric attributes.
