@@ -15,6 +15,7 @@ values nor dated file names start new metric series.
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import json
 import re
@@ -44,11 +45,16 @@ _STRUCTURAL = (
 FINGERPRINT_LENGTH = 12
 
 
+@functools.lru_cache(maxsize=4096)
+def _shape_text(key: str, value: str) -> str:
+    if key == "first_source":
+        value = re.split(r"[/\\]", value.split("?", 1)[0])[-1]
+    return redact(plugin_libraries(value))
+
+
 def _shape(key: str, value: object) -> object:
     if isinstance(value, str):
-        if key == "first_source":
-            value = re.split(r"[/\\]", value.split("?", 1)[0])[-1]
-        return redact(plugin_libraries(value))
+        return _shape_text(key, value)
     if isinstance(value, list):
         return [_shape(key, item) for item in value]
     if isinstance(value, dict):

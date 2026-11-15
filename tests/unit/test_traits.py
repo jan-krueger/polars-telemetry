@@ -108,3 +108,20 @@ def test_a_chain_with_an_expression_argument_merges_unknown():
     text = 'col("s").str.replace(["a", "b"]).str.replace([col("p"), "x"])'
     (run,) = traits("Select", {"selectors": [text]}).replace_runs
     assert run.groups is None
+
+
+def test_a_node_with_traits_keeps_every_other_field():
+    from dataclasses import fields
+    from typing import Any
+
+    from polars_telemetry.model.types import NodeRole, NodeTraits, PlanNode
+
+    values: dict[str, Any] = {f.name: object() for f in fields(PlanNode)}
+    values.update(node_id=7, kind="Select", inputs=(1, 2), properties={"a": 1}, role=NodeRole.SCAN)
+    node = PlanNode(**values)
+    found = NodeTraits(python_udf=True)
+    copied = node.with_traits(found)
+    assert copied.traits is found
+    assert {f.name: getattr(copied, f.name) for f in fields(PlanNode) if f.name != "traits"} == {
+        name: value for name, value in values.items() if name != "traits"
+    }

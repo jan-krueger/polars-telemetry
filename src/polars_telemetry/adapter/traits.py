@@ -11,8 +11,6 @@ from __future__ import annotations
 import hashlib
 import logging
 import re
-from collections import Counter
-from dataclasses import replace
 from typing import TYPE_CHECKING
 
 from polars_telemetry.adapter.dialect import (
@@ -47,19 +45,22 @@ def with_traits(plan: dict[int, PlanNode], polars_version: str = "") -> dict[int
     read: dict[int, PlanNode] = {}
     for node_id, node in plan.items():
         try:
-            found = traits(node.kind, node.properties)
-            read[node_id] = replace(node, traits=replace(found, plugins_shared=shared))
+            found = traits(node.kind, node.properties, plugins_shared=shared)
         except Exception:
             _logger.debug("polars-telemetry: no traits for a %s node", node.kind, exc_info=True)
             read[node_id] = node
+            continue
+        read[node_id] = node.with_traits(found)
     return read
 
 
-def traits(kind: str, properties: Mapping[str, object]) -> NodeTraits:
+def traits(
+    kind: str, properties: Mapping[str, object], *, plugins_shared: bool = False
+) -> NodeTraits:
     """The neutral facts insight rules need about one node."""
     texts = [text for text in _texts(properties) if "(" in text]
     strings: dict[tuple[str, str], set[str]] = {}
-    plugins: Counter[tuple[str, str]] = Counter()
+    plugins: dict[tuple[str, str], int] = {}
     runs: list[ReplaceRun] = []
     for text in texts:
         for column, steps in _chains(text):
@@ -67,7 +68,8 @@ def traits(kind: str, properties: Mapping[str, object]) -> NodeTraits:
             runs.extend(_replace_runs(target, steps))
             for step, call, _ in steps:
                 if step.startswith("plugin:"):
-                    plugins[(step.removeprefix("plugin:"), token(call))] += 1
+                    key = (step.removeprefix("plugin:"), token(call))
+                    plugins[key] = plugins.get(key, 0) + 1
                 elif step.startswith("str."):
                     strings.setdefault((step.removeprefix("str."), target), set()).add(call)
     return NodeTraits(
@@ -78,9 +80,10 @@ def traits(kind: str, properties: Mapping[str, object]) -> NodeTraits:
         or any(_PYTHON_UDF.search(text) for text in texts),
         deduplicates=kind in DEDUPLICATING or (kind in GROUPING and _only_picks(properties)),
         asks_unique=any(_UNIQUE.search(text) for text in texts),
-        string_calls=_counts(Counter({key: len(calls) for key, calls in strings.items()})),
+        string_calls=_counts({key: len(calls) for key, calls in strings.items()}),
         plugin_calls=_counts(plugins),
         replace_runs=tuple(runs),
+        plugins_shared=plugins_shared,
     )
 
 
@@ -115,7 +118,9 @@ def token(column: str) -> str:
     return hashlib.blake2b(column.encode(), digest_size=4).hexdigest()
 
 
-def _counts(counter: Counter[tuple[str, str]]) -> tuple[CallCount, ...]:
+def _counts(counter: Mapping[tuple[str, str], int]) -> tuple[CallCount, ...]:
+    if not counter:
+        return ()
     return tuple(
         CallCount(function, target, count) for (function, target), count in sorted(counter.items())
     )
