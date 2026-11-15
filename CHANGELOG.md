@@ -18,6 +18,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   which query it ran inside.
 
 ### Changed
+- `cross_join` tells you to write `join_where` conditions as comparisons of one
+  column from each side: a computed condition such as `abs(x - y) < 3` still
+  builds every pair (30–75x slower on 25M pairs).
 - Better fixes, each checked on Polars 1.44 and 2.1: `exploding_join` suggests
   an equality key for an inequality join instead of `unique(subset=keys)`, and
   from Polars 2.0, with several joins, comparing with

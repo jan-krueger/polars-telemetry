@@ -44,7 +44,9 @@ class CrossJoin(Rule[Pairs]):
         if evidence.filter_keeps is not None:
             return Text(
                 f"Cross join, then a filter keeps {share(evidence.filter_keeps)} of the pairs",
-                "join on an equality key, or use `join_where`, instead of cross join + filter",
+                "join on an equality key, or use `join_where` with conditions that compare "
+                "one column from each side, such as `x > y - 3`; a computed condition such "
+                "as `abs(x - y) < 3` still builds every pair",
             )
         return Text(
             "Cross join of two multi-row inputs",

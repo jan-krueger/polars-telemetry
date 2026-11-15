@@ -111,8 +111,13 @@ measured: |
 fires: |
   A cross join with more than one row on both sides; against a single row it is
   a broadcast and not reported. If a filter follows, the finding says how many
-  pairs survive it.
-fix: An equality key, or `join_where`, avoids building the pairs.
+  pairs survive it. Polars turns a cross join with a plain equality or inequality
+  filter into a join itself; what is left has a computed condition.
+fix: |
+  An equality key, or `join_where` with conditions that compare one column from
+  each side, such as `x > y - 3`. A computed condition such as
+  `abs(x - y) < 3` still builds every pair, in `join_where` too.
+measured: "`x > y - 3, x < y + 3` instead of `abs(x - y) < 3`: 30–75x faster on 25M pairs"
 ```
 
 ### `repeated_string_scan`
