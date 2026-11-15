@@ -64,6 +64,35 @@ class TestExplodingJoin:
         )
         assert found(plan, "exploding_join") == []
 
+    def exploding(self, kind: str, *, joins: int) -> Plan:
+        plan = (
+            Plan()
+            .node(1, "MultiScan", rows=2_000, ms=1)
+            .node(2, "MultiScan", rows=1_000, ms=1)
+            .node(3, kind, (1, 2), rows=10_000, ms=10)
+        )
+        for extra in range(joins - 1):
+            plan.node(10 + extra, "MultiScan", rows=10).node(
+                20 + extra, "EquiJoin", (3, 10 + extra), rows=10
+            )
+        return plan
+
+    def fix(self, plan: Plan, version: str) -> str:
+        rule = [r for r in RULES if r.id == "exploding_join"]
+        return next(
+            f.fix for f in evaluate(plan.query(polars_version=version), rule) if f.node_id == 3
+        )
+
+    def test_an_inequality_join_is_told_about_an_equality_key_not_unique_keys(self):
+        fix = self.fix(self.exploding("RangeJoin", joins=1), "1.44.2")
+        assert fix == "if rows should only match within a key, add that equality to `join_where`"
+
+    def test_join_order_is_suggested_only_where_polars_reorders_several_joins(self):
+        hint = "`collect(optimizations=pl.QueryOptFlags(join_order=False))`"
+        assert hint in self.fix(self.exploding("EquiJoin", joins=2), "2.1.0")
+        assert hint not in self.fix(self.exploding("EquiJoin", joins=1), "2.1.0")
+        assert hint not in self.fix(self.exploding("EquiJoin", joins=2), "1.44.2")
+
 
 class TestCrossJoin:
     def test_says_how_little_the_next_filter_keeps(self):
@@ -213,6 +242,8 @@ class TestRepeatedSubplan:
         assert finding.node_id == 12
         assert numbers(finding) == {"copies": 3, "nodes": 2}
         assert finding.title == "Same 2-node subplan runs 3x"
+        assert finding.fix.startswith("compute an expression used twice once, as a column with")
+        assert finding.fix.endswith("for a LazyFrame used twice, `.cache()` it")
         assert round(finding.impact.cpu_share, 2) == round(80 / 130, 2)
 
     def test_a_repeat_inside_a_larger_repeat_is_reported_once(self):

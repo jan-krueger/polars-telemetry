@@ -23,6 +23,8 @@ class Explosion:
     rows_out: int = unit("rows")
     max_rows_in: float = unit("rows")
     growth: float = unit("ratio")
+    theta: bool = False
+    reorders_joins: bool = False
 
 
 class ExplodingJoin(Rule[Explosion]):
@@ -34,15 +36,32 @@ class ExplodingJoin(Rule[Explosion]):
         out, larger = view.rows_sent(node), view.larger_input_rows(node)
         if not out or not larger or out <= EXPLODES_AT * larger:
             return None
-        return Explosion(out, larger, out / larger)
+        return Explosion(
+            out,
+            larger,
+            out / larger,
+            node.role is NodeRole.THETA_JOIN,
+            node.traits.reorders_joins and _joins(view) > 1,
+        )
 
     def impact(self, node: PlanNode, evidence: Explosion, view: PlanView) -> Impact:
         region = (node, *view.carriers(node, evidence.max_rows_in * EXPLODES_AT))
         return Impact(view.cpu_share(*region), view.blocked_share(node))
 
     def describe(self, evidence: Explosion) -> Text:
-        return Text(
-            f"Join emits {evidence.growth:.3g}x its larger input",
-            "if keys repeat by mistake: `unique(subset=keys)` one input first, "
-            "or join on the full key",
+        fix = (
+            "if rows should only match within a key, add that equality to `join_where`"
+            if evidence.theta
+            else "if keys repeat by mistake: `unique(subset=keys)` one input first, "
+            "or join on the full key"
         )
+        if evidence.reorders_joins:
+            fix += (
+                "; if Polars reordered the joins, compare with "
+                "`collect(optimizations=pl.QueryOptFlags(join_order=False))`"
+            )
+        return Text(f"Join emits {evidence.growth:.3g}x its larger input", fix)
+
+
+def _joins(view: PlanView) -> int:
+    return sum(n.role in (NodeRole.JOIN, NodeRole.THETA_JOIN) for n in view.query.plan.values())

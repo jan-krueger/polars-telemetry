@@ -128,6 +128,12 @@ def shares_plugin_calls(polars_version: str) -> bool:
     return release > (2, 0, 0) or (release == (2, 0, 0) and not match.group(4))
 
 
+def reorders_joins(polars_version: str) -> bool:
+    """Whether Polars may reorder joins, with `QueryOptFlags(join_order=False)` to
+    keep the written order: from 2.0.0 final."""
+    return shares_plugin_calls(polars_version)
+
+
 DEDUPLICATING = frozenset({"Distinct", "SortedUnique"})
 GROUPING = frozenset({"GroupBy", "SortedGroupBy"})
 

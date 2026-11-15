@@ -86,7 +86,11 @@ the viewer shows the expression.
 
 A join that emits more than twice its larger input. A one-to-many join stays
 within both inputs together, so this takes keys that repeat on both sides.
-Impact counts the nodes that process the extra rows.
+Impact counts the nodes that process the extra rows. For an inequality join
+(`join_where`), the fix is an equality key, if rows should only match within
+one. From Polars 2.0, when the plan has several joins, the fix also suggests
+comparing with `QueryOptFlags(join_order=False)`: Polars may have chosen a join
+order that multiplies rows the written order does not.
 
 ### `cross_join`
 
@@ -141,6 +145,8 @@ that feeds several consumers is done once and not counted. Impact is the CPU of
 every copy but one. Polars shares identical subplans itself unless something
 in them is not deterministic; before Polars 2.0 that includes every plugin
 call, which `plugin_calls` counts (see [`repeated_plugin_call`](#repeated_plugin_call)).
+It fires mostly for an expression that one `select` uses for several outputs:
+compute it once as a column with `with_columns` and refer to that column.
 
 ### `repeated_plugin_call`
 

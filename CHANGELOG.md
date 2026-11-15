@@ -13,6 +13,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   it ran inside.
 
 ### Changed
+- Better fixes, each checked on Polars 1.44 and 2.1: `exploding_join` suggests
+  an equality key for an inequality join instead of `unique(subset=keys)`, and
+  from Polars 2.0, with several joins, comparing with
+  `QueryOptFlags(join_order=False)`; `repeated_subplan` first suggests
+  computing a repeated expression once with `with_columns`, then `.cache()`.
 - The same finding on several nodes is one finding, with their summed impact
   and every node in `node_ids`: a step repeated for 200 columns is one warning
   instead of 200 findings of information.

@@ -155,6 +155,8 @@ class NodeTraits:
     """The polars that ran it shares repeated plugin calls unless a plugin opts out."""
     """Keyed by the whole call, input and arguments included: a count above one is
     the same computation repeated."""
+    reorders_joins: bool = False
+    """The polars that ran it may reorder joins; `QueryOptFlags(join_order=False)` stops it."""
 
 
 @dataclass(frozen=True, slots=True)
