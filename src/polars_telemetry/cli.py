@@ -32,7 +32,7 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="polars-telemetry")
     commands = parser.add_subparsers(dest="command", required=True)
     insights = commands.add_parser("insights", help="find what slows the queries in profile files")
-    insights.add_argument("files", nargs="+", type=Path, help="session files (.jsonl)")
+    insights.add_argument("files", nargs="+", type=Path, help="session files (.jsonl or .jsonl.gz)")
     insights.add_argument("--format", choices=("text", "json"), default="text")
     insights.add_argument("--all", action="store_true", help="list information as well")
     insights.add_argument(

@@ -47,6 +47,10 @@ to sort by another.
 Queries are titled by their [label](labels.md), or else by the first table they
 read. Search matches labels, file names, tables and fingerprints.
 
+A query that ran inside another, such as one a `map_batches` function
+collects, is listed under that query, not as a shape of its own; the outer
+run reads "N inside". More than five fold into "N queries inside".
+
 The address bar follows the screen, so reload and back work. That URL opens
 only in the browser where the session was imported.
 
@@ -126,6 +130,8 @@ each query down.
   large plan is zoomed far out; the minimap marks it too.
 - The node's details open with each finding: evidence, cost, a fix and a link
   to the rule.
+- A finding on several identical nodes, titled "(N nodes)", marks each of
+  them, and the arrows stop at each.
 
 Profiles written before 0.6.0, or with `Config(insights=False)`, show none;
 `polars-telemetry insights FILE --write OUT` adds them.

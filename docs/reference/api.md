@@ -47,6 +47,14 @@ importable from `polars_telemetry`; the others show their module.
     options:
       show_root_full_path: true
 
+::: polars_telemetry.export.events.FileEventExporter
+    options:
+      show_root_full_path: true
+
+::: polars_telemetry.export.http_events.HttpEventExporter
+    options:
+      show_root_full_path: true
+
 ::: polars_telemetry.export.console.ConsoleExporter
     options:
       show_root_full_path: true
@@ -66,5 +74,9 @@ importable from `polars_telemetry`; the others show their module.
       show_root_full_path: true
 
 ::: polars_telemetry.model.types.CustomMetric
+    options:
+      show_root_full_path: true
+
+::: polars_telemetry.model.types.Progress
     options:
       show_root_full_path: true

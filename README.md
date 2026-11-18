@@ -135,7 +135,7 @@ every exporter. Details: [Data and privacy](https://jan-krueger.github.io/polars
 
 - [Documentation](https://jan-krueger.github.io/polars-telemetry/)
 - [Troubleshooting](https://jan-krueger.github.io/polars-telemetry/troubleshooting/)
-- [Polars Nanook](https://jan-krueger.github.io/polars-telemetry/polars-nanook/): runs alongside it
+- [Polars Nanook](https://jan-krueger.github.io/polars-telemetry/polars-nanook/): using both together
 - [Contributing](https://github.com/jan-krueger/polars-telemetry/blob/main/CONTRIBUTING.md)
 - [Changelog](https://github.com/jan-krueger/polars-telemetry/blob/main/CHANGELOG.md)
 
