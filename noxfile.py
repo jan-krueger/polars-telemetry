@@ -31,7 +31,7 @@ POLARS_EXEMPT = [
 PYTHONS = ["3.10", "3.11", "3.12", "3.13", "3.14"]
 
 # The hook does not exist before 1.44.0, and 1.44.0's runtime is yanked.
-POLARS_VERSIONS = ["1.44.1", "1.44.2", "2.0.0", "2.1.0"]
+POLARS_VERSIONS = ["1.44.1", "1.44.2", "2.0.0", "2.1.0", "2.2.0"]
 
 # Integration needs a collector; bench is timing-sensitive and measured apart.
 DEFAULT_MARKERS = "not integration and not bench"
