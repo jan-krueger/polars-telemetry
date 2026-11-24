@@ -155,8 +155,9 @@ class NodeTraits:
     replace_runs: tuple[ReplaceRun, ...] = ()
     plugins_shared: bool = False
     """The polars that ran it shares repeated plugin calls unless a plugin opts out."""
-    reorders_joins: bool = False
-    """The polars that ran it may reorder joins; `QueryOptFlags(join_order=False)` stops it."""
+    misorders_joins: bool = False
+    """The polars that ran it may reorder joins into an order that multiplies rows;
+    `QueryOptFlags(join_order=False)` keeps the written one."""
     columns_read: tuple[str, ...] = ()
     """Tokens of the columns its expressions read."""
     columns_cast: tuple[str, ...] = ()

@@ -21,7 +21,7 @@ from polars_telemetry.adapter.dialect import (
     IN_MEMORY_FALLBACK,
     INFERS_DATETIME_FORMAT,
     PYTHON_FORMAT,
-    reorders_joins,
+    misorders_joins,
     shares_plugin_calls,
 )
 from polars_telemetry.adapter.replacements import groups, literal_step
@@ -45,12 +45,12 @@ _UNIQUE = re.compile(r"\.unique\(")
 def with_traits(plan: dict[int, PlanNode], polars_version: str = "") -> dict[int, PlanNode]:
     """The plan with each node's traits read; a node polars wrote unexpectedly keeps none."""
     shared = shares_plugin_calls(polars_version)
-    reordered = reorders_joins(polars_version)
+    reordered = misorders_joins(polars_version)
     read: dict[int, PlanNode] = {}
     for node_id, node in plan.items():
         try:
             found = traits(
-                node.kind, node.properties, plugins_shared=shared, reorders_joins=reordered
+                node.kind, node.properties, plugins_shared=shared, misorders_joins=reordered
             )
         except Exception:
             _logger.debug("polars-telemetry: no traits for a %s node", node.kind, exc_info=True)
@@ -65,7 +65,7 @@ def traits(
     properties: Mapping[str, object],
     *,
     plugins_shared: bool = False,
-    reorders_joins: bool = False,
+    misorders_joins: bool = False,
 ) -> NodeTraits:
     """The neutral facts insight rules need about one node."""
     texts = [text for text in _texts(properties) if "(" in text]
@@ -99,7 +99,7 @@ def traits(
         plugin_calls=_counts(plugins),
         replace_runs=tuple(runs),
         plugins_shared=plugins_shared,
-        reorders_joins=reorders_joins,
+        misorders_joins=misorders_joins,
         columns_read=tuple(sorted(read)),
         columns_cast=tuple(sorted(cast)),
         aligns_by_position=kind in ALIGNS_BY_POSITION,
