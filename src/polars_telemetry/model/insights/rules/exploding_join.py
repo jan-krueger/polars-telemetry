@@ -24,7 +24,7 @@ class Explosion:
     max_rows_in: float = unit("rows")
     growth: float = unit("ratio")
     theta: bool = False
-    reorders_joins: bool = False
+    misorders_joins: bool = False
 
 
 class ExplodingJoin(Rule[Explosion]):
@@ -41,7 +41,7 @@ class ExplodingJoin(Rule[Explosion]):
             larger,
             out / larger,
             node.role is NodeRole.THETA_JOIN,
-            node.traits.reorders_joins and _joins(view) > 1,
+            node.traits.misorders_joins and _joins(view) > 1,
         )
 
     def impact(self, node: PlanNode, evidence: Explosion, view: PlanView) -> Impact:
@@ -55,7 +55,7 @@ class ExplodingJoin(Rule[Explosion]):
             else "if keys repeat by mistake: `unique(subset=keys)` one input first, "
             "or join on the full key"
         )
-        if evidence.reorders_joins:
+        if evidence.misorders_joins:
             fix += (
                 "; if Polars reordered the joins, compare with "
                 "`collect(optimizations=pl.QueryOptFlags(join_order=False))`"

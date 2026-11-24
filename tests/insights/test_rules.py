@@ -87,11 +87,15 @@ class TestExplodingJoin:
         fix = self.fix(self.exploding("RangeJoin", joins=1), "1.44.2")
         assert fix == "if rows should only match within a key, add that equality to `join_where`"
 
-    def test_join_order_is_suggested_only_where_polars_reorders_several_joins(self):
+    def test_join_order_is_suggested_only_where_polars_misorders_several_joins(self):
         hint = "`collect(optimizations=pl.QueryOptFlags(join_order=False))`"
+        assert hint in self.fix(self.exploding("EquiJoin", joins=2), "2.0.0")
         assert hint in self.fix(self.exploding("EquiJoin", joins=2), "2.1.0")
         assert hint not in self.fix(self.exploding("EquiJoin", joins=1), "2.1.0")
         assert hint not in self.fix(self.exploding("EquiJoin", joins=2), "1.44.2")
+        assert hint not in self.fix(self.exploding("EquiJoin", joins=2), "2.0.0rc2")
+        assert hint not in self.fix(self.exploding("EquiJoin", joins=2), "2.2.0")
+        assert hint not in self.fix(self.exploding("EquiJoin", joins=2), "3.0.0")
 
 
 class TestCrossJoin:

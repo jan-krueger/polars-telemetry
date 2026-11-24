@@ -16,6 +16,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   that called `collect()`: `map_batches`, or any UDF on the in-memory engine.
   The viewer lists it under that query, and `polars-telemetry insights` says
   which query it ran inside.
+- Tested on Polars 2.2.
 
 ### Changed
 - `cross_join` tells you to write `join_where` conditions as comparisons of one
@@ -35,6 +36,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The work at the end of each query costs about a fifth less: plan traits
   are read with fewer copies, and fingerprints of a repeated query shape reuse
   their masked text.
+- `exploding_join` suggests `QueryOptFlags(join_order=False)` on Polars 2.0
+  and 2.1 only: Polars 2.2 no longer reorders joins into the order that
+  multiplied rows.
+
+### Fixed
+- The viewer reads a slice with no length as `from row N`: it showed Polars
+  2.2's as `rows N–N`, and older Polars' as running to row 4294967295.
 
 ## [0.11.0] - 2026-11-15
 

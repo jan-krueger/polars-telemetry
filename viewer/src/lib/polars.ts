@@ -284,11 +284,17 @@ export interface Mark {
 
 const present = (value: unknown): boolean => value != null && value !== "None" && !(Array.isArray(value) && !value.length);
 
-/** `[0, 100]` → `rows 0–100`; any other shape as written. */
+/** Polars before 2.2 wrote the largest row index for a slice with no length; 2.2 writes none. */
+const NO_LENGTH = 2 ** 32 - 1;
+
+/** `[0, 100]` → `rows 0–100`, `[5, null]` → `from row 5`; any other shape as written. */
 function rows(slice: unknown): string {
-  const [offset, length] = asList(slice).map(Number);
-  if (!Number.isFinite(offset) || !Number.isFinite(length)) return String(slice);
-  return offset! < 0 ? `last ${-offset!} rows` : `rows ${offset}–${offset! + length!}`;
+  const [first, second] = asList(slice);
+  const offset = Number(first);
+  const length = second == null ? Infinity : Number(second);
+  if (first == null || !Number.isFinite(offset) || Number.isNaN(length)) return String(slice);
+  if (offset < 0) return `last ${-offset} rows`;
+  return length >= NO_LENGTH ? `from row ${offset}` : `rows ${offset}–${offset + length}`;
 }
 
 /** Work a node did not have to do: what was pushed into a scan, or a sort that keeps only some rows. */

@@ -96,7 +96,7 @@ fix: |
     or join on the full key.
   - Inequality join (`join_where`): an equality key, if rows should only match
     within one.
-  - From Polars 2.0, with several joins in the plan: compare with
+  - On Polars 2.0 and 2.1, with several joins in the plan: compare with
     `QueryOptFlags(join_order=False)`, as Polars may have chosen an order that
     multiplies rows the written one does not.
 measured: |

@@ -90,6 +90,12 @@ describe("node text", () => {
     expect(nodeMarks(scan).map((m) => m.kind)).toEqual(["filter", "columns", "skip"]);
     expect(nodeMarks(scan)[0]!.detail).toBe("d <= 3");
     expect(nodeMarks(node("Sort", { sort_columns: [], slice: [0, 100] }))[0]).toMatchObject({ name: "slice", detail: "rows 0–100" });
+    expect(nodeMarks(node("Sort", { sort_columns: [], slice: [5, null] }))[0]!.detail).toBe("from row 5");
+    expect(nodeMarks(node("Sort", { sort_columns: [], slice: [5, 4294967295] }))[0]!.detail).toBe("from row 5");
+    expect(nodeMarks(node("MultiScan", { pre_slice: [5, null] }))[0]!.detail).toBe("from row 5");
+    expect(nodeMarks(node("MultiScan", { pre_slice: [-3, 3] }))[0]!.detail).toBe("last 3 rows");
+    expect(nodeSubject(node("Slice", { offset: 5, length: null }))).toBe("from row 5");
+    expect(nodeSubject(node("Slice", { offset: 2, length: 3 }))).toBe("rows 2–5");
     expect(nodeMarks(node("Sort", { sort_columns: [], slice: null, limit: null }))).toEqual([]);
   });
 });

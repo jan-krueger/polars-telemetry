@@ -130,9 +130,14 @@ def shares_plugin_calls(polars_version: str) -> bool:
     return release > (2, 0, 0) or (release == (2, 0, 0) and not match.group(4))
 
 
-def reorders_joins(polars_version: str) -> bool:
-    """Whether Polars may reorder joins, with `QueryOptFlags(join_order=False)` to
-    keep the written order: from 2.0.0 final."""
+def misorders_joins(polars_version: str) -> bool:
+    """Whether Polars' join reordering may pick an order that multiplies rows the
+    written one does not, which `QueryOptFlags(join_order=False)` undoes: 2.0.0
+    final to 2.1. 2.2 joins on column equalities between the inputs it reorders
+    (pola-rs/polars#30680), which removed the explosion this was validated on."""
+    match = re.match(r"(\d+)\.(\d+)", polars_version)
+    if not match or int(match.group(1)) != 2 or int(match.group(2)) >= 2:
+        return False
     return shares_plugin_calls(polars_version)
 
 

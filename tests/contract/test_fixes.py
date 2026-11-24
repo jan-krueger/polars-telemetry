@@ -40,6 +40,7 @@ class Fix:
     slow_flags: dict[str, Any] = field(default_factory=dict)
     fixed_flags: dict[str, Any] = field(default_factory=dict)
     since: tuple[int, int] = (1, 0)
+    until: tuple[int, int] = (99, 0)
 
 
 def _version() -> tuple[int, int]:
@@ -217,6 +218,7 @@ FIXES = {
         fixed=_reordered_joins,
         fixed_flags={"optimizations": "join_order=False"},
         since=(2, 0),
+        until=(2, 2),
     ),
     "cross_join: join_where comparing columns": Fix(
         "cross_join",
@@ -338,6 +340,8 @@ def test_the_fix_clears_the_finding_and_returns_the_intended_result(name: str, t
     fix = FIXES[name]
     if _version() < fix.since:
         pytest.skip(f"the fix applies from polars {'.'.join(map(str, fix.since))}")
+    if _version() >= fix.until:
+        pytest.skip(f"polars {'.'.join(map(str, fix.until))} no longer needs the fix")
     slow, slow_rules = _run(fix.slow(tmp), fix.slow_flags)
     fixed, fixed_rules = _run(fix.fixed(tmp), fix.fixed_flags)
     assert fix.rule in slow_rules, f"{fix.rule} no longer fires on the slow query"
