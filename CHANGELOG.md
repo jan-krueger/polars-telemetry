@@ -6,6 +6,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-11-24
+
 ### Added
 - Rule `repeated_expression`: the same sizeable expression computed by two
   nodes over the same rows.
@@ -782,6 +784,7 @@ All three are removed in 0.4.0.
   and collapsed most nodes onto identical windows. The same counters read once
   at query end are exact and cost nothing measurable.
 
+[0.12.0]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.12.0
 [0.11.0]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.11.0
 [0.10.2]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.10.2
 [0.10.1]: https://github.com/jan-krueger/polars-telemetry/releases/tag/v0.10.1
